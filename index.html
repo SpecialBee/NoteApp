@@ -217,10 +217,15 @@
   .preview table{ width:max-content; min-width:100%; border-collapse:collapse; font-size:14.5px; }
   .preview th,.preview td{ border:1px solid var(--border); padding:8px 10px; text-align:left; white-space:nowrap; }
   .preview th{ background:var(--bg-panel); font-weight:700; }
-  /* Panel toggle strip */
-  .panel-toggles{ display:flex; justify-content:space-between; align-items:center; padding:2px 6px; border-bottom:1px solid var(--border-soft); background:var(--bg); flex-shrink:0; height:24px; box-sizing:border-box; }
-  .panel-toggle{ font-size:11px; font-weight:700; color:var(--ink-faint); background:none; border:1px solid transparent; cursor:pointer; padding:1px 6px; border-radius:4px; line-height:1; font-family:var(--sans); }
-  .panel-toggle:hover{ color:var(--accent); background:var(--accent-soft); border-color:var(--accent); }
+  /* Panel collapse buttons */
+  .panel-collapse-btn{ font-size:12px; color:var(--ink-faint); background:none; border:none; cursor:pointer; padding:2px 6px; border-radius:4px; line-height:1; font-family:var(--sans); flex-shrink:0; }
+  .panel-collapse-btn:hover{ color:var(--accent); background:var(--accent-soft); }
+  .rp-topbar{ display:flex; justify-content:flex-end; padding:4px 6px; border-bottom:1px solid var(--border-soft); flex-shrink:0; }
+  /* Show tabs (fixed, appear at viewport edge when panel is hidden) */
+  .panel-show-tab{ position:fixed; top:50%; transform:translateY(-50%); width:16px; height:52px; background:var(--bg-panel); border:1px solid var(--border); cursor:pointer; z-index:200; display:none; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:var(--ink-soft); font-family:var(--sans); padding:0; }
+  .panel-show-tab:hover{ color:var(--accent); background:var(--accent-soft); border-color:var(--accent); }
+  .panel-show-tab.left{ left:0; border-left:none; border-radius:0 6px 6px 0; }
+  .panel-show-tab.right{ right:0; border-right:none; border-radius:6px 0 0 6px; }
   /* Table size picker */
   #tablePickerPopup{ position:fixed; background:var(--bg-panel); border:1px solid var(--border); border-radius:10px; padding:10px; box-shadow:0 6px 20px rgba(0,0,0,.16); z-index:300; display:none; user-select:none; }
   .tp-grid{ display:grid; grid-template-columns:repeat(8,20px); gap:3px; }
@@ -617,6 +622,7 @@
         <button class="logout" id="dashboardBtn" style="font-weight:700;">대시보드</button>
         <button class="logout" id="themeToggleBtn" title="다크 모드 전환">🌙</button>
         <button class="logout" id="logoutBtn">로그아웃</button>
+        <button class="logout" id="sidebarToggleBtn" title="사이드바 접기" style="margin-left:auto;">‹</button>
       </div>
     </div>
     <div class="searchwrap"><input id="searchInput" type="text" placeholder="검색 (제목·본문·태그)"></div>
@@ -649,10 +655,6 @@
   <div class="resize-handle" id="resizeLeft"></div>
 
   <div class="mainpane">
-    <div class="panel-toggles">
-      <button class="panel-toggle" id="sidebarToggleBtn" title="사이드바 접기/펼치기">‹</button>
-      <button class="panel-toggle" id="rightpaneToggleBtn" title="우측 패널 접기/펼치기">›</button>
-    </div>
     <div class="toolbar" id="toolbar" style="display:none;">
       <button class="mobonly" id="mobToggle">☰</button>
       <button class="modebtn active" id="editModeBtn">쓰기</button>
@@ -845,6 +847,9 @@
   <div class="resize-handle" id="resizeRight"></div>
 
   <div class="rightpane" id="rightpane">
+    <div class="rp-topbar">
+      <button class="panel-collapse-btn" id="rightpaneToggleBtn" title="패널 접기">›</button>
+    </div>
     <div class="rp-section" id="propSection" style="display:none;">
       <div class="rp-title">속성</div>
       <div id="propList"></div>
@@ -857,6 +862,9 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<button class="panel-show-tab left" id="sidebarShowTab" title="사이드바 열기">›</button>
+<button class="panel-show-tab right" id="rightpaneShowTab" title="패널 열기">‹</button>
 
 <div id="tablePickerPopup">
   <div class="tp-grid" id="tpGrid"></div>
@@ -2002,8 +2010,7 @@
     // Sidebar
     el('sidebar').style.display    = sidebarCollapsed ? 'none' : '';
     el('resizeLeft').style.display = sidebarCollapsed ? 'none' : '';
-    el('sidebarToggleBtn').textContent = sidebarCollapsed ? '›' : '‹';
-    el('sidebarToggleBtn').title = sidebarCollapsed ? '사이드바 펼치기' : '사이드바 접기';
+    el('sidebarShowTab').style.display = sidebarCollapsed ? 'flex' : 'none';
 
     // Rightpane: collapsed by user OR hidden in dash/trash mode
     if(rightpaneCollapsed){
@@ -2013,8 +2020,7 @@
       el('rightpane').style.display    = '';
       el('resizeRight').style.display  = '';
     }
-    el('rightpaneToggleBtn').textContent = rightpaneCollapsed ? '‹' : '›';
-    el('rightpaneToggleBtn').title = rightpaneCollapsed ? '패널 펼치기' : '패널 접기';
+    el('rightpaneShowTab').style.display = rightpaneCollapsed ? 'flex' : 'none';
 
     // Grid template (inline style overrides CSS classes including dashboard-mode/trash-mode)
     const sw = sidebarCollapsed ? '0px' : 'var(--sidebar-w, 280px)';
@@ -2034,6 +2040,8 @@
 
   el('sidebarToggleBtn').onclick = () => { sidebarCollapsed = !sidebarCollapsed; applyPanelState(); };
   el('rightpaneToggleBtn').onclick = () => { rightpaneCollapsed = !rightpaneCollapsed; applyPanelState(); };
+  el('sidebarShowTab').onclick = () => { sidebarCollapsed = false; applyPanelState(); };
+  el('rightpaneShowTab').onclick = () => { rightpaneCollapsed = false; applyPanelState(); };
 
   // ---------------- global connection graph ----------------
   const globalGraphView = el('globalGraphView');

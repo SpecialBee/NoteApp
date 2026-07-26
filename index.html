@@ -455,6 +455,19 @@
   .cevctx-icon:hover{ color:var(--accent); background:var(--accent-soft); }
   .cevctx-btn.on{ color:var(--accent); background:var(--accent-soft); }
   .cevctx-btn.danger:hover{ color:#dc2626; background:#fee2e2; }
+  .cev-card-node{ background:var(--bg-card); border:1px solid var(--border); border-left:4px solid var(--accent); border-radius:9px; box-shadow:0 1px 4px rgba(0,0,0,0.07); padding:10px 12px; display:flex; flex-direction:column; justify-content:center; gap:4px; overflow:hidden; cursor:grab; box-sizing:border-box; }
+  .cev-card-node .cev-card-title{ font-size:13px; font-weight:700; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cev-card-node .cev-card-meta{ font-size:10px; font-weight:600; color:var(--ink-faint); letter-spacing:.02em; }
+  .cev-card-node.selected{ outline:2px solid var(--accent); outline-offset:2px; }
+  .cev-card-picker{ position:fixed; z-index:9999; width:280px; background:var(--bg-card); border:1px solid var(--border); border-radius:10px; box-shadow:0 8px 28px rgba(0,0,0,0.18); padding:8px; }
+  .cev-card-picker-input{ width:100%; box-sizing:border-box; font-family:var(--sans); font-size:13px; padding:7px 9px; border:1px solid var(--border); border-radius:7px; outline:none; background:var(--bg-panel); color:var(--ink); }
+  .cev-card-picker-input:focus{ border-color:var(--accent); }
+  .cev-card-picker-list{ max-height:260px; overflow-y:auto; margin-top:6px; display:flex; flex-direction:column; gap:1px; }
+  .cev-card-picker-item{ font-size:13px; color:var(--ink); padding:7px 9px; border-radius:6px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cev-card-picker-item:hover{ background:var(--accent-soft); color:var(--accent); }
+  .cev-card-picker-item.unlink{ color:#dc2626; }
+  .cev-card-picker-item.unlink:hover{ background:#fee2e2; color:#dc2626; }
+  .cev-card-picker-empty{ font-size:12px; color:var(--ink-faint); padding:10px; text-align:center; }
   .cev-el.locked{ cursor:default; }
   .cev-el.locked::after{ content:'🔒'; position:absolute; top:2px; left:2px; font-size:9px; opacity:.55; pointer-events:none; z-index:11; }
   .cev-action:disabled{ opacity:.35; cursor:default; }
@@ -878,6 +891,7 @@
           <button class="cev-tool" data-tool="text" title="텍스트 (T)">T</button>
           <span class="cev-sep"></span>
           <button class="cev-tool" data-tool="section" title="섹션 컨테이너">⊡</button>
+          <button class="cev-tool" data-tool="card" title="카드 노드 (기존 카드 연결)">📇</button>
         </div>
         <span class="cev-sep"></span>
         <div class="cev-conn-types" id="cevConnTypes">
@@ -4109,6 +4123,11 @@
     if(edata.type!=='text'){
       bar.appendChild(cevCtxColorRow(edata.color??null, CEV_CTX_COLORS, color=>{ edata.color=color||undefined; cevRenderAll(); cevApplySelection(); cevCommit(); }));
     }
+    if(edata.type==='card'){
+      bar.appendChild(cevCtxSep());
+      bar.appendChild(cevCtxIconBtn('🔗','연결할 카드 지정', ()=>cevOpenCardPicker(edata)));
+      if(edata.noteId) bar.appendChild(cevCtxIconBtn('↗','카드 열기', ()=>cevOpenLinkedCard(edata)));
+    }
     if(hasText){
       bar.appendChild(cevCtxSep());
       // text color
@@ -4470,6 +4489,21 @@
       div.addEventListener('dblclick',e=>{ if(edata.locked) return; e.stopPropagation(); div.contentEditable='true'; div.focus(); });
       div.addEventListener('mousedown',e=>cevElMouseDown(e,edata,null));
       cevAddAnchors(div, edata); inner.appendChild(div); return;
+    } else if(edata.type==='card'){
+      const w=edata.w||200, h=edata.h||88;
+      div.style.cssText=`left:${edata.x}px;top:${edata.y}px;width:${w}px;height:${h}px;`;
+      div.classList.add('cev-card-node');
+      const note = edata.noteId ? index.find(n=>n.id===edata.noteId) : null;
+      const accent = edata.color || (note && noteColor(note)) || 'var(--accent)';
+      div.style.borderLeftColor = accent;
+      const kind = note ? (isCanvasNote(note)?'🎨 캔버스':isTableNote(note)?'📊 테이블':'📄 카드') : '';
+      const title = note ? (note.title||'제목 없음') : (edata.noteId ? '(삭제된 카드)' : '카드 선택…');
+      const tEl=document.createElement('div'); tEl.className='cev-card-title'; tEl.textContent=title;
+      const mEl=document.createElement('div'); mEl.className='cev-card-meta'; mEl.textContent = note ? kind : (edata.noteId?'연결 끊김':'더블클릭해 카드 지정');
+      div.appendChild(tEl); div.appendChild(mEl);
+      div.addEventListener('dblclick',e=>{ if(edata.locked) return; e.stopPropagation(); if(edata.noteId && note) cevOpenLinkedCard(edata); else cevOpenCardPicker(edata); });
+      div.addEventListener('mousedown',e=>cevElMouseDown(e,edata,null));
+      cevAddAnchors(div, edata); inner.appendChild(div); return;
     } else if(edata.type==='section'){
       const w=edata.w||300, h=edata.h||200;
       div.style.cssText=`left:${edata.x}px;top:${edata.y}px;width:${w}px;height:${h}px;`;
@@ -4550,6 +4584,60 @@
       await updateNote(note);
     },600);
   }
+  function cevFlushSave(){
+    clearTimeout(cevSaveTimer); cevSaveTimer=null;
+    if(!cevCurrentNoteId) return;
+    const note=index.find(m=>m.id===cevCurrentNoteId); if(!note) return;
+    note.content=serializeCanvasContent(cevElements,cevConnectors);
+    updateNote(note);
+  }
+  function cevOpenLinkedCard(edata){
+    if(!edata.noteId) return;
+    const note=index.find(n=>n.id===edata.noteId);
+    if(!note){ showToast('연결된 카드를 찾을 수 없습니다'); return; }
+    cevFlushSave();
+    openNote(edata.noteId);
+  }
+  // floating searchable picker to link a card node to an existing note
+  function cevOpenCardPicker(edata){
+    document.getElementById('cevCardPicker')?.remove();
+    const wrap=document.createElement('div'); wrap.id='cevCardPicker'; wrap.className='cev-card-picker';
+    const inp=document.createElement('input'); inp.className='cev-card-picker-input'; inp.placeholder='카드 검색…'; inp.spellcheck=false;
+    const list=document.createElement('div'); list.className='cev-card-picker-list';
+    wrap.appendChild(inp); wrap.appendChild(list);
+    document.body.appendChild(wrap);
+    // position near the node
+    const div=el('cevInner')?.querySelector(`[data-elid="${edata.id}"]`);
+    const r = div ? div.getBoundingClientRect() : {left:window.innerWidth/2-140, bottom:window.innerHeight/2};
+    wrap.style.left=Math.min(r.left, window.innerWidth-300)+'px';
+    wrap.style.top=Math.min(r.bottom+6, window.innerHeight-320)+'px';
+    const render=()=>{
+      const q=inp.value.trim().toLowerCase();
+      const items=index.filter(n=>!n.deletedAt && n.id!==cevCurrentNoteId)
+        .filter(n=>!q || n.title.toLowerCase().includes(q) || noteSearchText(n).toLowerCase().includes(q))
+        .slice(0,40);
+      list.innerHTML='';
+      if(edata.noteId){
+        const un=document.createElement('div'); un.className='cev-card-picker-item unlink'; un.textContent='✕ 연결 해제';
+        un.addEventListener('mousedown',e=>{ e.preventDefault(); edata.noteId=null; close(); cevRenderAll(); cevApplySelection(); cevCommit(); });
+        list.appendChild(un);
+      }
+      if(!items.length){ const e0=document.createElement('div'); e0.className='cev-card-picker-empty'; e0.textContent='카드 없음'; list.appendChild(e0); }
+      items.forEach(n=>{
+        const it=document.createElement('div'); it.className='cev-card-picker-item';
+        const badge = isCanvasNote(n)?'🎨':isTableNote(n)?'📊':'📄';
+        it.textContent=`${badge} ${n.title||'제목 없음'}`;
+        it.addEventListener('mousedown',e=>{ e.preventDefault(); edata.noteId=n.id; close(); cevRenderAll(); cevApplySelection(); cevCommit(); });
+        list.appendChild(it);
+      });
+    };
+    const close=()=>{ wrap.remove(); document.removeEventListener('mousedown', outside, true); };
+    const outside=(e)=>{ if(!wrap.contains(e.target)) close(); };
+    setTimeout(()=>document.addEventListener('mousedown', outside, true),0);
+    inp.addEventListener('input',render);
+    inp.addEventListener('keydown',e=>{ if(e.key==='Escape'){ close(); } e.stopPropagation(); });
+    render(); inp.focus();
+  }
 
   function updateCevToolButtons(){
     document.querySelectorAll('.cev-tool').forEach(b=>b.classList.toggle('active',b.dataset.tool===cevTool));
@@ -4588,10 +4676,12 @@
       const colorIdx=cevElements.filter(e=>e.type==='section').length % SEC_COLORS.length;
       newEl={id:cevGenId('sec'),type:'section',x:x-150,y:y-100,w:300,h:200,label:'섹션',color:SEC_COLORS[colorIdx]};
     }
+    else if(cevTool==='card') newEl={id:cevGenId('card'),type:'card',x:x-100,y:y-44,w:200,h:88,color:undefined,noteId:null};
     if(newEl){
       cevElements.push(newEl);
       cevTool='select'; updateCevToolButtons();
       cevRenderAll(); cevSelectElement(newEl.id); cevCommit();
+      if(newEl.type==='card') cevOpenCardPicker(newEl); // immediately choose the linked card
     }
   });
 

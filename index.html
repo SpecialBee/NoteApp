@@ -470,6 +470,41 @@
   .cev-temp-line { stroke:var(--accent); stroke-width:1.5; stroke-dasharray:6 4; fill:none; pointer-events:none; }
   /* canvas badge in card list */
   .canvas-badge { font-size:9px; font-weight:700; letter-spacing:.03em; color:var(--accent); background:var(--accent-soft); border-radius:4px; padding:1px 5px; margin-left:4px; vertical-align:middle; }
+  .table-badge  { font-size:9px; font-weight:700; letter-spacing:.03em; color:#16a34a; background:#dcfce7; border-radius:4px; padding:1px 5px; margin-left:4px; vertical-align:middle; }
+  /* Table editor */
+  #tableEditorView { flex:1; overflow:hidden; background:var(--bg); flex-direction:column; }
+  .tev-toolbar { display:flex; align-items:center; gap:8px; padding:10px 16px; border-bottom:1px solid var(--border-soft); background:var(--bg-panel); flex-shrink:0; flex-wrap:wrap; }
+  .tev-title-input { font-family:var(--sans); font-size:14px; font-weight:600; background:none; border:none; border-bottom:2px solid var(--border); outline:none; color:var(--ink); width:220px; padding:3px 6px; }
+  .tev-title-input:focus { border-bottom-color:var(--accent); }
+  .tev-action { font-family:var(--sans); font-size:12px; font-weight:600; background:var(--bg-card); color:var(--ink-soft); border:1px solid var(--border); border-radius:7px; padding:5px 10px; cursor:pointer; transition:background .12s; }
+  .tev-action:hover { background:var(--accent-soft); color:var(--accent); border-color:var(--accent); }
+  .tev-table-wrap { flex:1; overflow:auto; padding:20px 24px; }
+  .tev-table { border-collapse:collapse; width:max-content; min-width:calc(100% - 2px); font-size:13px; }
+  .tev-table th { background:var(--bg-panel); border:1px solid var(--border); padding:0; text-align:left; font-size:11px; font-weight:600; color:var(--ink-soft); white-space:nowrap; min-width:140px; position:relative; cursor:pointer; user-select:none; }
+  .tev-table th:hover { background:var(--accent-soft); }
+  .tev-th-inner { display:flex; align-items:center; gap:4px; padding:6px 8px; }
+  .tev-th-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; }
+  .tev-th-type { font-size:9px; padding:1px 4px; border-radius:3px; background:var(--border-soft); color:var(--ink-faint); cursor:pointer; flex-shrink:0; }
+  .tev-th-type:hover { background:var(--accent-soft); color:var(--accent); }
+  .tev-th-del { font-size:13px; opacity:0; cursor:pointer; background:none; border:none; color:var(--ink-faint); padding:0 2px; flex-shrink:0; line-height:1; }
+  .tev-table th:hover .tev-th-del { opacity:.6; }
+  .tev-table th:hover .tev-th-del:hover { opacity:1; color:#e44; }
+  .tev-th-sort { font-size:9px; color:var(--accent); margin-left:2px; flex-shrink:0; }
+  .tev-table td { border:1px solid var(--border-soft); padding:0; vertical-align:middle; }
+  .tev-cell { width:100%; min-height:32px; padding:5px 8px; outline:none; background:none; font-family:var(--sans); font-size:13px; color:var(--ink); display:block; box-sizing:border-box; white-space:pre-wrap; word-break:break-word; }
+  .tev-cell:focus { background:color-mix(in srgb, var(--accent) 8%, transparent); }
+  .tev-checkbox-cell { display:flex; align-items:center; justify-content:center; min-height:32px; padding:4px; }
+  .tev-checkbox-cell input[type=checkbox] { width:16px; height:16px; cursor:pointer; accent-color:var(--accent); }
+  .tev-row-del { opacity:0; background:none; border:none; cursor:pointer; color:var(--ink-faint); font-size:14px; padding:0 8px; min-height:32px; display:flex; align-items:center; justify-content:center; width:100%; }
+  .tev-table tr:hover .tev-row-del { opacity:.5; }
+  .tev-table tr:hover .tev-row-del:hover { opacity:1; color:#e44; }
+  .tev-td-del { width:32px; min-width:32px; border:1px solid var(--border-soft); background:var(--bg-panel); padding:0; }
+  .tev-th-del-col { width:32px; min-width:32px; background:var(--bg-panel); border:1px solid var(--border); padding:0; }
+  .tev-th-add { width:40px !important; min-width:40px !important; text-align:center; cursor:pointer; font-size:18px; color:var(--ink-faint); border:1px dashed var(--border) !important; background:transparent !important; }
+  .tev-th-add:hover { color:var(--accent); background:var(--accent-soft) !important; border-color:var(--accent) !important; }
+  .tev-td-add-col { width:40px; border:1px solid transparent; background:var(--bg-panel); }
+  .tev-add-row-btn { margin-top:8px; font-family:var(--sans); font-size:12px; color:var(--ink-faint); background:none; border:1px dashed var(--border); border-radius:6px; padding:6px 16px; cursor:pointer; display:block; }
+  .tev-add-row-btn:hover { color:var(--accent); border-color:var(--accent); background:var(--accent-soft); }
   /* card color dot */
   .card-color-dot { width:9px; height:9px; border-radius:50%; display:inline-block; margin-right:4px; vertical-align:middle; flex-shrink:0; cursor:pointer; border:1.5px solid rgba(0,0,0,.12); }
   .card-color-palette { position:fixed; z-index:400; background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:8px; box-shadow:0 4px 16px rgba(0,0,0,.14); display:flex; flex-wrap:wrap; gap:5px; width:130px; }
@@ -661,6 +696,7 @@
       <div class="newbtn-menu" id="newBtnMenu" style="display:none;">
         <button class="newbtn-item" id="newNoteItem">📄 일반 카드</button>
         <button class="newbtn-item" id="newCanvasItem">🎨 캔버스 카드</button>
+        <button class="newbtn-item" id="newTableItem">📊 테이블 카드</button>
       </div>
     </div>
     <div id="trashActionRow" style="display:none; gap:6px; flex-direction:column;">
@@ -844,6 +880,15 @@
           <svg id="cevSvg" style="position:absolute;top:0;left:0;width:100%;height:100%;overflow:visible;pointer-events:none;"></svg>
         </div>
       </div>
+    </div>
+
+    <div id="tableEditorView" style="display:none; flex:1; position:relative; overflow:hidden; background:var(--bg); flex-direction:column;">
+      <div class="tev-toolbar">
+        <input class="tev-title-input" id="tevTitleInput" placeholder="테이블 제목" spellcheck="false">
+        <div style="flex:1"></div>
+        <button class="tev-action" id="tevExitBtn">← 목록으로</button>
+      </div>
+      <div class="tev-table-wrap" id="tevTableWrap"></div>
     </div>
 
     <div id="cardSheet" class="cardsheet" style="display:none;">
@@ -1554,7 +1599,7 @@
       if(cardColor) card.style.borderLeft = '3px solid ' + cardColor;
       card.innerHTML = `
         <button class="delbtn" title="삭제">✕</button>
-        <div class="serial">${serialOf(origIdx)}${m.pinned ? ' <span class="pinmark">★</span>' : ''}${isCanvasNote(m) ? ' <span class="canvas-badge">canvas</span>' : ''}</div>
+        <div class="serial">${serialOf(origIdx)}${m.pinned ? ' <span class="pinmark">★</span>' : ''}${isCanvasNote(m) ? ' <span class="canvas-badge">canvas</span>' : ''}${isTableNote(m) ? ' <span class="table-badge">table</span>' : ''}</div>
         <div class="ttl">${escapeHtml(m.title || '제목 없음')}</div>
         <div class="meta" style="display:flex;align-items:center;gap:4px;">
           <span class="card-color-dot" style="background:${cardColor||'transparent'};${cardColor?'':'border-style:dashed;border-color:var(--border);'}" title="카드 색상 변경"></span>
@@ -1581,18 +1626,29 @@
   // ---------------- open / edit ----------------
   async function openNote(id){
     if(currentId && currentId !== id) await flushSave();
+    if(tevCurrentNoteId) tevFlushSave();
     leaveDashboard();
     currentId = id;
     const note = index.find(m => m.id === id);
     if(!note){ showToast('카드를 찾을 수 없습니다'); return; }
     el('globalGraphView').style.display = 'none';
     el('canvasEditorView').style.display = 'none';
+    el('tableEditorView').style.display = 'none';
     if(isCanvasNote(note)){
       emptyMain.style.display = 'none';
       cardSheet.style.display = 'none';
       toolbar.style.display = 'none';
       el('canvasView').style.display = 'none';
       openCanvasEditor(note);
+      renderCardList();
+      return;
+    }
+    if(isTableNote(note)){
+      emptyMain.style.display = 'none';
+      cardSheet.style.display = 'none';
+      toolbar.style.display = 'none';
+      el('canvasView').style.display = 'none';
+      openTableEditor(note);
       renderCardList();
       return;
     }
@@ -1855,6 +1911,7 @@
     el('globalGraphView').style.display = 'none';
     el('dashboardView').style.display = 'none';
     el('canvasEditorView').style.display = 'none';
+    el('tableEditorView').style.display = 'none';
     el('canvasView').style.display = 'none';
     applyPanelState();
     clearRightPane();
@@ -3192,6 +3249,287 @@
 
   function cevGenId(prefix){ return prefix + (++cevIdCounter) + '_' + Date.now().toString(36); }
   function isCanvasNote(note){ return (note.content||'').trimStart().startsWith('```canvas'); }
+  function isTableNote(note){ return (note.content||'').trimStart().startsWith('```table'); }
+
+  // ============================================================
+  // Table Editor
+  // ============================================================
+  let tevData = { columns:[], rows:[] };
+  let tevCurrentNoteId = null;
+  let tevSortCol = null;
+  let tevSortDir = 'asc';
+  let tevSaveTimer = null;
+
+  function parseTableContent(content){
+    const m = (content||'').match(/```table\n?([\s\S]*?)```/);
+    if(!m) return { columns:[], rows:[] };
+    try { return JSON.parse(m[1].trim()) || { columns:[], rows:[] }; }
+    catch { return { columns:[], rows:[] }; }
+  }
+
+  function tevFlushSave(){
+    if(!tevSaveTimer) return;
+    clearTimeout(tevSaveTimer); tevSaveTimer = null;
+    if(!tevCurrentNoteId) return;
+    const note = index.find(n => n.id === tevCurrentNoteId); if(!note) return;
+    note.content = '```table\n' + JSON.stringify(tevData) + '\n```';
+    updateNote(note);
+  }
+
+  function tevSaveDebounced(){
+    clearTimeout(tevSaveTimer);
+    tevSaveTimer = setTimeout(async () => {
+      tevSaveTimer = null;
+      if(!tevCurrentNoteId) return;
+      const note = index.find(n => n.id === tevCurrentNoteId); if(!note) return;
+      note.content = '```table\n' + JSON.stringify(tevData) + '\n```';
+      await updateNote(note);
+    }, 600);
+  }
+
+  function openTableEditor(note){
+    tevCurrentNoteId = note.id;
+    tevData = parseTableContent(note.content || '');
+    if(!tevData.columns || tevData.columns.length === 0){
+      tevData = {
+        columns:[
+          {id:'c1',name:'이름',type:'text'},
+          {id:'c2',name:'값',type:'text'},
+          {id:'c3',name:'메모',type:'text'}
+        ],
+        rows:[]
+      };
+    }
+    tevSortCol = null; tevSortDir = 'asc';
+    el('tevTitleInput').value = note.title || '';
+    el('tableEditorView').style.display = 'flex';
+    renderTableEditor();
+  }
+
+  function exitTableEditor(){
+    tevFlushSave();
+    el('tableEditorView').style.display = 'none';
+    tevCurrentNoteId = null;
+    emptyMain.style.display = 'flex';
+    renderCardList();
+  }
+
+  function renderTableEditor(){
+    const wrap = el('tevTableWrap'); if(!wrap) return;
+    const data = tevData;
+    const cols = data.columns || [];
+
+    // sort display rows (don't mutate data.rows)
+    let displayRows = [...(data.rows||[])];
+    if(tevSortCol){
+      const sc = cols.find(c => c.id === tevSortCol);
+      if(sc) displayRows.sort((a,b)=>{
+        const av = a.cells[tevSortCol] ?? '', bv = b.cells[tevSortCol] ?? '';
+        let r = sc.type==='number' ? (parseFloat(av)||0)-(parseFloat(bv)||0)
+               : sc.type==='checkbox' ? ((av?1:0)-(bv?1:0))
+               : String(av).localeCompare(String(bv),'ko');
+        return tevSortDir==='desc' ? -r : r;
+      });
+    }
+
+    wrap.innerHTML = '';
+    const table = document.createElement('table');
+    table.className = 'tev-table';
+
+    /* ---- HEADER ---- */
+    const thead = document.createElement('thead');
+    const hr = document.createElement('tr');
+
+    // row-delete column header
+    const thDel = document.createElement('th');
+    thDel.className = 'tev-th-del-col';
+    hr.appendChild(thDel);
+
+    const TYPE_LABELS = {text:'Aa', number:'12', checkbox:'☑'};
+    cols.forEach(col => {
+      const th = document.createElement('th');
+      th.title = '클릭: 정렬';
+
+      const inner = document.createElement('div');
+      inner.className = 'tev-th-inner';
+
+      // sort indicator
+      const sortSpan = document.createElement('span');
+      sortSpan.className = 'tev-th-sort';
+      if(tevSortCol===col.id) sortSpan.textContent = tevSortDir==='asc' ? '↑' : '↓';
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'tev-th-name';
+      nameSpan.textContent = col.name;
+      nameSpan.title = '더블클릭: 이름 변경';
+      nameSpan.addEventListener('dblclick', e => {
+        e.stopPropagation();
+        nameSpan.contentEditable = 'true';
+        nameSpan.focus();
+        const r2 = document.createRange(); r2.selectNodeContents(nameSpan);
+        window.getSelection().removeAllRanges(); window.getSelection().addRange(r2);
+      });
+      nameSpan.addEventListener('blur', () => {
+        nameSpan.contentEditable = 'false';
+        const v = nameSpan.textContent.trim();
+        if(v) { col.name = v; tevSaveDebounced(); }
+        else nameSpan.textContent = col.name;
+      });
+      nameSpan.addEventListener('keydown', e => { if(e.key==='Enter'){e.preventDefault();nameSpan.blur();} e.stopPropagation(); });
+
+      const typeBadge = document.createElement('span');
+      typeBadge.className = 'tev-th-type';
+      typeBadge.textContent = TYPE_LABELS[col.type] || 'Aa';
+      typeBadge.title = '클릭: 타입 변경';
+      typeBadge.addEventListener('click', e => {
+        e.stopPropagation();
+        const types = ['text','number','checkbox'];
+        col.type = types[(types.indexOf(col.type)+1) % types.length];
+        data.rows.forEach(row => { row.cells[col.id] = col.type==='checkbox' ? false : ''; });
+        tevSaveDebounced(); renderTableEditor();
+      });
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'tev-th-del';
+      delBtn.textContent = '×';
+      delBtn.title = '열 삭제';
+      delBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        data.columns = data.columns.filter(c => c.id !== col.id);
+        data.rows.forEach(row => { delete row.cells[col.id]; });
+        if(tevSortCol===col.id) tevSortCol = null;
+        tevSaveDebounced(); renderTableEditor();
+      });
+
+      th.addEventListener('click', e => {
+        if(e.target.closest('.tev-th-del,.tev-th-type,[contenteditable]')) return;
+        tevSortCol===col.id ? (tevSortDir = tevSortDir==='asc'?'desc':'asc') : (tevSortCol=col.id, tevSortDir='asc');
+        renderTableEditor();
+      });
+
+      inner.appendChild(nameSpan);
+      inner.appendChild(sortSpan);
+      inner.appendChild(typeBadge);
+      inner.appendChild(delBtn);
+      th.appendChild(inner);
+      hr.appendChild(th);
+    });
+
+    // add-column header
+    const thAdd = document.createElement('th');
+    thAdd.className = 'tev-th-add';
+    thAdd.textContent = '+';
+    thAdd.title = '열 추가';
+    thAdd.addEventListener('click', () => {
+      const id = 'c' + Date.now().toString(36);
+      data.columns.push({id, name:'새 열', type:'text'});
+      data.rows.forEach(row => { row.cells[id] = ''; });
+      tevSaveDebounced(); renderTableEditor();
+    });
+    hr.appendChild(thAdd);
+    thead.appendChild(hr);
+    table.appendChild(thead);
+
+    /* ---- BODY ---- */
+    const tbody = document.createElement('tbody');
+    displayRows.forEach(row => {
+      const tr = document.createElement('tr');
+
+      // row delete cell
+      const tdDel = document.createElement('td');
+      tdDel.className = 'tev-td-del';
+      const rowDelBtn = document.createElement('button');
+      rowDelBtn.className = 'tev-row-del';
+      rowDelBtn.textContent = '×';
+      rowDelBtn.title = '행 삭제';
+      rowDelBtn.addEventListener('click', () => {
+        data.rows = data.rows.filter(r => r.id !== row.id);
+        tevSaveDebounced(); renderTableEditor();
+      });
+      tdDel.appendChild(rowDelBtn);
+      tr.appendChild(tdDel);
+
+      cols.forEach(col => {
+        const td = document.createElement('td');
+        if(col.type==='checkbox'){
+          const cbWrap = document.createElement('div');
+          cbWrap.className = 'tev-checkbox-cell';
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.checked = !!row.cells[col.id];
+          cb.addEventListener('change', () => { row.cells[col.id]=cb.checked; tevSaveDebounced(); });
+          cbWrap.appendChild(cb); td.appendChild(cbWrap);
+        } else {
+          const div = document.createElement('div');
+          div.className = 'tev-cell';
+          div.contentEditable = 'true';
+          div.textContent = row.cells[col.id] ?? '';
+          div.addEventListener('input', () => {
+            row.cells[col.id] = col.type==='number'
+              ? (div.textContent.trim()==='' ? '' : (isNaN(parseFloat(div.textContent)) ? div.textContent : parseFloat(div.textContent)))
+              : div.textContent;
+            tevSaveDebounced();
+          });
+          div.addEventListener('keydown', e => {
+            if(e.key==='Tab'){
+              e.preventDefault();
+              const cells = table.querySelectorAll('.tev-cell');
+              const arr = Array.from(cells);
+              const next = arr[arr.indexOf(div)+(e.shiftKey?-1:1)];
+              if(next) next.focus();
+            }
+            if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); div.blur(); }
+            e.stopPropagation();
+          });
+          td.appendChild(div);
+        }
+        tr.appendChild(td);
+      });
+
+      // empty cell under add-column header
+      const tdAdd = document.createElement('td');
+      tdAdd.className = 'tev-td-add-col';
+      tr.appendChild(tdAdd);
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+
+    // add row button
+    const addRowBtn = document.createElement('button');
+    addRowBtn.className = 'tev-add-row-btn';
+    addRowBtn.textContent = '+ 행 추가';
+    addRowBtn.addEventListener('click', () => {
+      const id = 'r' + Date.now().toString(36);
+      const cells = {};
+      data.columns.forEach(c => { cells[c.id] = c.type==='checkbox' ? false : ''; });
+      data.rows.push({id, cells});
+      tevSaveDebounced(); renderTableEditor();
+    });
+    wrap.appendChild(addRowBtn);
+  }
+
+  async function createTableNote(){
+    const defaultData = {
+      columns:[
+        {id:'c1',name:'이름',type:'text'},
+        {id:'c2',name:'값',type:'number'},
+        {id:'c3',name:'완료',type:'checkbox'}
+      ],
+      rows:[]
+    };
+    const content = '```table\n' + JSON.stringify(defaultData) + '\n```';
+    const note = await insertNote({title:'새 테이블',content,tags:[],links:[],pinned:false,properties:[]});
+    if(!note) return;
+    index.unshift(note); computeAllTags(); renderTagRow(); renderCardList();
+    currentId = note.id;
+    leaveDashboard();
+    el('globalGraphView').style.display='none'; emptyMain.style.display='none';
+    cardSheet.style.display='none'; toolbar.style.display='none';
+    el('canvasView').style.display='none'; el('canvasEditorView').style.display='none';
+    openTableEditor(note);
+  }
+
 
   function parseCanvasContent(content){
     const match = (content||'').match(/```canvas\n?([\s\S]*?)```/);
@@ -3895,6 +4233,14 @@
     openCanvasEditor(note);
   }
   el('newCanvasItem').addEventListener('click',()=>{ el('newBtnMenu').style.display='none'; createCanvasNote(); });
+  el('newTableItem').addEventListener('click',()=>{ el('newBtnMenu').style.display='none'; createTableNote(); });
+  el('tevExitBtn').addEventListener('click',()=>exitTableEditor());
+  el('tevTitleInput').addEventListener('input',()=>{
+    if(!tevCurrentNoteId) return;
+    const note=index.find(n=>n.id===tevCurrentNoteId); if(!note) return;
+    note.title=el('tevTitleInput').value;
+    tevSaveDebounced(); renderCardList();
+  });
 
   // ---------------- Dashboard ----------------
   const DASH_LEVELS = [
@@ -3974,6 +4320,7 @@
     emptyMain.style.display='none';
     el('globalGraphView').style.display='none';
     el('canvasEditorView').style.display='none';
+    el('tableEditorView').style.display='none';
     el('canvasView').style.display='none';
     el('dashboardView').style.display='flex';
     appEl.classList.add('dashboard-mode');
@@ -4022,7 +4369,7 @@
       <div class="dash-stat-card" id="dashNetStat"><div class="dash-stat-val">…</div><div class="dash-stat-label">연결 밀도</div></div>`;
 
     // 최근 카드 (최근 수정 순 7개)
-    const recent=active.filter(n=>!isCanvasNote(n)).sort((a,b)=>b.updated-a.updated).slice(0,7);
+    const recent=active.filter(n=>!isCanvasNote(n)&&!isTableNote(n)).sort((a,b)=>b.updated-a.updated).slice(0,7);
     const rrow=el('dashRecentRow');
     rrow.innerHTML=recent.length?recent.map(n=>{
       const color=noteColor(n);
@@ -4180,7 +4527,7 @@
     const cont=el('dashStaleness'); if(!cont) return;
     const now=Date.now(), DAY=86400000;
     const stale=index
-      .filter(n=>!n.deletedAt&&!isCanvasNote(n)&&n.content&&n.content.trim())
+      .filter(n=>!n.deletedAt&&!isCanvasNote(n)&&!isTableNote(n)&&n.content&&n.content.trim())
       .map(n=>({...n,age:Math.floor((now-n.updated)/DAY)}))
       .filter(n=>n.age>=14)
       .sort((a,b)=>b.age-a.age)

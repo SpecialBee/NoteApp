@@ -3621,8 +3621,11 @@
     dashCalM++; if(dashCalM>11){ dashCalM=0; dashCalY++; } renderDashCalendar();
   });
 
-  // Stacker logo → dashboard
-  document.querySelector('.brand .mark').addEventListener('click',()=>openDashboard());
+  // Stacker logo → exit trash if needed, then dashboard
+  document.querySelector('.brand .mark').addEventListener('click',()=>{
+    if(showingTrash) exitTrashView();
+    openDashboard();
+  });
 
   // ---------------- boot ----------------
   async function boot(){

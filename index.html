@@ -628,6 +628,7 @@
     <div class="cardlist" id="cardList"></div>
     <div style="padding:0 14px 4px 14px;display:flex;flex-direction:column;gap:2px;">
       <button class="logout" id="paletteBtn" style="font-size:11px;text-align:left;">⚡ 빠른 전환 (Ctrl+P)</button>
+      <button class="logout" id="globalGraphBtn" style="font-size:11px;text-align:left;font-weight:700;color:var(--accent);">🕸 전역 그래프</button>
       <button class="logout" id="trashBtn" style="font-size:11px;text-align:left;">🗑 휴지통 (<span id="trashCount">0</span>)</button>
     </div>
     <div class="synctag" id="syncTag"><span class="dot" id="syncDot"></span><span id="syncText">모든 기기와 자동 동기화됨</span></div>
@@ -836,9 +837,6 @@
     <div class="rp-section"><div class="rp-title">역링크</div><div id="backlinkList" class="rp-empty">이 카드를 가리키는 카드가 없습니다.</div></div>
     <div class="rp-section"><div class="rp-title">태그</div><div id="tagList" class="tag-list"><span class="rp-empty">태그 없음</span></div></div>
     <div class="rp-section"><div class="rp-title">연결 지도</div><svg class="graphmini" id="graphMini" viewBox="0 0 240 150"></svg></div>
-    <div style="position:sticky;bottom:-16px;margin:16px -16px -16px -16px;background:var(--bg-panel);border-top:1px solid var(--border-soft);padding:6px 16px;">
-      <button class="logout" id="globalGraphBtn" style="font-size:11px;text-align:left;width:100%;font-weight:700;color:var(--accent);background:var(--accent-soft);border-radius:7px;">🕸 전역 그래프</button>
-    </div>
   </div>
 </div>
 
@@ -2531,6 +2529,7 @@
     propList.innerHTML = '';
     propAddState.open = false;
     propAddState.presetOpen = false;
+    propAddState.savingPreset = false;
     const props = (note.properties||[]).filter(p=>p.id!=='__color');
 
     if(!props.length){

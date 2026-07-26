@@ -104,7 +104,7 @@
   .loginbox .msg{ font-size:12px; margin-top:14px; min-height:16px; color:var(--danger); }
   .loginbox .msg.ok{ color:var(--ok); }
 
-  .app{ display:none; grid-template-columns: var(--sidebar-w, 280px) 5px minmax(0,1fr) 5px var(--rightpane-w, 260px); height:100vh; width:100vw; overflow:hidden; }
+  .app{ display:none; grid-template-columns: var(--sidebar-w, 280px) 5px minmax(0,1fr) 5px var(--rightpane-w, 260px); height:100vh; width:100vw; overflow:hidden; transition:grid-template-columns .18s ease; }
   .app.ready{ display:grid; }
   .app.dashboard-mode { grid-template-columns: var(--sidebar-w, 280px) 5px minmax(0,1fr); }
   .app.dashboard-mode #resizeRight, .app.dashboard-mode #rightpane { display:none; }
@@ -1656,39 +1656,27 @@
   async function openNote(id){
     if(currentId && currentId !== id) await flushSave();
     if(tevCurrentNoteId) tevFlushSave();
-    leaveDashboard();
     currentId = id;
     const note = index.find(m => m.id === id);
     if(!note){ showToast('카드를 찾을 수 없습니다'); return; }
-    el('globalGraphView').style.display = 'none';
-    el('canvasEditorView').style.display = 'none';
-    el('tableEditorView').style.display = 'none';
     if(isCanvasNote(note)){
-      emptyMain.style.display = 'none';
-      cardSheet.style.display = 'none';
-      toolbar.style.display = 'none';
-      el('canvasView').style.display = 'none';
+      showView('canvasEditor');
       openCanvasEditor(note);
       renderRightPane(note);
       renderCardList();
       return;
     }
     if(isTableNote(note)){
-      emptyMain.style.display = 'none';
-      cardSheet.style.display = 'none';
-      toolbar.style.display = 'none';
-      el('canvasView').style.display = 'none';
+      showView('tableEditor');
       openTableEditor(note);
       renderRightPane(note);
       renderCardList();
       return;
     }
-    emptyMain.style.display = 'none';
-    cardSheet.style.display = 'block';
+    showView('note');
     cardSheet.classList.remove('fade-in');
     void cardSheet.offsetWidth;
     cardSheet.classList.add('fade-in');
-    toolbar.style.display = 'flex';
     titleField.value = note.title || '';
     editorBox.value = note.content || '';
     currentManualTags = [...(note.tags || [])];
@@ -1879,9 +1867,7 @@
     renderTagRow();
     if(currentId === id){
       currentId = null;
-      cardSheet.style.display = 'none';
-      toolbar.style.display = 'none';
-      emptyMain.style.display = 'flex';
+      showView('empty');
       clearRightPane();
     }else{
       refreshOpenNoteView();
@@ -1933,28 +1919,15 @@
   }
 
   function enterTrashView(){
-    showingTrash = true;
-    appEl.classList.add('trash-mode');
     currentId = null;
-    cardSheet.style.display = 'none';
-    toolbar.style.display = 'none';
-    emptyMain.style.display = 'none';
-    el('globalGraphView').style.display = 'none';
-    el('dashboardView').style.display = 'none';
-    el('canvasEditorView').style.display = 'none';
-    el('tableEditorView').style.display = 'none';
-    el('canvasView').style.display = 'none';
-    applyPanelState();
+    showView('trash');
     clearRightPane();
     updateEmptyTrashBtn();
     renderCardList();
   }
 
   function exitTrashView(){
-    showingTrash = false;
-    appEl.classList.remove('trash-mode');
-    applyPanelState();
-    emptyMain.style.display = 'flex';
+    showView('empty');
     renderCardList();
   }
 
@@ -2128,38 +2101,64 @@
   paletteOverlay.addEventListener('click', (e) => { if(e.target === paletteOverlay) closePalette(); });
   el('paletteBtn').onclick = () => openPalette();
 
+  // ---------------- view manager (single source of truth) ----------------
+  // Every mainpane transition goes through showView(). Each view declares whether
+  // the right panel and the markdown toolbar apply, so applyPanelState() never has
+  // to guess from ad-hoc mode classes.
+  const VIEW_DEF = {
+    empty:        { show:'emptyMain',        disp:'flex',  rightpane:false, toolbar:false },
+    note:         { show:'cardSheet',        disp:'block', rightpane:true,  toolbar:true  },
+    graph:        { show:'globalGraphView',  disp:'flex',  rightpane:false, toolbar:false },
+    board:        { show:'canvasView',       disp:'block', rightpane:false, toolbar:false },
+    dashboard:    { show:'dashboardView',    disp:'flex',  rightpane:false, toolbar:false, dash:true  },
+    canvasEditor: { show:'canvasEditorView', disp:'flex',  rightpane:true,  toolbar:false },
+    tableEditor:  { show:'tableEditorView',  disp:'flex',  rightpane:true,  toolbar:false },
+    trash:        { show:'emptyMain',        disp:'flex',  rightpane:false, toolbar:false, trash:true },
+  };
+  const MAINPANE_IDS = ['emptyMain','cardSheet','globalGraphView','canvasView','dashboardView','canvasEditorView','tableEditorView'];
+  let currentView = 'empty';
+
+  function showView(name){
+    const def = VIEW_DEF[name] || VIEW_DEF.empty;
+    currentView = name;
+    MAINPANE_IDS.forEach(id => { const e = el(id); if(e && id!==def.show) e.style.display='none'; });
+    const target = el(def.show); if(target) target.style.display = def.disp;
+    toolbar.style.display = def.toolbar ? 'flex' : 'none';
+    appEl.classList.toggle('dashboard-mode', !!def.dash);
+    appEl.classList.toggle('trash-mode', !!def.trash);
+    showingTrash = !!def.trash;
+    appEl.dataset.view = name;
+    applyPanelState();
+  }
+
   // ---------------- panel collapse ----------------
   let sidebarCollapsed   = localStorage.getItem('stk-sl') === '1';
   let rightpaneCollapsed = localStorage.getItem('stk-rl') === '1';
 
   function applyPanelState(){
-    const isDash = appEl.classList.contains('dashboard-mode') || appEl.classList.contains('trash-mode');
+    const rpApplicable = !!(VIEW_DEF[currentView] && VIEW_DEF[currentView].rightpane);
 
-    // Sidebar
-    el('sidebar').style.display    = sidebarCollapsed ? 'none' : '';
-    el('resizeLeft').style.display = sidebarCollapsed ? 'none' : '';
+    // Sidebar (applies to every view)
+    el('sidebar').style.display        = sidebarCollapsed ? 'none' : '';
+    el('resizeLeft').style.display     = sidebarCollapsed ? 'none' : '';
     el('sidebarShowTab').style.display = sidebarCollapsed ? 'flex' : 'none';
 
-    // Rightpane: collapsed by user OR hidden in dash/trash mode
-    if(rightpaneCollapsed){
-      el('rightpane').style.display    = 'none';
-      el('resizeRight').style.display  = 'none';
-    } else {
-      el('rightpane').style.display    = '';
-      el('resizeRight').style.display  = '';
-    }
-    el('rightpaneShowTab').style.display = rightpaneCollapsed ? 'flex' : 'none';
+    // Rightpane: only exists for views that declare it; user collapse is remembered
+    const rHidden = !rpApplicable || rightpaneCollapsed;
+    el('rightpane').style.display        = rHidden ? 'none' : '';
+    el('resizeRight').style.display      = rHidden ? 'none' : '';
+    el('rightpaneShowTab').style.display = (rpApplicable && rightpaneCollapsed) ? 'flex' : 'none';
+    el('rightpaneToggleBtn').style.display = rpApplicable ? '' : 'none';
 
-    // Grid template (inline style overrides CSS classes including dashboard-mode/trash-mode)
+    // Grid template (inline style is the single authority; overrides any CSS class rules)
     const sw = sidebarCollapsed ? '0px' : 'var(--sidebar-w, 280px)';
-    const rl = sidebarCollapsed ? '0px' : '5px';
-    if(isDash){
-      appEl.style.gridTemplateColumns = `${sw} ${rl} minmax(0,1fr)`;
+    const sr = sidebarCollapsed ? '0px' : '5px';
+    if(!rpApplicable){
+      appEl.style.gridTemplateColumns = `${sw} ${sr} minmax(0,1fr)`;
     } else {
-      const rpHidden = rightpaneCollapsed;
-      const rw = rpHidden ? '0px' : 'var(--rightpane-w, 260px)';
-      const rr = rpHidden ? '0px' : '5px';
-      appEl.style.gridTemplateColumns = `${sw} ${rl} minmax(0,1fr) ${rr} ${rw}`;
+      const rw = rHidden ? '0px' : 'var(--rightpane-w, 260px)';
+      const rr = rHidden ? '0px' : '5px';
+      appEl.style.gridTemplateColumns = `${sw} ${sr} minmax(0,1fr) ${rr} ${rw}`;
     }
 
     localStorage.setItem('stk-sl', sidebarCollapsed ? '1' : '0');
@@ -2344,20 +2343,14 @@
 
   function openGlobalGraph(){
     if(!index.length){ showToast('연결할 카드가 없습니다'); return; }
-    if(showingTrash) exitTrashView();
-    leaveDashboard();
     currentId = null;
-    cardSheet.style.display = 'none';
-    toolbar.style.display = 'none';
-    emptyMain.style.display = 'none';
-    globalGraphView.style.display = 'flex';
+    showView('graph');
     clearRightPane();
     renderCardList();
     renderGlobalGraph();
   }
   function closeGlobalGraph(){
-    globalGraphView.style.display = 'none';
-    emptyMain.style.display = 'flex';
+    showView('empty');
   }
 
   el('globalGraphBtn').onclick = () => openGlobalGraph();
@@ -2525,8 +2518,7 @@
       index = index.filter(m => m.id !== id);
       trashIndex = trashIndex.filter(m => m.id !== id);
       if(currentId === id){
-        currentId = null; cardSheet.style.display='none'; toolbar.style.display='none'; emptyMain.style.display='flex';
-        clearRightPane();
+        currentId = null; showView('empty'); clearRightPane();
         showToast('열려 있던 카드가 다른 기기에서 삭제되었습니다');
       }
       computeAllTags(); renderTagRow(); renderCardList();
@@ -3144,13 +3136,8 @@
   }
 
   async function enterCanvasView(){
-    leaveDashboard();
     viewMode = 'canvas';
-    el('globalGraphView').style.display = 'none';
-    emptyMain.style.display = 'none';
-    cardSheet.style.display = 'none';
-    toolbar.style.display = 'none';
-    el('canvasView').style.display = 'block';
+    showView('board');
     await loadSections();
     renderCanvas();
   }
@@ -3158,13 +3145,8 @@
   function exitCanvasView(){
     viewMode = 'list';
     hideCanvasCtxBar();
-    el('canvasView').style.display = 'none';
-    if(currentId){
-      cardSheet.style.display = 'block';
-      toolbar.style.display = 'flex';
-    } else {
-      emptyMain.style.display = 'flex';
-    }
+    if(currentId) openNote(currentId);
+    else showView('empty');
   }
 
   // Canvas mouse events
@@ -3362,17 +3344,15 @@
     }
     tevSortCol = null; tevSortDir = 'asc';
     el('tevTitleInput').value = note.title || '';
-    el('tableEditorView').style.display = 'flex';
     renderTableEditor();
   }
 
   function exitTableEditor(){
     tevFlushSave();
     tevCloseCtxMenu();
-    el('tableEditorView').style.display = 'none';
     tevCurrentNoteId = null;
     currentId = null;
-    emptyMain.style.display = 'flex';
+    showView('empty');
     clearRightPane();
     renderCardList();
   }
@@ -3829,10 +3809,7 @@
     if(!note) return;
     index.unshift(note); computeAllTags(); renderTagRow(); renderCardList();
     currentId = note.id;
-    leaveDashboard();
-    el('globalGraphView').style.display='none'; emptyMain.style.display='none';
-    cardSheet.style.display='none'; toolbar.style.display='none';
-    el('canvasView').style.display='none'; el('canvasEditorView').style.display='none';
+    showView('tableEditor');
     openTableEditor(note);
     renderRightPane(note);
   }
@@ -4515,25 +4492,14 @@
     cevResetHistory();
     const ti=el('cevTitleInput'); if(ti) ti.value=note.title||'';
     updateCevToolButtons();
-    el('canvasEditorView').style.display='flex';
     cevRenderAll();
   }
 
   function exitCanvasEditor(){
     hideCevCtxBar();
-    el('canvasEditorView').style.display='none';
-    currentId=cevCurrentNoteId;
-    if(currentId){
-      const note=index.find(m=>m.id===currentId);
-      if(note && !isCanvasNote(note)){
-        cardSheet.style.display='block'; toolbar.style.display='flex';
-        renderRightPane(note);
-      } else {
-        emptyMain.style.display='flex'; currentId=null; clearRightPane();
-      }
-    } else {
-      emptyMain.style.display='flex'; clearRightPane();
-    }
+    currentId=null;
+    showView('empty');
+    clearRightPane();
     renderCardList();
   }
 
@@ -4825,10 +4791,9 @@
     if(!note) return;
     index.unshift(note); computeAllTags(); renderTagRow(); renderCardList();
     currentId=note.id;
-    leaveDashboard();
-    el('globalGraphView').style.display='none'; emptyMain.style.display='none';
-    cardSheet.style.display='none'; toolbar.style.display='none'; el('canvasView').style.display='none';
+    showView('canvasEditor');
     openCanvasEditor(note);
+    renderRightPane(note);
   }
   el('newCanvasItem').addEventListener('click',()=>{ el('newBtnMenu').style.display='none'; createCanvasNote(); });
   el('newTableItem').addEventListener('click',()=>{ el('newBtnMenu').style.display='none'; createTableNote(); });
@@ -4914,24 +4879,12 @@
     return old[Math.floor(Math.random()*Math.min(old.length,20))];
   }
 
-  function leaveDashboard(){
-    appEl.classList.remove('dashboard-mode');
-    el('dashboardView').style.display='none';
-    applyPanelState();
-  }
+  // kept for any legacy caller: leaving the dashboard just means showing the empty view
+  function leaveDashboard(){ if(currentView==='dashboard') showView('empty'); }
 
   function openDashboard(){
     currentId=null;
-    cardSheet.style.display='none';
-    toolbar.style.display='none';
-    emptyMain.style.display='none';
-    el('globalGraphView').style.display='none';
-    el('canvasEditorView').style.display='none';
-    el('tableEditorView').style.display='none';
-    el('canvasView').style.display='none';
-    el('dashboardView').style.display='flex';
-    appEl.classList.add('dashboard-mode');
-    applyPanelState();
+    showView('dashboard');
     renderCardList();
     renderDashboard();
     setupDashCL();

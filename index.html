@@ -379,7 +379,7 @@
   }
   .cev-el:hover > .cev-anchor { opacity:1; }
   .cev-anchor:hover { transform:translate(-50%,-50%) scale(1.4); }
-  .cevInner-connecting .cev-anchor { opacity:1; }
+  .cev-connecting .cev-anchor { opacity:1; }
   .cev-drop-target { outline:2px solid var(--accent) !important; outline-offset:3px; }
   .cev-temp-line { stroke:var(--accent); stroke-width:1.5; stroke-dasharray:6 4; fill:none; pointer-events:none; }
   /* new-card dropdown */
@@ -392,13 +392,14 @@
   .cev-title-input { font-family:var(--sans); font-size:13px; font-weight:600; background:none; border:none; border-bottom:1px solid var(--border); outline:none; color:var(--ink); width:140px; padding:2px 4px; }
   .cev-title-input::placeholder { color:var(--ink-soft); font-weight:400; }
   /* Anchor hidden when element is selected */
-  .cev-el.selected .cev-anchor { opacity:0 !important; pointer-events:none !important; }
+  /* anchors always interactive - removed selected suppression */
   /* Color button: only on hover or selected */
   .cev-color-btn { opacity:0 !important; pointer-events:none !important; transition:opacity .15s; }
   .cev-el:hover .cev-color-btn, .cev-el.selected .cev-color-btn { opacity:1 !important; pointer-events:all !important; }
   /* Connector label */
   .cev-conn-label { font-size:11px; fill:var(--ink-soft); pointer-events:none; text-anchor:middle; dominant-baseline:middle; }
   .cev-conn-label-input { position:fixed; font-family:var(--sans); font-size:12px; background:var(--bg-card); border:1.5px solid var(--accent); border-radius:6px; padding:3px 8px; outline:none; z-index:300; min-width:60px; max-width:200px; text-align:center; box-shadow:0 2px 8px rgba(0,0,0,.12); }
+  #cevCanvas { background-image:radial-gradient(circle, var(--border) 1.2px, transparent 1.2px); background-size:24px 24px; background-position:0 0; }
 </style>
 </head>
 <body>
@@ -2621,7 +2622,7 @@
         cevTempLine.setAttribute('x1',sx); cevTempLine.setAttribute('y1',sy);
         cevTempLine.setAttribute('x2',sx); cevTempLine.setAttribute('y2',sy);
         el('cevSvg').appendChild(cevTempLine);
-        el('cevInner').classList.add('cevInner-connecting');
+        el('cevInner').classList.add('cev-connecting');
       });
       div.appendChild(dot);
     });
@@ -2658,7 +2659,8 @@
     const colorBtnHtml=()=>{
       const cb=document.createElement('div');
       cb.className='cev-color-btn';
-      cb.style.cssText='position:absolute;top:4px;right:6px;width:14px;height:14px;border-radius:50%;background:rgba(0,0,0,0.15);cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;color:#fff;';
+      const isRound=(edata.type==='circle'||edata.type==='diamond');
+      cb.style.cssText=`position:absolute;${isRound?'top:50%;left:50%;transform:translate(-50%,-120%)':'top:4px;right:6px;'};width:14px;height:14px;border-radius:50%;background:rgba(0,0,0,0.18);cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;color:#fff;z-index:10;`;
       cb.textContent='●'; cb.title='색상 변경';
       cb.addEventListener('mousedown',e=>{ e.stopPropagation(); showCevColorPalette(e,edata); });
       return cb;
@@ -2727,6 +2729,7 @@
     const svg=el('cevSvg');
     Array.from(inner.children).forEach(c=>{ if(c!==svg) inner.removeChild(c); });
     cevElements.forEach(e=>cevRenderElement(e));
+    inner.appendChild(svg);
     if(cevSelected){
       const selDiv=inner.querySelector(`[data-elid="${cevSelected}"]`);
       if(selDiv){ selDiv.classList.add('selected'); const ed=cevElements.find(e=>e.id===cevSelected); if(ed) cevAddHandles(selDiv,ed); }
@@ -2737,6 +2740,12 @@
   function cevApplyTransform(){
     const inner=el('cevInner');
     if(inner) inner.style.transform=`translate(${cevPanE.x}px,${cevPanE.y}px) scale(${cevZoom})`;
+    const canvas=el('cevCanvas');
+    if(canvas){
+      const gs=24*cevZoom;
+      canvas.style.backgroundSize=`${gs}px ${gs}px`;
+      canvas.style.backgroundPosition=`${((cevPanE.x%gs)+gs)%gs}px ${((cevPanE.y%gs)+gs)%gs}px`;
+    }
   }
 
   function openCanvasEditor(note){
@@ -2780,6 +2789,8 @@
 
   function updateCevToolButtons(){
     document.querySelectorAll('.cev-tool').forEach(b=>b.classList.toggle('active',b.dataset.tool===cevTool));
+    const canvas=el('cevCanvas');
+    if(canvas) canvas.style.cursor=cevTool==='select'?'default':'crosshair';
   }
 
   document.querySelectorAll('.cev-tool').forEach(btn=>{
@@ -2822,7 +2833,7 @@
       el('cevCanvas').style.cursor='grabbing'; e.preventDefault(); return;
     }
     const t=e.target;
-    if(t===el('cevCanvas')||t===el('cevInner')||t.closest('svg')){
+    if(t===el('cevCanvas')||t===el('cevInner')||t===el('cevSvg')){
       if(cevTool==='select'){
         cevPanningE=true; cevPanStartE={mx:e.clientX,my:e.clientY,px:cevPanE.x,py:cevPanE.y}; e.preventDefault();
       }
@@ -2893,8 +2904,8 @@
       }
       if(cevTempLine){ cevTempLine.remove(); cevTempLine=null; }
       el('cevInner').querySelectorAll('.cev-drop-target').forEach(d=>d.classList.remove('cev-drop-target'));
-      el('cevInner').classList.remove('cevInner-connecting');
-      cevConnDrawing=null; return;
+      el('cevInner').classList.remove('cev-connecting');
+      cevDragMoved=false; cevConnDrawing=null; return;
     }
     if(cevSpacePanning){ cevSpacePanning=false; if(cevSpaceDown) el('cevCanvas').style.cursor='grab'; }
     if(cevMoving||cevResizing){ cevSaveDebounced(); }
@@ -2927,7 +2938,7 @@
       if(cevConnDrawing){
         if(cevTempLine){ cevTempLine.remove(); cevTempLine=null; }
         el('cevInner').querySelectorAll('.cev-drop-target').forEach(d=>d.classList.remove('cev-drop-target'));
-        el('cevInner').classList.remove('cevInner-connecting');
+        el('cevInner').classList.remove('cev-connecting');
         cevConnDrawing=null;
       }
       document.getElementById('cevLabelEdit')?.remove();

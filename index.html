@@ -369,7 +369,7 @@
   #canvasView{ flex:1; position:relative; overflow:hidden; background:var(--bg); }
   #canvasInner{ position:absolute; top:0; left:0; transform-origin:0 0; will-change:transform; }
   #canvasSvg{ position:absolute; top:0; left:0; width:1px; height:1px; overflow:visible; pointer-events:none; }
-  .canvas-card{ position:absolute; background:var(--bg-card); border:1.5px solid var(--border); border-radius:10px; padding:11px 13px; cursor:grab; transition:border-color .12s, box-shadow .12s; box-shadow:0 2px 6px rgba(61,57,41,0.07); }
+  .canvas-card{ position:absolute; background:var(--bg-card); border:1.5px solid var(--border); border-radius:10px; padding:11px 13px; cursor:grab; transition:border-color .12s, box-shadow .12s; box-shadow:0 2px 6px rgba(61,57,41,0.07); z-index:1; }
   .canvas-card:hover{ border-color:var(--accent); }
   .canvas-card.selected{ border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft), 0 2px 8px rgba(61,57,41,0.1); }
   .canvas-card.dragging{ cursor:grabbing; opacity:.92; box-shadow:0 8px 24px rgba(61,57,41,0.18); z-index:10; transition:none; }
@@ -383,6 +383,25 @@
   .canvas-controls button:hover{ background:var(--accent-soft); color:var(--accent); border-color:var(--accent); }
   .canvas-hint{ position:absolute; bottom:12px; left:50%; transform:translateX(-50%); font-size:10.5px; color:var(--ink-faint); pointer-events:none; white-space:nowrap; background:var(--bg-card); padding:3px 10px; border-radius:10px; border:1px solid var(--border-soft); }
   .canvas-btn-active{ color:var(--accent) !important; background:var(--accent-soft) !important; }
+  /* Canvas sections */
+  .canvas-section{ position:absolute; border:2px solid; border-radius:10px; box-sizing:border-box; z-index:0; display:flex; flex-direction:column; }
+  .cs-header{ display:flex; align-items:center; gap:4px; padding:5px 8px; cursor:grab; user-select:none; }
+  .cs-header:active{ cursor:grabbing; }
+  .cs-label{ font-size:11px; font-weight:700; letter-spacing:0.3px; flex:1; outline:none; background:none; border:none; cursor:grab; font-family:var(--sans); padding:0; color:inherit; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cs-del{ font-size:14px; line-height:1; opacity:0; background:none; border:none; cursor:pointer; padding:0 3px; color:inherit; flex-shrink:0; transition:opacity .1s; }
+  .canvas-section:hover .cs-del{ opacity:0.5; }
+  .cs-del:hover{ opacity:1 !important; }
+  .cs-resize{ position:absolute; bottom:0; right:0; width:20px; height:20px; cursor:se-resize; opacity:0; transition:opacity .1s; }
+  .canvas-section:hover .cs-resize{ opacity:1; }
+  .cs-resize::after{ content:''; position:absolute; bottom:5px; right:5px; width:8px; height:8px; border-right:2px solid; border-bottom:2px solid; border-color:inherit; }
+  /* Canvas context toolbar */
+  #canvasCtxBar{ position:fixed; display:none; align-items:center; gap:4px; background:var(--bg-card); border:1px solid var(--border); border-radius:9px; padding:6px 9px; box-shadow:0 4px 16px rgba(0,0,0,0.13); z-index:500; }
+  .ctx-color{ width:14px; height:14px; border-radius:50%; cursor:pointer; flex-shrink:0; transition:transform .1s; box-sizing:border-box; }
+  .ctx-color:hover{ transform:scale(1.25); }
+  .ctx-color.active{ outline:2px solid var(--ink); outline-offset:2px; }
+  .ctx-sep{ width:1px; height:18px; background:var(--border); margin:0 2px; flex-shrink:0; }
+  .ctx-btn{ font-family:var(--sans); font-size:11.5px; color:var(--ink-soft); background:none; border:none; cursor:pointer; padding:2px 6px; border-radius:5px; white-space:nowrap; }
+  .ctx-btn:hover{ color:var(--ink); background:var(--border-soft); }
 
   /* --- Canvas Editor (FigJam-style) --- */
   #canvasEditorView { display:none; flex-direction:column; }
@@ -694,6 +713,7 @@
         <svg id="canvasSvg"></svg>
       </div>
       <div class="canvas-controls">
+        <button id="canvasAddSectionBtn">＋ 섹션</button>
         <button id="canvasFitBtn">맞춤</button>
         <button id="canvasZoomInBtn">+</button>
         <button id="canvasZoomOutBtn">−</button>
@@ -865,6 +885,11 @@
 
 <button class="panel-show-tab left" id="sidebarShowTab" title="사이드바 열기">›</button>
 <button class="panel-show-tab right" id="rightpaneShowTab" title="패널 열기">‹</button>
+
+<div id="canvasCtxBar">
+  <div class="ctx-sep"></div>
+  <button class="ctx-btn" id="ctxEditBtn">✏ 편집</button>
+</div>
 
 <div id="tablePickerPopup">
   <div class="tp-grid" id="tpGrid"></div>
@@ -1063,7 +1088,7 @@
 
   // ---------------- data layer (Supabase) ----------------
   function rowToNote(r){
-    return { id:r.id, title:r.title, content:r.content, tags:r.tags||[], links:r.links||[], pinned:r.pinned, updated: new Date(r.updated_at).getTime(), created: new Date(r.created_at).getTime(), deletedAt: r.deleted_at ? new Date(r.deleted_at).getTime() : null, properties: Array.isArray(r.properties) ? r.properties : [], canvasX: r.canvas_x ?? null, canvasY: r.canvas_y ?? null };
+    return { id:r.id, title:r.title, content:r.content, tags:r.tags||[], links:r.links||[], pinned:r.pinned, updated: new Date(r.updated_at).getTime(), created: new Date(r.created_at).getTime(), deletedAt: r.deleted_at ? new Date(r.deleted_at).getTime() : null, properties: Array.isArray(r.properties) ? r.properties : [], canvasX: r.canvas_x ?? null, canvasY: r.canvas_y ?? null, canvasColor: r.canvas_color ?? null };
   }
 
   async function loadAll(){
@@ -2739,6 +2764,145 @@
     renderPropAddRow(note);
   }
 
+  // ---------------- canvas sections ----------------
+  let sections = [];
+  let sectionDragging = null;
+  let sectionResizing = null;
+  const SEC_COLORS = ['#82C4F8','#85E09A','#FF9F9F','#FFE066','#C3B1E1','#FFB347'];
+  const CTX_COLORS = [null,'#FF9F9F','#FFE066','#85E09A','#82C4F8','#C3B1E1','#FFB347'];
+
+  async function loadSections(){
+    const { data } = await sb.from('canvas_sections').select('*').order('created_at');
+    sections = (data||[]).map(r => ({ id:r.id, label:r.label, x:r.x, y:r.y, w:r.w, h:r.h, color:r.color }));
+  }
+
+  async function upsertSection(sec){
+    await sb.from('canvas_sections').upsert({ id:sec.id, label:sec.label, x:sec.x, y:sec.y, w:sec.w, h:sec.h, color:sec.color });
+  }
+
+  async function deleteSectionById(id){
+    sections = sections.filter(s => s.id !== id);
+    renderSections();
+    await sb.from('canvas_sections').delete().eq('id', id);
+  }
+
+  function renderSections(){
+    const inner = el('canvasInner');
+    inner.querySelectorAll('.canvas-section').forEach(e => e.remove());
+    sections.forEach(sec => {
+      const div = document.createElement('div');
+      div.className = 'canvas-section';
+      div.dataset.secId = sec.id;
+      div.style.cssText = `left:${sec.x}px;top:${sec.y}px;width:${sec.w}px;height:${sec.h}px;border-color:${sec.color};background:${sec.color}18;color:${sec.color};`;
+
+      const header = document.createElement('div');
+      header.className = 'cs-header';
+
+      const label = document.createElement('div');
+      label.className = 'cs-label';
+      label.textContent = sec.label;
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'cs-del';
+      delBtn.textContent = '×';
+      delBtn.title = '섹션 삭제';
+      delBtn.addEventListener('mousedown', e => e.stopPropagation());
+      delBtn.addEventListener('click', async e => { e.stopPropagation(); await deleteSectionById(sec.id); });
+
+      header.appendChild(label);
+      header.appendChild(delBtn);
+
+      const resizeHandle = document.createElement('div');
+      resizeHandle.className = 'cs-resize';
+      resizeHandle.style.borderColor = sec.color;
+
+      div.appendChild(header);
+      div.appendChild(resizeHandle);
+
+      header.addEventListener('mousedown', e => {
+        if(e.button !== 0) return;
+        e.stopPropagation();
+        sectionDragging = { secId:sec.id, startMouseX:e.clientX, startMouseY:e.clientY, origX:sec.x, origY:sec.y };
+      });
+
+      resizeHandle.addEventListener('mousedown', e => {
+        if(e.button !== 0) return;
+        e.stopPropagation();
+        sectionResizing = { secId:sec.id, startMouseX:e.clientX, startMouseY:e.clientY, origW:sec.w, origH:sec.h };
+      });
+
+      label.addEventListener('dblclick', e => {
+        e.stopPropagation();
+        label.contentEditable = 'true';
+        label.style.cursor = 'text';
+        label.style.overflow = 'visible';
+        label.focus();
+        const range = document.createRange();
+        range.selectNodeContents(label);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+      });
+      label.addEventListener('blur', async () => {
+        label.contentEditable = 'false';
+        label.style.cursor = '';
+        label.style.overflow = '';
+        sec.label = label.textContent.trim() || '섹션';
+        label.textContent = sec.label;
+        await upsertSection(sec);
+      });
+      label.addEventListener('keydown', e => {
+        if(e.key === 'Enter'){ e.preventDefault(); label.blur(); }
+        e.stopPropagation();
+      });
+
+      const svg = inner.querySelector('#canvasSvg');
+      inner.insertBefore(div, svg ? svg.nextSibling : inner.firstChild);
+    });
+  }
+
+  // ---------------- canvas context toolbar ----------------
+  function showCanvasCtxBar(noteId){
+    const card = document.querySelector(`.canvas-card[data-id="${noteId}"]`);
+    const note = index.find(n => n.id === noteId);
+    if(!card || !note) return;
+    const bar = el('canvasCtxBar');
+    bar.querySelectorAll('.ctx-color, .ctx-sep').forEach(e => e.remove());
+    const editBtn = el('ctxEditBtn');
+    CTX_COLORS.forEach(color => {
+      const dot = document.createElement('div');
+      dot.className = 'ctx-color' + (note.canvasColor === color ? ' active' : '');
+      dot.style.cssText = color ? `background:${color};border:1.5px solid ${color};` : `background:var(--bg-card);border:1.5px solid var(--border);`;
+      dot.title = color || '기본색';
+      dot.addEventListener('click', async () => {
+        note.canvasColor = color;
+        card.style.backgroundColor = color ? color + '22' : '';
+        card.style.borderColor = color || '';
+        await sb.from('notes').update({ canvas_color: color }).eq('id', note.id);
+        showCanvasCtxBar(noteId);
+      });
+      bar.insertBefore(dot, editBtn);
+    });
+    const sep = document.createElement('div');
+    sep.className = 'ctx-sep';
+    bar.insertBefore(sep, editBtn);
+    bar.style.display = 'flex';
+    const rect = card.getBoundingClientRect();
+    const barW = bar.offsetWidth || 220;
+    const barH = bar.offsetHeight || 34;
+    bar.style.left = Math.max(8, Math.min(rect.left + rect.width/2 - barW/2, window.innerWidth - barW - 8)) + 'px';
+    bar.style.top = (rect.top > barH + 16 ? rect.top - barH - 10 : rect.bottom + 10) + 'px';
+  }
+
+  function hideCanvasCtxBar(){
+    el('canvasCtxBar').style.display = 'none';
+  }
+
+  el('ctxEditBtn').addEventListener('click', () => {
+    if(!selectedCanvasId) return;
+    exitCanvasView();
+    openNote(selectedCanvasId);
+  });
+
   // ---------------- canvas ----------------
   function getCanvasPositions(){
     const CARD_W = 200, CARD_H = 110, GAP_X = 40, GAP_Y = 40, COLS = 5;
@@ -2787,6 +2951,7 @@
     const svg = el('canvasSvg');
     if(!inner||!svg) return;
     Array.from(inner.children).forEach(c => { if(c!==svg) inner.removeChild(c); });
+    renderSections();
     const positions = getCanvasPositions();
     const CARD_W = 200;
     index.forEach(note => {
@@ -2796,6 +2961,10 @@
       card.className = 'canvas-card' + (note.id===selectedCanvasId ? ' selected' : '');
       card.dataset.id = note.id;
       card.style.cssText = `left:${pos.x}px;top:${pos.y}px;width:${CARD_W}px;`;
+      if(note.canvasColor){
+        card.style.backgroundColor = note.canvasColor + '22';
+        card.style.borderColor = note.canvasColor;
+      }
       const snippet = (note.content||'').replace(/```[\s\S]*?```/g,'').replace(/^#+ /gm,'').replace(/\[\[([^\]]+)\]\]/g,'$1').replace(/[*_~`>]/g,'').trim().slice(0,80);
       const tagHtml = (note.tags||[]).slice(0,3).map(t=>`<span>#${escapeHtml(t)}</span>`).join('');
       card.innerHTML = `<div class="canvas-card-title">${escapeHtml((note.title||'제목 없음').slice(0,30))}</div>${snippet?`<div class="canvas-card-snippet">${escapeHtml(snippet)}</div>`:''}${tagHtml?`<div class="canvas-card-tags">${tagHtml}</div>`:''}`;
@@ -2811,9 +2980,11 @@
         e.stopPropagation();
         selectedCanvasId = note.id;
         document.querySelectorAll('.canvas-card').forEach(c => c.classList.toggle('selected', c.dataset.id===note.id));
+        showCanvasCtxBar(note.id);
       });
       card.addEventListener('dblclick', e => {
         e.stopPropagation();
+        hideCanvasCtxBar();
         exitCanvasView();
         openNote(note.id);
       });
@@ -2847,7 +3018,7 @@
     applyCanvasTransform();
   }
 
-  function enterCanvasView(){
+  async function enterCanvasView(){
     leaveDashboard();
     viewMode = 'canvas';
     el('globalGraphView').style.display = 'none';
@@ -2855,11 +3026,13 @@
     cardSheet.style.display = 'none';
     toolbar.style.display = 'none';
     el('canvasView').style.display = 'block';
+    await loadSections();
     renderCanvas();
   }
 
   function exitCanvasView(){
     viewMode = 'list';
+    hideCanvasCtxBar();
     el('canvasView').style.display = 'none';
     if(currentId){
       cardSheet.style.display = 'block';
@@ -2871,6 +3044,30 @@
 
   // Canvas mouse events
   document.addEventListener('mousemove', e => {
+    if(sectionDragging){
+      const dx = (e.clientX-sectionDragging.startMouseX)/canvasZoom;
+      const dy = (e.clientY-sectionDragging.startMouseY)/canvasZoom;
+      const sec = sections.find(s => s.id === sectionDragging.secId);
+      if(sec){
+        sec.x = sectionDragging.origX + dx;
+        sec.y = sectionDragging.origY + dy;
+        const div = document.querySelector(`.canvas-section[data-sec-id="${sec.id}"]`);
+        if(div){ div.style.left = sec.x + 'px'; div.style.top = sec.y + 'px'; }
+      }
+      return;
+    }
+    if(sectionResizing){
+      const dx = (e.clientX-sectionResizing.startMouseX)/canvasZoom;
+      const dy = (e.clientY-sectionResizing.startMouseY)/canvasZoom;
+      const sec = sections.find(s => s.id === sectionResizing.secId);
+      if(sec){
+        sec.w = Math.max(150, sectionResizing.origW + dx);
+        sec.h = Math.max(100, sectionResizing.origH + dy);
+        const div = document.querySelector(`.canvas-section[data-sec-id="${sec.id}"]`);
+        if(div){ div.style.width = sec.w + 'px'; div.style.height = sec.h + 'px'; }
+      }
+      return;
+    }
     if(canvasDragging){
       const dx = (e.clientX-canvasDragging.startMouseX)/canvasZoom;
       const dy = (e.clientY-canvasDragging.startMouseY)/canvasZoom;
@@ -2891,6 +3088,16 @@
   });
 
   document.addEventListener('mouseup', async e => {
+    if(sectionDragging){
+      const sec = sections.find(s => s.id === sectionDragging.secId);
+      if(sec) upsertSection(sec);
+      sectionDragging = null;
+    }
+    if(sectionResizing){
+      const sec = sections.find(s => s.id === sectionResizing.secId);
+      if(sec) upsertSection(sec);
+      sectionResizing = null;
+    }
     if(canvasDragging){
       const card = document.querySelector(`#canvasInner .canvas-card[data-id="${canvasDragging.noteId}"]`);
       if(card){
@@ -2908,6 +3115,9 @@
   el('canvasView').addEventListener('mousedown', e => {
     const t = e.target;
     if(t===el('canvasView') || t===el('canvasInner') || t.closest('svg')){
+      hideCanvasCtxBar();
+      selectedCanvasId = null;
+      document.querySelectorAll('.canvas-card.selected').forEach(c => c.classList.remove('selected'));
       canvasPanning = true;
       canvasPanStart = { mouseX:e.clientX, mouseY:e.clientY, panX:canvasPan.x, panY:canvasPan.y };
       e.preventDefault();
@@ -2930,6 +3140,17 @@
   el('canvasFitBtn').onclick = () => fitCanvas();
   el('canvasZoomInBtn').onclick = () => { canvasZoom=Math.min(canvasZoom*1.25,4); applyCanvasTransform(); };
   el('canvasZoomOutBtn').onclick = () => { canvasZoom=Math.max(canvasZoom/1.25,0.15); applyCanvasTransform(); };
+  el('canvasAddSectionBtn').onclick = async () => {
+    const cv = el('canvasView');
+    const rect = cv.getBoundingClientRect();
+    const cx = (rect.width/2 - canvasPan.x) / canvasZoom;
+    const cy = (rect.height/2 - canvasPan.y) / canvasZoom;
+    const colorIdx = sections.length % SEC_COLORS.length;
+    const sec = { id: crypto.randomUUID(), label: '새 섹션', x: cx-160, y: cy-110, w: 320, h: 220, color: SEC_COLORS[colorIdx] };
+    sections.push(sec);
+    renderSections();
+    await upsertSection(sec);
+  };
 
   // ========== Canvas Editor (FigJam-style) ==========
   let cevElements = [];

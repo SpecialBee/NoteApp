@@ -2,6 +2,14 @@
 
 배포된 사이트: https://note-app-gamma-wheat.vercel.app
 
+> 상세 변경 이력·현재 기능은 [`CHANGELOG.md`](CHANGELOG.md) 참고. 앱은 `index.html` 단일 파일.
+
+## 현재 상태 (2026-07-26 기준)
+- 노트 타입: 일반(마크다운) · 🎨 캔버스 · 📊 테이블. + 🗄 데이터베이스는 전역 뷰(사이드바 검색 위 버튼).
+- 뷰 전환은 전부 `showView(name)` 한 곳을 거침. 좌측 사이드바 접기는 제거됨(우측 패널만 토글).
+- 캔버스: Undo/Redo·다중선택·스냅·섹션·카드노드·커넥터 컨텍스트 툴바. 저장은 JSON.
+- DB 스키마 변경 없음 — 모든 특수 카드는 `notes.content`에 JSON으로 저장(`schema.sql`은 그대로).
+
 ## 절차
 
 1. 그 컴퓨터에 **Claude Code**와 **git**을 설치한다.

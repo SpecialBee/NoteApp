@@ -4366,7 +4366,21 @@
       cevGroupMove={ startMX:e.clientX, startMY:e.clientY, origins: movers.map(m=>({id:m.id, x:m.x, y:m.y})) };
     } else {
       cevMoving={id:edata.id,startMX:e.clientX,startMY:e.clientY,origX:edata.x,origY:edata.y};
+      // dragging a section carries every node/shape whose center sits inside it
+      if(edata.type==='section'){
+        cevMoving.children = cevSectionChildren(edata).map(o=>({id:o.id, x:o.x, y:o.y}));
+      }
     }
+  }
+
+  // elements (non-section) whose center lies within a section's rectangle
+  function cevSectionChildren(section){
+    const b={ x:section.x, y:section.y, w:section.w||300, h:section.h||200 };
+    return cevElements.filter(o=>{
+      if(o.id===section.id || o.type==='section') return false;
+      const c=cevElCenter(o);
+      return c.x>=b.x && c.x<=b.x+b.w && c.y>=b.y && c.y<=b.y+b.h;
+    });
   }
 
   function cevRenderElement(edata){
@@ -4634,7 +4648,14 @@
       const dx=(e.clientX-cevMoving.startMX)/cevZoom,dy=(e.clientY-cevMoving.startMY)/cevZoom;
       if(Math.abs(dx)>2||Math.abs(dy)>2) cevDragMoved=true;
       const edata=cevElements.find(x=>x.id===cevMoving.id);
-      if(edata){ edata.x=cevSnapVal(cevMoving.origX+dx); edata.y=cevSnapVal(cevMoving.origY+dy); cevUpdateElPos(edata); }
+      if(edata){
+        edata.x=cevSnapVal(cevMoving.origX+dx); edata.y=cevSnapVal(cevMoving.origY+dy); cevUpdateElPos(edata);
+        // a section carries its contained nodes by the section's actual (post-snap) delta
+        if(cevMoving.children){
+          const adx=edata.x-cevMoving.origX, ady=edata.y-cevMoving.origY;
+          cevMoving.children.forEach(ch=>{ const c=cevElements.find(x=>x.id===ch.id); if(c){ c.x=ch.x+adx; c.y=ch.y+ady; cevUpdateElPos(c); } });
+        }
+      }
       cevRebuildSvg();
     } else if(cevResizing){
       const edata=cevElements.find(x=>x.id===cevResizing.id); if(!edata) return;

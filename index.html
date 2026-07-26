@@ -1548,13 +1548,36 @@
     });
   }
 
+  // Human-readable searchable text per note type (canvas/table store JSON in content,
+  // so searching raw content would match structural keys — extract real text instead).
+  // Cached on the note object, invalidated when content changes.
+  function noteSearchText(m){
+    if(m._stFor === m.content && m._st !== undefined) return m._st;
+    let t = '';
+    try {
+      if(isCanvasNote(m)){
+        const { elements, connectors } = parseCanvasContent(m.content||'');
+        t = elements.map(e => e.text || e.label || '').concat((connectors||[]).map(c => c.label || '')).join(' ');
+      } else if(isTableNote(m)){
+        const d = parseTableContent(m.content||'');
+        const cols = (d.columns||[]).map(c => c.name).join(' ');
+        const cells = (d.rows||[]).map(r => Object.values(r.cells||{}).filter(v => v!==true && v!==false).join(' ')).join(' ');
+        t = cols + ' ' + cells;
+      } else {
+        t = m.content || '';
+      }
+    } catch { t = ''; }
+    m._st = t; m._stFor = m.content;
+    return t;
+  }
+
   function matchesSearch(m){
     if(activeTagFilter && !(m.tags||[]).includes(activeTagFilter)) return false;
     if(!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     if(m.title.toLowerCase().includes(q)) return true;
     if((m.tags||[]).some(t => t.toLowerCase().includes(q))) return true;
-    if(m.content && m.content.toLowerCase().includes(q)) return true;
+    if(noteSearchText(m).toLowerCase().includes(q)) return true;
     return false;
   }
 
@@ -2087,7 +2110,7 @@
 
   paletteInput.addEventListener('input', () => {
     const q = paletteInput.value.trim().toLowerCase();
-    paletteResults = (q ? index.filter(m => m.title.toLowerCase().includes(q) || (m.content||'').toLowerCase().includes(q)) : visibleCards()).slice(0, 30);
+    paletteResults = (q ? index.filter(m => m.title.toLowerCase().includes(q) || noteSearchText(m).toLowerCase().includes(q)) : visibleCards()).slice(0, 30);
     paletteIdx = 0;
     renderPalette();
   });

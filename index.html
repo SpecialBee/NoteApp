@@ -491,6 +491,16 @@
   /* canvas badge in card list */
   .canvas-badge { font-size:9px; font-weight:700; letter-spacing:.03em; color:var(--accent); background:var(--accent-soft); border-radius:4px; padding:1px 5px; margin-left:4px; vertical-align:middle; }
   .table-badge  { font-size:9px; font-weight:700; letter-spacing:.03em; color:#16a34a; background:#dcfce7; border-radius:4px; padding:1px 5px; margin-left:4px; vertical-align:middle; }
+  .collection-badge { font-size:9px; font-weight:700; letter-spacing:.03em; color:#7c3aed; background:#ede9fe; border-radius:4px; padding:1px 5px; margin-left:4px; vertical-align:middle; }
+  .cov-tag-label { font-size:12px; color:var(--ink-soft); font-weight:600; }
+  .cov-tag-select { font-family:var(--sans); font-size:13px; padding:5px 8px; border:1px solid var(--border); border-radius:7px; background:var(--bg-card); color:var(--ink); outline:none; cursor:pointer; }
+  .cov-tag-select:focus { border-color:var(--accent); }
+  .cov-empty { color:var(--ink-faint); font-size:13px; text-align:center; padding:40px 24px; line-height:1.7; }
+  .cov-title-cell { padding:6px 9px; font-size:13px; font-weight:600; color:var(--accent); cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cov-title-cell:hover { text-decoration:underline; }
+  .cov-table th:first-child, .cov-table td:first-child { position:sticky; left:0; background:var(--bg-panel); z-index:1; }
+  .tev-cell-input { width:100%; min-height:32px; padding:5px 8px; border:none; background:none; font-family:var(--sans); font-size:13px; color:var(--ink); outline:none; box-sizing:border-box; }
+  .tev-cell-input:focus { background:color-mix(in srgb, var(--accent) 8%, transparent); }
   /* Table editor */
   #tableEditorView { flex:1; overflow:hidden; background:var(--bg); flex-direction:column; }
   .tev-toolbar { display:flex; align-items:center; gap:8px; padding:10px 16px; border-bottom:1px solid var(--border-soft); background:var(--bg-panel); flex-shrink:0; flex-wrap:wrap; }
@@ -729,6 +739,7 @@
         <button class="newbtn-item" id="newNoteItem">📄 일반 카드</button>
         <button class="newbtn-item" id="newCanvasItem">🎨 캔버스 카드</button>
         <button class="newbtn-item" id="newTableItem">📊 테이블 카드</button>
+        <button class="newbtn-item" id="newCollectionItem">📚 컬렉션 카드</button>
       </div>
     </div>
     <div id="trashActionRow" style="display:none; gap:6px; flex-direction:column;">
@@ -930,6 +941,18 @@
         <button class="tev-action" id="tevExitBtn">← 목록으로</button>
       </div>
       <div class="tev-table-wrap" id="tevTableWrap"></div>
+    </div>
+
+    <div id="collectionView" style="display:none; flex:1; position:relative; overflow:hidden; background:var(--bg); flex-direction:column;">
+      <div class="tev-toolbar">
+        <input class="tev-title-input" id="covTitleInput" placeholder="컬렉션 제목" spellcheck="false">
+        <span class="cov-tag-label">태그 필터</span>
+        <select id="covTagSelect" class="cov-tag-select"></select>
+        <div style="flex:1"></div>
+        <button class="tev-action" id="covAddBtn">+ 새 항목</button>
+        <button class="tev-action" id="covExitBtn">← 목록으로</button>
+      </div>
+      <div class="tev-table-wrap" id="covWrap"></div>
     </div>
 
     <div id="cardSheet" class="cardsheet" style="display:none;">
@@ -1575,6 +1598,8 @@
         const cols = (d.columns||[]).map(c => c.name).join(' ');
         const cells = (d.rows||[]).map(r => Object.values(r.cells||{}).filter(v => v!==true && v!==false).join(' ')).join(' ');
         t = cols + ' ' + cells;
+      } else if(isCollectionNote(m)){
+        t = ''; // collection stores only config JSON; title is matched separately
       } else {
         t = m.content || '';
       }
@@ -1663,7 +1688,7 @@
       if(cardColor) card.style.borderLeft = '3px solid ' + cardColor;
       card.innerHTML = `
         <button class="delbtn" title="삭제">✕</button>
-        <div class="serial">${serialOf(origIdx)}${m.pinned ? ' <span class="pinmark">★</span>' : ''}${isCanvasNote(m) ? ' <span class="canvas-badge">canvas</span>' : ''}${isTableNote(m) ? ' <span class="table-badge">table</span>' : ''}</div>
+        <div class="serial">${serialOf(origIdx)}${m.pinned ? ' <span class="pinmark">★</span>' : ''}${isCanvasNote(m) ? ' <span class="canvas-badge">canvas</span>' : ''}${isTableNote(m) ? ' <span class="table-badge">table</span>' : ''}${isCollectionNote(m) ? ' <span class="collection-badge">db</span>' : ''}</div>
         <div class="ttl">${escapeHtml(m.title || '제목 없음')}</div>
         <div class="meta" style="display:flex;align-items:center;gap:4px;">
           <span class="card-color-dot" style="background:${cardColor||'transparent'};${cardColor?'':'border-style:dashed;border-color:var(--border);'}" title="카드 색상 변경"></span>
@@ -1705,6 +1730,12 @@
       showView('tableEditor');
       openTableEditor(note);
       renderRightPane(note);
+      renderCardList();
+      return;
+    }
+    if(isCollectionNote(note)){
+      showView('collection');
+      openCollection(note);
       renderCardList();
       return;
     }
@@ -2148,9 +2179,10 @@
     dashboard:    { show:'dashboardView',    disp:'flex',  rightpane:false, toolbar:false, dash:true  },
     canvasEditor: { show:'canvasEditorView', disp:'flex',  rightpane:true,  toolbar:false },
     tableEditor:  { show:'tableEditorView',  disp:'flex',  rightpane:true,  toolbar:false },
+    collection:   { show:'collectionView',   disp:'flex',  rightpane:false, toolbar:false },
     trash:        { show:'emptyMain',        disp:'flex',  rightpane:false, toolbar:false, trash:true },
   };
-  const MAINPANE_IDS = ['emptyMain','cardSheet','globalGraphView','canvasView','dashboardView','canvasEditorView','tableEditorView'];
+  const MAINPANE_IDS = ['emptyMain','cardSheet','globalGraphView','canvasView','dashboardView','canvasEditorView','tableEditorView','collectionView'];
   let currentView = 'empty';
 
   function showView(name){
@@ -3839,6 +3871,147 @@
     renderRightPane(note);
   }
 
+  // ============================================================
+  // Collection (Notion-style database view over notes + properties)
+  // ============================================================
+  function isCollectionNote(m){ return (m.content||'').trimStart().startsWith('```collection'); }
+  function parseCollectionConfig(content){
+    const m=(content||'').match(/```collection\n?([\s\S]*?)```/);
+    if(!m) return { filterTag:null };
+    try{ const o=JSON.parse(m[1].trim()); return { filterTag:o.filterTag??null }; }catch{ return { filterTag:null }; }
+  }
+  let covNoteId=null, covConfig={filterTag:null}, covSaveTimer=null;
+
+  function covSaveConfig(){
+    const note=index.find(n=>n.id===covNoteId); if(!note) return;
+    note.content='```collection\n'+JSON.stringify(covConfig)+'\n```';
+    clearTimeout(covSaveTimer);
+    covSaveTimer=setTimeout(()=>updateNote(note),400);
+  }
+  function collectionMembers(){
+    const t=covConfig.filterTag;
+    if(!t) return [];
+    return index.filter(n=>!n.deletedAt && !isCanvasNote(n) && !isTableNote(n) && !isCollectionNote(n) && (n.tags||[]).includes(t));
+  }
+  function openCollection(note){
+    covNoteId=note.id;
+    covConfig=parseCollectionConfig(note.content||'');
+    el('covTitleInput').value=note.title||'';
+    renderCollection();
+  }
+  function exitCollection(){
+    covNoteId=null; currentId=null;
+    showView('empty'); clearRightPane(); renderCardList();
+  }
+  function createCollectionNote(){
+    return (async()=>{
+      const content='```collection\n'+JSON.stringify({filterTag:null})+'\n```';
+      const note=await insertNote({title:'새 컬렉션',content,tags:[],links:[],pinned:false,properties:[]});
+      if(!note) return;
+      index.unshift(note); computeAllTags(); renderTagRow(); renderCardList();
+      currentId=note.id;
+      showView('collection');
+      openCollection(note);
+    })();
+  }
+
+  function renderCollection(){
+    // tag selector
+    const sel=el('covTagSelect');
+    sel.innerHTML='';
+    const blank=document.createElement('option'); blank.value=''; blank.textContent='(태그 선택)'; sel.appendChild(blank);
+    allTags.forEach(t=>{ const o=document.createElement('option'); o.value=t; o.textContent='#'+t; if(t===covConfig.filterTag) o.selected=true; sel.appendChild(o); });
+
+    const wrap=el('covWrap'); wrap.innerHTML='';
+    if(!covConfig.filterTag){
+      wrap.innerHTML='<div class="cov-empty">위에서 태그를 선택하면, 그 태그가 달린 카드들이 속성과 함께 표로 모입니다.</div>';
+      return;
+    }
+    const members=collectionMembers();
+
+    // derive columns (distinct property names) + per-column type/options
+    const colNames=[]; const colMeta={};
+    members.forEach(n=>(n.properties||[]).forEach(p=>{
+      if(p.id==='__color') return;
+      if(!colMeta[p.name]){ colMeta[p.name]={type:p.type||'text',options:new Set()}; colNames.push(p.name); }
+      if(p.type==='select') (p.options||[]).forEach(o=>colMeta[p.name].options.add(o));
+    }));
+
+    if(!members.length){
+      wrap.innerHTML=`<div class="cov-empty">#${escapeHtml(covConfig.filterTag)} 태그가 달린 카드가 없습니다. 오른쪽 위 "+ 새 항목"으로 추가하세요.</div>`;
+      return;
+    }
+
+    const table=document.createElement('table'); table.className='tev-table cov-table';
+    // header
+    const thead=document.createElement('thead'); const hr=document.createElement('tr');
+    const thTitle=document.createElement('th'); thTitle.innerHTML='<div class="tev-th-inner"><span class="tev-th-name">제목</span></div>'; hr.appendChild(thTitle);
+    colNames.forEach(name=>{
+      const th=document.createElement('th');
+      const icon=propTypeIcon(colMeta[name].type);
+      th.innerHTML=`<div class="tev-th-inner"><span class="tev-th-name">${escapeHtml(name)}</span><span class="tev-th-type">${icon}</span></div>`;
+      hr.appendChild(th);
+    });
+    thead.appendChild(hr); table.appendChild(thead);
+
+    // body
+    const tbody=document.createElement('tbody');
+    members.forEach(note=>{
+      const tr=document.createElement('tr');
+      // title cell (click opens note)
+      const tdT=document.createElement('td');
+      const titleDiv=document.createElement('div'); titleDiv.className='cov-title-cell';
+      titleDiv.textContent=note.title||'제목 없음';
+      titleDiv.title='클릭해서 카드 열기';
+      titleDiv.addEventListener('click',()=>openNote(note.id));
+      tdT.appendChild(titleDiv); tr.appendChild(tdT);
+      // property cells
+      colNames.forEach(name=>{
+        const td=document.createElement('td');
+        td.appendChild(covPropCell(note, name, colMeta[name]));
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+  }
+
+  // one editable property cell; writes back to the note (creates the prop if missing)
+  function covPropCell(note, name, meta){
+    let prop=(note.properties||[]).find(p=>p.id!=='__color' && p.name===name);
+    const type=prop ? prop.type : (meta ? meta.type : 'text');
+    const commit=(v)=>{
+      if(!prop){
+        prop={id:genPropId(), name, type, value:v};
+        if(type==='select') prop.options=[...(meta?meta.options:[])];
+        note.properties=[...(note.properties||[]), prop];
+      } else prop.value=v;
+      savePropertiesOf(note.id, note.properties);
+    };
+    if(type==='checkbox'){
+      const w=document.createElement('div'); w.className='tev-checkbox-cell';
+      const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=!!(prop&&prop.value);
+      cb.addEventListener('change',()=>commit(cb.checked));
+      w.appendChild(cb); return w;
+    }
+    if(type==='select'){
+      const s=document.createElement('select'); s.className='tev-select-cell';
+      const opts=new Set([...(meta?meta.options:[])]); if(prop&&prop.value) opts.add(prop.value);
+      const blank=document.createElement('option'); blank.value=''; blank.textContent='—'; s.appendChild(blank);
+      [...opts].forEach(o=>{ const op=document.createElement('option'); op.value=o; op.textContent=o; s.appendChild(op); });
+      s.value=(prop&&prop.value)||'';
+      s.addEventListener('change',()=>commit(s.value));
+      return s;
+    }
+    const inp=document.createElement('input');
+    inp.className = (type==='date') ? 'tev-date-cell' : 'tev-cell-input';
+    inp.type = type==='number'?'number':(type==='date'?'date':'text');
+    inp.value = (prop&&prop.value!=null)?prop.value:''; inp.placeholder='—';
+    let t; inp.addEventListener('input',()=>{ clearTimeout(t); t=setTimeout(()=>commit(inp.type==='number'?(inp.value===''?'':parseFloat(inp.value)):inp.value),350); });
+    return inp;
+  }
+
 
   function parseCanvasContent(content){
     const match = (content||'').match(/```canvas\n?([\s\S]*?)```/);
@@ -4919,6 +5092,24 @@
   }
   el('newCanvasItem').addEventListener('click',()=>{ el('newBtnMenu').style.display='none'; createCanvasNote(); });
   el('newTableItem').addEventListener('click',()=>{ el('newBtnMenu').style.display='none'; createTableNote(); });
+  el('newCollectionItem').addEventListener('click',()=>{ el('newBtnMenu').style.display='none'; createCollectionNote(); });
+  el('covExitBtn').addEventListener('click',()=>exitCollection());
+  el('covTitleInput').addEventListener('input',()=>{
+    if(!covNoteId) return;
+    const note=index.find(n=>n.id===covNoteId); if(!note) return;
+    note.title=el('covTitleInput').value; covSaveConfig(); renderCardList();
+  });
+  el('covTagSelect').addEventListener('change',()=>{
+    covConfig.filterTag = el('covTagSelect').value || null;
+    covSaveConfig(); renderCollection();
+  });
+  el('covAddBtn').addEventListener('click',async()=>{
+    if(!covConfig.filterTag){ showToast('먼저 태그를 선택하세요'); return; }
+    const created=await insertNote({title:'새 항목',content:'',tags:[covConfig.filterTag],links:[],pinned:false,properties:[]});
+    if(!created) return;
+    index.unshift(created); computeAllTags(); renderTagRow(); renderCardList();
+    openNote(created.id);
+  });
   el('tevExitBtn').addEventListener('click',()=>exitTableEditor());
   el('tevTitleInput').addEventListener('input',()=>{
     if(!tevCurrentNoteId) return;
@@ -5051,7 +5242,7 @@
       <div class="dash-stat-card" id="dashNetStat"><div class="dash-stat-val">…</div><div class="dash-stat-label">연결 밀도</div></div>`;
 
     // 최근 카드 (최근 수정 순 7개)
-    const recent=active.filter(n=>!isCanvasNote(n)&&!isTableNote(n)).sort((a,b)=>b.updated-a.updated).slice(0,7);
+    const recent=active.filter(n=>!isCanvasNote(n)&&!isTableNote(n)&&!isCollectionNote(n)).sort((a,b)=>b.updated-a.updated).slice(0,7);
     const rrow=el('dashRecentRow');
     rrow.innerHTML=recent.length?recent.map(n=>{
       const color=noteColor(n);
@@ -5209,7 +5400,7 @@
     const cont=el('dashStaleness'); if(!cont) return;
     const now=Date.now(), DAY=86400000;
     const stale=index
-      .filter(n=>!n.deletedAt&&!isCanvasNote(n)&&!isTableNote(n)&&n.content&&n.content.trim())
+      .filter(n=>!n.deletedAt&&!isCanvasNote(n)&&!isTableNote(n)&&!isCollectionNote(n)&&n.content&&n.content.trim())
       .map(n=>({...n,age:Math.floor((now-n.updated)/DAY)}))
       .filter(n=>n.age>=14)
       .sort((a,b)=>b.age-a.age)

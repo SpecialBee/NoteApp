@@ -470,6 +470,67 @@
   [data-theme="dark"] .hm-cell[data-intensity="2"] { background:#006d32; }
   [data-theme="dark"] .hm-cell[data-intensity="3"] { background:#26a641; }
   [data-theme="dark"] .hm-cell[data-intensity="4"] { background:#39d353; }
+
+  /* ===== Checklist ===== */
+  .dash-checklist-wrap { margin-top:12px; max-width:360px; }
+  .dash-cl-list { display:flex; flex-direction:column; gap:1px; }
+  .dash-cl-item { display:flex; align-items:center; gap:6px; padding:4px 0; border-bottom:1px solid var(--border-soft); }
+  .dash-cl-item:last-child { border-bottom:none; }
+  .dash-cl-item.done .dash-cl-text { text-decoration:line-through; color:var(--ink-faint); }
+  .dash-cl-check { display:flex; align-items:center; gap:7px; flex:1; min-width:0; cursor:pointer; font-size:13px; color:var(--ink); }
+  .dash-cl-check input[type=checkbox] { width:14px; height:14px; accent-color:var(--accent); flex-shrink:0; cursor:pointer; }
+  .dash-cl-text { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .dash-cl-del { background:none; border:none; color:var(--ink-faint); cursor:pointer; font-size:14px; padding:0 4px; line-height:1; flex-shrink:0; }
+  .dash-cl-del:hover { color:var(--danger); }
+  .dash-cl-empty { font-size:12px; color:var(--ink-faint); padding:6px 0; font-style:italic; }
+  .dash-cl-input-row { display:flex; gap:6px; margin-top:8px; }
+  .dash-cl-input-row input { flex:1; min-width:0; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:5px 8px; font-family:var(--sans); font-size:13px; color:var(--ink); outline:none; }
+  .dash-cl-input-row input:focus { border-color:var(--accent); }
+  .dash-cl-input-row input::placeholder { color:var(--ink-faint); }
+  .dash-cl-input-row button { background:var(--accent); color:#fff; border:none; border-radius:6px; padding:5px 11px; cursor:pointer; font-size:15px; font-weight:700; flex-shrink:0; }
+  .dash-cl-input-row button:hover { background:var(--accent-hover); }
+
+  /* ===== Monthly Calendar ===== */
+  .dash-cal-nav { background:none; border:none; color:var(--ink-soft); cursor:pointer; font-size:18px; padding:0 2px; line-height:1; }
+  .dash-cal-nav:hover { color:var(--accent); }
+  .dash-cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; margin-top:6px; }
+  .dash-cal-hd { font-size:10px; font-weight:700; color:var(--ink-faint); text-align:center; padding:3px 0; }
+  .dash-cal-hd:first-child { color:#c0392b; }
+  .dash-cal-hd:last-child { color:#2980b9; }
+  .dash-cal-cell { border-radius:5px; padding:3px 2px; min-height:34px; display:flex; flex-direction:column; align-items:center; background:var(--border-soft); }
+  .dash-cal-cell[data-intensity="1"] { background:#c6e48b; }
+  .dash-cal-cell[data-intensity="2"] { background:#7bc96f; }
+  .dash-cal-cell[data-intensity="3"] { background:#239a3b; }
+  .dash-cal-cell[data-intensity="4"] { background:#196127; }
+  .dash-cal-cell.today { outline:2px solid var(--accent); outline-offset:-2px; }
+  .dash-cal-num { font-size:11px; font-weight:600; color:var(--ink); }
+  .dash-cal-cnt { font-size:9px; color:var(--ink-soft); }
+  .dash-cal-cell[data-intensity="3"] .dash-cal-num,.dash-cal-cell[data-intensity="4"] .dash-cal-num { color:#fff; }
+  .dash-cal-cell[data-intensity="3"] .dash-cal-cnt,.dash-cal-cell[data-intensity="4"] .dash-cal-cnt { color:rgba(255,255,255,.75); }
+  [data-theme="dark"] .dash-cal-cell[data-intensity="1"] { background:#0e4429; }
+  [data-theme="dark"] .dash-cal-cell[data-intensity="2"] { background:#006d32; }
+  [data-theme="dark"] .dash-cal-cell[data-intensity="3"] { background:#26a641; }
+  [data-theme="dark"] .dash-cal-cell[data-intensity="4"] { background:#39d353; }
+
+  /* ===== Staleness ===== */
+  .dash-stale-item { display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--border-soft); cursor:pointer; }
+  .dash-stale-item:last-child { border-bottom:none; }
+  .dash-stale-item:hover .dash-stale-ttl { color:var(--accent); }
+  .dash-stale-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .stale-ok { background:#6B8F52; }
+  .stale-y  { background:#C79A3A; }
+  .stale-o  { background:#D97757; }
+  .stale-r  { background:#B3483A; }
+  .dash-stale-ttl { flex:1; font-size:12.5px; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .dash-stale-age { font-size:11px; color:var(--ink-faint); flex-shrink:0; }
+
+  /* ===== Network density ===== */
+  .dash-net-row { display:flex; align-items:center; justify-content:space-between; font-size:12.5px; margin-bottom:5px; }
+  .dash-net-lbl { color:var(--ink-soft); }
+  .dash-net-val { font-weight:700; color:var(--ink); }
+  .dash-net-bar-wrap { background:var(--border); border-radius:99px; height:6px; overflow:hidden; margin:2px 0 10px 0; }
+  .dash-net-bar { height:100%; border-radius:99px; background:var(--accent); transition:width .5s ease; }
+  .dash-net-tip { font-size:11px; color:var(--ink-faint); margin-top:6px; line-height:1.5; }
 </style>
 </head>
 <body>
@@ -590,6 +651,13 @@
         <div>
           <div class="dash-greeting" id="dashGreeting"></div>
           <div class="dash-sub" id="dashSub"></div>
+          <div class="dash-checklist-wrap" id="dashChecklistWrap">
+            <div class="dash-cl-list" id="dashClList"></div>
+            <div class="dash-cl-input-row">
+              <input type="text" id="dashClInput" placeholder="할 일 추가… (Enter)">
+              <button id="dashClAddBtn">＋</button>
+            </div>
+          </div>
         </div>
         <div class="dash-level-card" id="dashLevelCard"></div>
       </div>
@@ -622,6 +690,15 @@
           </div>
         </div>
       </div>
+      <div class="dash-section">
+        <div class="dash-section-title" style="gap:10px;">
+          월별 활동
+          <button class="dash-cal-nav" id="dashCalPrev">‹</button>
+          <span id="dashCalLabel" style="font-size:12px;color:var(--ink);text-transform:none;letter-spacing:0;"></span>
+          <button class="dash-cal-nav" id="dashCalNext">›</button>
+        </div>
+        <div id="dashCalendar"></div>
+      </div>
       <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:20px;">
         <div class="dash-section">
           <div class="dash-section-title">자주 쓰는 태그</div>
@@ -634,6 +711,14 @@
         <div class="dash-section">
           <div class="dash-section-title">오늘의 한 장 ✨</div>
           <div id="dashTodayCard"></div>
+        </div>
+        <div class="dash-section">
+          <div class="dash-section-title">아이디어 숙성도</div>
+          <div id="dashStaleness"></div>
+        </div>
+        <div class="dash-section">
+          <div class="dash-section-title">연결망 밀도</div>
+          <div id="dashNetwork"></div>
         </div>
       </div>
     </div>
@@ -3278,6 +3363,7 @@
     appEl.classList.add('dashboard-mode');
     renderCardList();
     renderDashboard();
+    setupDashCL();
   }
 
   function renderDashboard(){
@@ -3315,7 +3401,8 @@
       <div class="dash-stat-card"><div class="dash-stat-val">${canvasNotes.length}</div><div class="dash-stat-label">캔버스</div></div>
       <div class="dash-stat-card"><div class="dash-stat-val">${allTags.size}</div><div class="dash-stat-label">태그 종류</div></div>
       <div class="dash-stat-card"><div class="dash-stat-val">${thisWeek.length}</div><div class="dash-stat-label">이번 주 생성</div></div>
-      <div class="dash-stat-card"><div class="dash-stat-val">${todayNotes.length+todayEdited.length}</div><div class="dash-stat-label">오늘 활동</div></div>`;
+      <div class="dash-stat-card"><div class="dash-stat-val">${todayNotes.length+todayEdited.length}</div><div class="dash-stat-label">오늘 활동</div></div>
+      <div class="dash-stat-card" id="dashNetStat"><div class="dash-stat-val">…</div><div class="dash-stat-label">연결 밀도</div></div>`;
 
     // 최근 카드 (최근 수정 순 7개)
     const recent=active.filter(n=>!isCanvasNote(n)).sort((a,b)=>b.updated-a.updated).slice(0,7);
@@ -3348,6 +3435,10 @@
     }
 
     renderDashHeatmap();
+    renderDashCalendar();
+    renderDashStaleness();
+    renderDashNetwork();
+    renderDashCL();
 
     // 태그
     const tags=dashComputeTagCounts();
@@ -3407,7 +3498,110 @@
     }
   }
 
+  // ===== Checklist =====
+  let dashCL = [];
+  function dashClLoad(){ try{ dashCL=JSON.parse(localStorage.getItem('stacker-cl')||'[]'); }catch(e){ dashCL=[]; } }
+  function dashClSave(){ localStorage.setItem('stacker-cl',JSON.stringify(dashCL)); }
+  function dashClAdd(text){
+    const t=text.trim(); if(!t) return;
+    dashCL.unshift({id:Date.now().toString(36)+Math.random().toString(36).slice(2),text:t,done:false});
+    dashClSave(); renderDashCL();
+  }
+  function renderDashCL(){
+    dashClLoad();
+    const listEl=el('dashClList'); if(!listEl) return;
+    listEl.innerHTML='';
+    if(!dashCL.length){ listEl.innerHTML='<div class="dash-cl-empty">할 일이 없어요. 추가해보세요 ✓</div>'; return; }
+    const sorted=[...dashCL.filter(x=>!x.done),...dashCL.filter(x=>x.done)];
+    sorted.forEach(item=>{
+      const row=document.createElement('div');
+      row.className='dash-cl-item'+(item.done?' done':'');
+      const lbl=document.createElement('label'); lbl.className='dash-cl-check';
+      const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=item.done;
+      const span=document.createElement('span'); span.className='dash-cl-text'; span.textContent=item.text;
+      lbl.appendChild(cb); lbl.appendChild(span);
+      const del=document.createElement('button'); del.className='dash-cl-del'; del.textContent='×'; del.title='삭제';
+      cb.addEventListener('change',()=>{ const ci=dashCL.find(x=>x.id===item.id); if(ci) ci.done=cb.checked; dashClSave(); renderDashCL(); });
+      del.addEventListener('click',()=>{ dashCL=dashCL.filter(x=>x.id!==item.id); dashClSave(); renderDashCL(); });
+      row.appendChild(lbl); row.appendChild(del);
+      listEl.appendChild(row);
+    });
+  }
+  function setupDashCL(){
+    const input=el('dashClInput'), btn=el('dashClAddBtn'); if(!input||!btn) return;
+    input.addEventListener('keydown',e=>{ if(e.key==='Enter'){ dashClAdd(input.value); input.value=''; } });
+    btn.addEventListener('click',()=>{ dashClAdd(input.value); input.value=''; });
+  }
+
+  // ===== Calendar =====
+  let dashCalY=new Date().getFullYear(), dashCalM=new Date().getMonth();
+  function renderDashCalendar(){
+    const counts=dashComputeHeatmap();
+    const calEl=el('dashCalendar'); if(!calEl) return;
+    el('dashCalLabel').textContent=`${dashCalY}년 ${dashCalM+1}월`;
+    const allV=Object.values(counts), maxC=allV.length?Math.max(...allV):1;
+    const firstDay=new Date(dashCalY,dashCalM,1).getDay();
+    const daysInMonth=new Date(dashCalY,dashCalM+1,0).getDate();
+    const todayStr=new Date().toDateString();
+    let html='<div class="dash-cal-grid">';
+    ['일','월','화','수','목','금','토'].forEach(d=>{ html+=`<div class="dash-cal-hd">${d}</div>`; });
+    for(let i=0;i<firstDay;i++) html+='<div></div>';
+    for(let d=1;d<=daysInMonth;d++){
+      const dt=new Date(dashCalY,dashCalM,d);
+      const key=dt.toISOString().slice(0,10);
+      const cnt=counts[key]||0;
+      const intens=cnt===0?0:Math.min(4,Math.ceil(cnt/maxC*4));
+      const isToday=dt.toDateString()===todayStr;
+      html+=`<div class="dash-cal-cell${isToday?' today':''}" data-intensity="${intens}" title="${key}: ${cnt}개 활동"><span class="dash-cal-num">${d}</span>${cnt?`<span class="dash-cal-cnt">${cnt}</span>`:''}</div>`;
+    }
+    html+='</div>';
+    calEl.innerHTML=html;
+  }
+
+  // ===== Staleness =====
+  function renderDashStaleness(){
+    const cont=el('dashStaleness'); if(!cont) return;
+    const now=Date.now(), DAY=86400000;
+    const stale=index
+      .filter(n=>!n.deletedAt&&!isCanvasNote(n)&&n.content&&n.content.trim())
+      .map(n=>({...n,age:Math.floor((now-n.updated)/DAY)}))
+      .filter(n=>n.age>=14)
+      .sort((a,b)=>b.age-a.age)
+      .slice(0,8);
+    if(!stale.length){ cont.innerHTML='<div class="dash-empty">모든 카드가 최근에 수정됐어요 ✓</div>'; return; }
+    cont.innerHTML=stale.map(n=>{
+      const cls=n.age>=90?'stale-r':n.age>=60?'stale-o':n.age>=30?'stale-y':'stale-ok';
+      return `<div class="dash-stale-item" data-id="${n.id}"><span class="dash-stale-dot ${cls}"></span><span class="dash-stale-ttl">${escapeHtml(n.title||'제목 없음')}</span><span class="dash-stale-age">${n.age}일 전</span></div>`;
+    }).join('');
+    cont.querySelectorAll('.dash-stale-item').forEach(c=>c.addEventListener('click',()=>openNote(c.dataset.id)));
+  }
+
+  // ===== Network density =====
+  function renderDashNetwork(){
+    const cont=el('dashNetwork'); if(!cont) return;
+    const active=index.filter(n=>!n.deletedAt);
+    let totalLinks=0, notesWithLinks=0;
+    active.forEach(n=>{ const m=(n.content||'').match(/\[\[([^\]\n]+)\]\]/g); const cnt=m?m.length:0; totalLinks+=cnt; if(cnt>0) notesWithLinks++; });
+    const pct=active.length?Math.round(notesWithLinks/active.length*100):0;
+    const avg=active.length?(totalLinks/active.length).toFixed(1):0;
+    const tip=pct<20?'카드끼리 더 연결해보세요. [[카드 제목]]으로 링크할 수 있어요.':pct<50?'연결이 점점 늘고 있어요!':'지식 그래프가 풍성해지고 있어요 🕸';
+    const statEl=el('dashNetStat'); if(statEl) statEl.querySelector('.dash-stat-val').textContent=pct+'%';
+    cont.innerHTML=`
+      <div class="dash-net-row"><span class="dash-net-lbl">연결된 카드</span><span class="dash-net-val">${notesWithLinks} / ${active.length}</span></div>
+      <div class="dash-net-bar-wrap"><div class="dash-net-bar" style="width:${pct}%"></div></div>
+      <div class="dash-net-row"><span class="dash-net-lbl">카드당 평균 링크</span><span class="dash-net-val">${avg}개</span></div>
+      <div class="dash-net-row"><span class="dash-net-lbl">총 연결 수</span><span class="dash-net-val">${totalLinks}개</span></div>
+      <div class="dash-net-tip">${tip}</div>`;
+  }
+
   el('dashboardBtn').addEventListener('click',()=>openDashboard());
+
+  el('dashCalPrev').addEventListener('click',()=>{
+    dashCalM--; if(dashCalM<0){ dashCalM=11; dashCalY--; } renderDashCalendar();
+  });
+  el('dashCalNext').addEventListener('click',()=>{
+    dashCalM++; if(dashCalM>11){ dashCalM=0; dashCalY++; } renderDashCalendar();
+  });
 
   // Stacker logo → dashboard
   document.querySelector('.brand .mark').addEventListener('click',()=>openDashboard());

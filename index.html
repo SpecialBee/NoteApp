@@ -505,6 +505,14 @@
   .tev-td-add-col { width:40px; border:1px solid transparent; background:var(--bg-panel); }
   .tev-add-row-btn { margin-top:8px; font-family:var(--sans); font-size:12px; color:var(--ink-faint); background:none; border:1px dashed var(--border); border-radius:6px; padding:6px 16px; cursor:pointer; display:block; }
   .tev-add-row-btn:hover { color:var(--accent); border-color:var(--accent); background:var(--accent-soft); }
+  .tev-th-sort { font-size:10px; color:var(--ink-faint); cursor:pointer; flex-shrink:0; padding:0 1px; user-select:none; }
+  .tev-th-sort:hover { color:var(--accent); }
+  .tev-date-cell { width:100%; min-height:32px; padding:4px 8px; border:none; background:none; font-family:var(--sans); font-size:13px; color:var(--ink); outline:none; box-sizing:border-box; }
+  .tev-date-cell:focus { background:color-mix(in srgb, var(--accent) 8%, transparent); }
+  .tev-select-cell { width:100%; min-height:32px; padding:4px 6px; border:none; background:none; font-family:var(--sans); font-size:13px; color:var(--ink); outline:none; box-sizing:border-box; cursor:pointer; }
+  .tev-select-cell:focus { background:color-mix(in srgb, var(--accent) 8%, transparent); }
+  .tev-table tfoot .tev-foot-cell { border:1px solid var(--border-soft); background:var(--bg-panel); padding:5px 8px; font-size:11px; font-weight:600; color:var(--ink-soft); white-space:nowrap; }
+  .tev-table tfoot .tev-foot-label { text-align:center; color:var(--ink-faint); }
   /* card color dot */
   .card-color-dot { width:9px; height:9px; border-radius:50%; display:inline-block; margin-right:4px; vertical-align:middle; flex-shrink:0; cursor:pointer; border:1.5px solid rgba(0,0,0,.12); }
   .card-color-palette { position:fixed; z-index:400; background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:8px; box-shadow:0 4px 16px rgba(0,0,0,.14); display:flex; flex-wrap:wrap; gap:5px; width:130px; }
@@ -886,6 +894,9 @@
       <div class="tev-toolbar">
         <input class="tev-title-input" id="tevTitleInput" placeholder="테이블 제목" spellcheck="false">
         <div style="flex:1"></div>
+        <button class="tev-action" id="tevImportBtn" title="CSV 가져오기">📥 가져오기</button>
+        <button class="tev-action" id="tevExportBtn" title="CSV 내보내기">📤 내보내기</button>
+        <input type="file" id="tevCsvFile" accept=".csv,text/csv" style="display:none">
         <button class="tev-action" id="tevExitBtn">← 목록으로</button>
       </div>
       <div class="tev-table-wrap" id="tevTableWrap"></div>
@@ -1180,6 +1191,7 @@
     syncDot.classList.remove('saving');
     syncText.textContent = error ? '저장 실패 — 네트워크 확인 필요' : '모든 기기와 자동 동기화됨';
     if(!error){
+      note.updated = Date.now(); // optimistic: reflect edit time locally until realtime echo arrives
       syncDot.classList.remove('saved-pop');
       void syncDot.offsetWidth;
       syncDot.classList.add('saved-pop');
@@ -2510,7 +2522,29 @@
     else index.push(row);
 
     if(row.id === currentId){
-      if(saveTimer){
+      if(tevCurrentNoteId === row.id){
+        // table note is open
+        if(tevSaveTimer){
+          showToast('이 테이블이 다른 기기에서 방금 수정되었습니다 — 저장 시 덮어쓸 수 있어요');
+        }else{
+          tevData = parseTableContent(row.content || '');
+          el('tevTitleInput').value = row.title || '';
+          renderTableEditor();
+          showToast('다른 기기에서의 변경을 반영했습니다');
+        }
+      }else if(cevCurrentNoteId === row.id){
+        // canvas note is open
+        if(cevSaveTimer){
+          showToast('이 캔버스가 다른 기기에서 방금 수정되었습니다 — 저장 시 덮어쓸 수 있어요');
+        }else{
+          const parsed = parseCanvasContent(row.content || '');
+          cevElements = parsed.elements; cevConnectors = parsed.connectors;
+          cevSelected = null; cevSelectedConn = null;
+          const cti = el('cevTitleInput'); if(cti) cti.value = row.title || '';
+          cevRenderAll();
+          showToast('다른 기기에서의 변경을 반영했습니다');
+        }
+      }else if(saveTimer){
         showToast('이 카드가 다른 기기에서 방금 수정되었습니다 — 저장 시 덮어쓸 수 있어요');
       }else{
         titleField.value = row.title || '';
@@ -3314,6 +3348,17 @@
     renderCardList();
   }
 
+  const TEV_TYPES = ['text','number','checkbox','date','select'];
+  const TEV_TYPE_LABELS = {text:'Aa', number:'12', checkbox:'☑', date:'📅', select:'▾'};
+
+  // compare two cell values for a given column type
+  function tevCompare(a, b, type){
+    if(type==='number') return (parseFloat(a)||0) - (parseFloat(b)||0);
+    if(type==='checkbox') return (a?1:0) - (b?1:0);
+    if(type==='date') return String(a||'').localeCompare(String(b||''));
+    return String(a??'').localeCompare(String(b??''),'ko');
+  }
+
   function renderTableEditor(){
     const wrap = el('tevTableWrap'); if(!wrap) return;
     const data = tevData;
@@ -3324,10 +3369,7 @@
     if(tevSortCol){
       const sc = cols.find(c => c.id === tevSortCol);
       if(sc) displayRows.sort((a,b)=>{
-        const av = a.cells[tevSortCol] ?? '', bv = b.cells[tevSortCol] ?? '';
-        let r = sc.type==='number' ? (parseFloat(av)||0)-(parseFloat(bv)||0)
-               : sc.type==='checkbox' ? ((av?1:0)-(bv?1:0))
-               : String(av).localeCompare(String(bv),'ko');
+        const r = tevCompare(a.cells[tevSortCol], b.cells[tevSortCol], sc.type);
         return tevSortDir==='desc' ? -r : r;
       });
     }
@@ -3345,18 +3387,23 @@
     thDel.className = 'tev-th-del-col';
     hr.appendChild(thDel);
 
-    const TYPE_LABELS = {text:'Aa', number:'12', checkbox:'☑'};
     cols.forEach(col => {
       const th = document.createElement('th');
-      th.title = '클릭: 정렬';
 
       const inner = document.createElement('div');
       inner.className = 'tev-th-inner';
 
-      // sort indicator
-      const sortSpan = document.createElement('span');
-      sortSpan.className = 'tev-th-sort';
-      if(tevSortCol===col.id) sortSpan.textContent = tevSortDir==='asc' ? '↑' : '↓';
+      // sort button (separate from name so renaming never triggers a re-render)
+      const sortBtn = document.createElement('span');
+      sortBtn.className = 'tev-th-sort';
+      sortBtn.textContent = tevSortCol===col.id ? (tevSortDir==='asc' ? '↑' : '↓') : '↕';
+      sortBtn.title = '정렬';
+      sortBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        if(tevSortCol===col.id) tevSortDir = tevSortDir==='asc' ? 'desc' : 'asc';
+        else { tevSortCol = col.id; tevSortDir = 'asc'; }
+        renderTableEditor();
+      });
 
       const nameSpan = document.createElement('span');
       nameSpan.className = 'tev-th-name';
@@ -3372,20 +3419,30 @@
       nameSpan.addEventListener('blur', () => {
         nameSpan.contentEditable = 'false';
         const v = nameSpan.textContent.trim();
-        if(v) { col.name = v; tevSaveDebounced(); }
+        if(v) { col.name = v; tevSaveDebounced(); renderCardList(); }
         else nameSpan.textContent = col.name;
       });
       nameSpan.addEventListener('keydown', e => { if(e.key==='Enter'){e.preventDefault();nameSpan.blur();} e.stopPropagation(); });
 
       const typeBadge = document.createElement('span');
       typeBadge.className = 'tev-th-type';
-      typeBadge.textContent = TYPE_LABELS[col.type] || 'Aa';
-      typeBadge.title = '클릭: 타입 변경';
+      typeBadge.textContent = TEV_TYPE_LABELS[col.type] || 'Aa';
+      typeBadge.title = '클릭: 타입 변경 (' + col.type + ')';
       typeBadge.addEventListener('click', e => {
         e.stopPropagation();
-        const types = ['text','number','checkbox'];
-        col.type = types[(types.indexOf(col.type)+1) % types.length];
-        data.rows.forEach(row => { row.cells[col.id] = col.type==='checkbox' ? false : ''; });
+        const oldType = col.type;
+        col.type = TEV_TYPES[(TEV_TYPES.indexOf(col.type)+1) % TEV_TYPES.length];
+        if(col.type==='checkbox'){
+          data.rows.forEach(row => { row.cells[col.id] = !!row.cells[col.id] && row.cells[col.id]!=='false'; });
+        } else if(oldType==='checkbox'){
+          data.rows.forEach(row => { row.cells[col.id] = row.cells[col.id] ? 'true' : ''; });
+        }
+        if(col.type==='select'){
+          // seed options from existing distinct values
+          const seen = new Set(col.options||[]);
+          data.rows.forEach(row => { const v=row.cells[col.id]; if(v && !seen.has(v)){ seen.add(v); } });
+          col.options = Array.from(seen).filter(Boolean);
+        }
         tevSaveDebounced(); renderTableEditor();
       });
 
@@ -3401,14 +3458,8 @@
         tevSaveDebounced(); renderTableEditor();
       });
 
-      th.addEventListener('click', e => {
-        if(e.target.closest('.tev-th-del,.tev-th-type,[contenteditable]')) return;
-        tevSortCol===col.id ? (tevSortDir = tevSortDir==='asc'?'desc':'asc') : (tevSortCol=col.id, tevSortDir='asc');
-        renderTableEditor();
-      });
-
+      inner.appendChild(sortBtn);
       inner.appendChild(nameSpan);
-      inner.appendChild(sortSpan);
       inner.appendChild(typeBadge);
       inner.appendChild(delBtn);
       th.appendChild(inner);
@@ -3433,6 +3484,7 @@
     /* ---- BODY ---- */
     const tbody = document.createElement('tbody');
     displayRows.forEach(row => {
+      const rowIdx = data.rows.indexOf(row);
       const tr = document.createElement('tr');
 
       // row delete cell
@@ -3449,26 +3501,60 @@
       tdDel.appendChild(rowDelBtn);
       tr.appendChild(tdDel);
 
-      cols.forEach(col => {
+      cols.forEach((col, colIdx) => {
         const td = document.createElement('td');
         if(col.type==='checkbox'){
           const cbWrap = document.createElement('div');
           cbWrap.className = 'tev-checkbox-cell';
           const cb = document.createElement('input');
           cb.type = 'checkbox';
-          cb.checked = !!row.cells[col.id];
-          cb.addEventListener('change', () => { row.cells[col.id]=cb.checked; tevSaveDebounced(); });
+          cb.checked = !!row.cells[col.id] && row.cells[col.id]!=='false';
+          cb.addEventListener('change', () => { row.cells[col.id]=cb.checked; tevSaveDebounced(); renderTableFooter(table); });
           cbWrap.appendChild(cb); td.appendChild(cbWrap);
+        } else if(col.type==='date'){
+          const inp = document.createElement('input');
+          inp.type = 'date';
+          inp.className = 'tev-date-cell';
+          inp.value = row.cells[col.id] || '';
+          inp.addEventListener('change', () => { row.cells[col.id]=inp.value; tevSaveDebounced(); if(tevSortCol===col.id) renderTableEditor(); });
+          td.appendChild(inp);
+        } else if(col.type==='select'){
+          const sel = document.createElement('select');
+          sel.className = 'tev-select-cell';
+          const cur = row.cells[col.id] || '';
+          const opts = col.options || [];
+          const blank = document.createElement('option'); blank.value=''; blank.textContent='—'; sel.appendChild(blank);
+          opts.forEach(o => { const op=document.createElement('option'); op.value=o; op.textContent=o; sel.appendChild(op); });
+          if(cur && !opts.includes(cur)){ const op=document.createElement('option'); op.value=cur; op.textContent=cur; sel.appendChild(op); }
+          const addOpt = document.createElement('option'); addOpt.value='__add__'; addOpt.textContent='+ 새 옵션…'; sel.appendChild(addOpt);
+          sel.value = cur;
+          sel.addEventListener('change', () => {
+            if(sel.value==='__add__'){
+              const nv = (prompt('새 옵션 이름')||'').trim();
+              if(nv){ col.options = col.options||[]; if(!col.options.includes(nv)) col.options.push(nv); row.cells[col.id]=nv; }
+              tevSaveDebounced(); renderTableEditor(); return;
+            }
+            row.cells[col.id]=sel.value; tevSaveDebounced();
+            if(tevSortCol===col.id) renderTableEditor();
+          });
+          td.appendChild(sel);
         } else {
           const div = document.createElement('div');
           div.className = 'tev-cell';
           div.contentEditable = 'true';
           div.textContent = row.cells[col.id] ?? '';
           div.addEventListener('input', () => {
-            row.cells[col.id] = col.type==='number'
-              ? (div.textContent.trim()==='' ? '' : (isNaN(parseFloat(div.textContent)) ? div.textContent : parseFloat(div.textContent)))
-              : div.textContent;
+            row.cells[col.id] = div.textContent; // store raw string; parse only for sort/aggregate
             tevSaveDebounced();
+            if(col.type==='number') renderTableFooter(table);
+          });
+          div.addEventListener('paste', e => {
+            const cd = e.clipboardData || window.clipboardData;
+            const text = cd ? cd.getData('text') : '';
+            if(text && /[\t\n]/.test(text)){
+              e.preventDefault();
+              tevPasteGrid(text, rowIdx, colIdx);
+            }
           });
           div.addEventListener('keydown', e => {
             if(e.key==='Tab'){
@@ -3493,6 +3579,12 @@
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);
+
+    /* ---- FOOTER (aggregates) ---- */
+    const tfoot = document.createElement('tfoot');
+    tfoot.appendChild(buildFooterRow(cols));
+    table.appendChild(tfoot);
+
     wrap.appendChild(table);
 
     // add row button
@@ -3507,6 +3599,123 @@
       tevSaveDebounced(); renderTableEditor();
     });
     wrap.appendChild(addRowBtn);
+  }
+
+  function buildFooterRow(cols){
+    const fr = document.createElement('tr');
+    const fDel = document.createElement('td'); fDel.className='tev-foot-cell tev-foot-label'; fDel.textContent='Σ'; fr.appendChild(fDel);
+    cols.forEach(col => {
+      const td = document.createElement('td'); td.className='tev-foot-cell';
+      const rows = tevData.rows||[];
+      if(col.type==='number'){
+        let sum=0, cnt=0;
+        rows.forEach(r=>{ const v=parseFloat(r.cells[col.id]); if(!isNaN(v)){ sum+=v; cnt++; } });
+        td.textContent = cnt ? `합 ${(+sum.toFixed(4))} · 평균 ${(+ (sum/cnt).toFixed(2))}` : '';
+      } else if(col.type==='checkbox'){
+        const checked = rows.filter(r=> r.cells[col.id] && r.cells[col.id]!=='false').length;
+        td.textContent = rows.length ? `✓ ${checked}/${rows.length}` : '';
+      } else {
+        const filled = rows.filter(r=> (r.cells[col.id]??'')!=='' ).length;
+        td.textContent = filled ? `${filled}개` : '';
+      }
+      fr.appendChild(td);
+    });
+    const fAdd = document.createElement('td'); fAdd.className='tev-foot-cell'; fr.appendChild(fAdd);
+    return fr;
+  }
+
+  // recompute just the footer without a full re-render (called on cell edits)
+  function renderTableFooter(table){
+    const tfoot = table.querySelector('tfoot'); if(!tfoot) return;
+    tfoot.innerHTML=''; tfoot.appendChild(buildFooterRow(tevData.columns||[]));
+  }
+
+  // paste a tab/newline-delimited grid (Excel/Sheets) starting at a cell
+  function tevPasteGrid(text, startRowIdx, startColIdx){
+    const data = tevData;
+    const grid = text.replace(/\r/g,'').replace(/\n$/,'').split('\n').map(line => line.split('\t'));
+    grid.forEach((cells, r) => {
+      const ri = startRowIdx + r;
+      // create rows as needed
+      while(data.rows.length <= ri){
+        const id = 'r' + Date.now().toString(36) + '_' + data.rows.length;
+        const c = {}; data.columns.forEach(col => { c[col.id] = col.type==='checkbox' ? false : ''; });
+        data.rows.push({id, cells:c});
+      }
+      const row = data.rows[ri];
+      cells.forEach((val, c) => {
+        const ci = startColIdx + c;
+        // create columns as needed
+        while(data.columns.length <= ci){
+          const id = 'c' + Date.now().toString(36) + '_' + data.columns.length;
+          data.columns.push({id, name:'열 '+(data.columns.length+1), type:'text'});
+          data.rows.forEach(rw => { if(!(id in rw.cells)) rw.cells[id]=''; });
+        }
+        const col = data.columns[ci];
+        if(col.type==='checkbox') row.cells[col.id] = /^(true|1|✓|y|yes|o|예)$/i.test(val.trim());
+        else row.cells[col.id] = val;
+      });
+    });
+    tevSaveDebounced(); renderTableEditor();
+    showToast(`${grid.length}행 붙여넣기 완료`);
+  }
+
+  // ---- CSV import / export ----
+  function csvEscape(v){
+    const s = (v===null||v===undefined) ? '' : String(v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+  }
+  function tevExportCsv(){
+    const data = tevData;
+    const header = data.columns.map(c => csvEscape(c.name)).join(',');
+    const lines = data.rows.map(row =>
+      data.columns.map(col => {
+        const v = row.cells[col.id];
+        return csvEscape(col.type==='checkbox' ? (v && v!=='false' ? 'true' : 'false') : v);
+      }).join(',')
+    );
+    const csv = [header, ...lines].join('\r\n');
+    const note = index.find(n=>n.id===tevCurrentNoteId);
+    const name = ((note&&note.title)||'table').replace(/[\\/:*?"<>|]/g,'_');
+    const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8;'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name + '.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+  }
+  function parseCsv(text){
+    const rows=[]; let row=[], cur='', inQ=false;
+    text = text.replace(/^﻿/,'');
+    for(let i=0;i<text.length;i++){
+      const ch=text[i];
+      if(inQ){
+        if(ch==='"'){ if(text[i+1]==='"'){ cur+='"'; i++; } else inQ=false; }
+        else cur+=ch;
+      } else {
+        if(ch==='"') inQ=true;
+        else if(ch===','){ row.push(cur); cur=''; }
+        else if(ch==='\n'){ row.push(cur); rows.push(row); row=[]; cur=''; }
+        else if(ch==='\r'){ /* skip */ }
+        else cur+=ch;
+      }
+    }
+    if(cur!==''||row.length){ row.push(cur); rows.push(row); }
+    return rows.filter(r => r.length && !(r.length===1 && r[0]===''));
+  }
+  function tevImportCsv(text){
+    const grid = parseCsv(text);
+    if(!grid.length){ showToast('CSV가 비어 있습니다'); return; }
+    if(!confirm('현재 테이블 내용을 CSV로 덮어씁니다. 계속할까요?')) return;
+    const header = grid[0];
+    const columns = header.map((name,i) => ({id:'c'+Date.now().toString(36)+'_'+i, name:name||('열 '+(i+1)), type:'text'}));
+    const rows = grid.slice(1).map((r,ri) => {
+      const cells={}; columns.forEach((col,ci)=>{ cells[col.id] = r[ci]!==undefined ? r[ci] : ''; });
+      return {id:'r'+Date.now().toString(36)+'_'+ri, cells};
+    });
+    tevData = {columns, rows};
+    tevSortCol = null;
+    tevSaveDebounced(); renderTableEditor();
+    showToast(`${rows.length}행 가져왔습니다`);
   }
 
   async function createTableNote(){
@@ -4240,6 +4449,15 @@
     const note=index.find(n=>n.id===tevCurrentNoteId); if(!note) return;
     note.title=el('tevTitleInput').value;
     tevSaveDebounced(); renderCardList();
+  });
+  el('tevExportBtn').addEventListener('click',()=>tevExportCsv());
+  el('tevImportBtn').addEventListener('click',()=>el('tevCsvFile').click());
+  el('tevCsvFile').addEventListener('change',e=>{
+    const f=e.target.files&&e.target.files[0]; if(!f) return;
+    const reader=new FileReader();
+    reader.onload=()=>{ tevImportCsv(String(reader.result||'')); };
+    reader.readAsText(f,'utf-8');
+    e.target.value='';
   });
 
   // ---------------- Dashboard ----------------

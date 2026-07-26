@@ -787,9 +787,8 @@
   <div class="mainpane">
     <div class="toolbar" id="toolbar" style="display:none;">
       <button class="mobonly" id="mobToggle">☰</button>
-      <button class="modebtn active" id="editModeBtn">쓰기</button>
-      <button class="modebtn" id="splitModeBtn">나눠보기</button>
-      <button class="modebtn" id="previewModeBtn">읽기</button>
+      <button class="modebtn active" id="editModeBtn">쓰기모드</button>
+      <button class="modebtn" id="previewModeBtn">읽기모드</button>
       <span class="submeta" id="subLine"></span>
       <span class="submeta" id="wordCount"></span>
       <div class="spacer"></div>
@@ -1780,7 +1779,7 @@
     renderTagChips();
     subLine.textContent = `${serialOf(index.findIndex(m=>m.id===id))} · 마지막 수정 ${new Date(note.updated).toLocaleString('ko-KR')}`;
     updateWordCount();
-    setMode(localStorage.getItem('stk-editor-mode') || 'edit');
+    setMode(localStorage.getItem('stk-editor-mode') || 'split');
     renderCardList();
     renderRightPane(note);
     updatePinBtn(note);
@@ -1801,14 +1800,14 @@
   }
 
   function setMode(m){
+    if(m!=='preview') m='split'; // 쓰기모드 = 편집+미리보기 분할, 읽기모드 = 미리보기
     mode = m;
-    el('editModeBtn').classList.toggle('active', m==='edit');
-    el('splitModeBtn').classList.toggle('active', m==='split');
+    el('editModeBtn').classList.toggle('active', m==='split');
     el('previewModeBtn').classList.toggle('active', m==='preview');
     const split = el('editorSplit');
     split.classList.toggle('split', m==='split');
-    editorBox.style.display   = (m==='edit'  || m==='split') ? 'block' : 'none';
-    previewBox.style.display  = (m==='preview'|| m==='split') ? 'block' : 'none';
+    editorBox.style.display  = (m==='split') ? 'block' : 'none';
+    previewBox.style.display = 'block';
     el('splitDivider').style.display = (m==='split') ? 'block' : 'none';
     if(m==='split'){
       const r = parseFloat(localStorage.getItem('stk-split-ratio')) || 0.5;
@@ -1816,7 +1815,7 @@
     } else {
       editorBox.style.flexBasis = '';
     }
-    if(m==='preview' || m==='split') previewBox.innerHTML = renderMarkdown(editorBox.value);
+    previewBox.innerHTML = renderMarkdown(editorBox.value);
     localStorage.setItem('stk-editor-mode', m);
   }
 
@@ -2107,8 +2106,7 @@
   el('newNoteItem').addEventListener('click',()=>{ el('newBtnMenu').style.display='none'; createNote(''); });
   document.addEventListener('click',e=>{ if(!e.target.closest('#newBtnWrap')) el('newBtnMenu').style.display='none'; });
   el('emptyNewBtn').onclick = () => createNote('');
-  el('editModeBtn').onclick = () => setMode('edit');
-  el('splitModeBtn').onclick = () => setMode('split');
+  el('editModeBtn').onclick = () => setMode('split');
   el('previewModeBtn').onclick = () => setMode('preview');
   titleField.addEventListener('input', queueSave);
   editorBox.addEventListener('input', queueSave);
@@ -5501,7 +5499,7 @@ GRAPHIDEA는 흩어진 생각을 **연결해 하나의 그래프로 잇는** 개
 - 그리고 검색창 위 🗄 **데이터베이스** 는 카드가 아니라, 카드들을 표로 모아 보는 뷰예요.
 
 ## 노트 카드 (마크다운)
-- 쓰기 모드에서 **나눠보기**를 누르면 왼쪽 편집·오른쪽 미리보기로 나뉘고, 가운데 선을 드래그해 크기를 조절할 수 있어요.
+- **쓰기 모드**는 왼쪽 편집·오른쪽 미리보기로 나뉘고, 가운데 선을 드래그해 크기를 조절할 수 있어요. (**읽기 모드**는 미리보기만 크게 봅니다.)
 - **[[카드 제목]]** 을 적으면 다른 카드와 연결됩니다. (없는 카드면 클릭 시 새로 만들어져요)
 - 제목 아래 태그 입력창에 태그를 적거나, 본문에 **#태그** 를 적으면 자동 분류됩니다.
 - 쓰기 모드 상단 도구모음: H1~H4, **굵게**, *기울임*, ~~취소선~~, 인용, 표(▦), \`인라인 코드\`, 코드 블록.

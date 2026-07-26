@@ -382,6 +382,13 @@
   .cev-connecting .cev-anchor { opacity:1; }
   .cev-drop-target { outline:2px solid var(--accent) !important; outline-offset:3px; }
   .cev-temp-line { stroke:var(--accent); stroke-width:1.5; stroke-dasharray:6 4; fill:none; pointer-events:none; }
+  /* canvas badge in card list */
+  .canvas-badge { font-size:9px; font-weight:700; letter-spacing:.03em; color:var(--accent); background:var(--accent-soft); border-radius:4px; padding:1px 5px; margin-left:4px; vertical-align:middle; }
+  /* card color dot */
+  .card-color-dot { width:9px; height:9px; border-radius:50%; display:inline-block; margin-right:4px; vertical-align:middle; flex-shrink:0; cursor:pointer; border:1.5px solid rgba(0,0,0,.12); }
+  .card-color-palette { position:fixed; z-index:400; background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:8px; box-shadow:0 4px 16px rgba(0,0,0,.14); display:flex; flex-wrap:wrap; gap:5px; width:130px; }
+  .card-color-swatch { width:20px; height:20px; border-radius:50%; cursor:pointer; border:2px solid transparent; }
+  .card-color-swatch:hover { border-color:var(--ink); }
   /* new-card dropdown */
   .newbtn-wrap { position:relative; margin:0 14px 4px 14px; }
   .newbtn-wrap .newbtn { width:100%; margin:0; }
@@ -541,7 +548,7 @@
       </div>
       <div id="cevCanvas" style="position:relative; flex:1; overflow:hidden; cursor:default;">
         <div id="cevInner" style="position:absolute; top:0; left:0; transform-origin:0 0; will-change:transform;">
-          <svg id="cevSvg" style="position:absolute;top:0;left:0;width:1px;height:1px;overflow:visible;pointer-events:none;"></svg>
+          <svg id="cevSvg" style="position:absolute;top:0;left:0;width:100%;height:100%;overflow:visible;pointer-events:none;"></svg>
         </div>
       </div>
     </div>
@@ -570,6 +577,7 @@
         <span class="fmtsep"></span>
         <button class="fmtbtn" id="fmtTask" title="할 일 목록">☑</button>
         <button class="fmtbtn" id="fmtCallout" title="콜아웃">💡</button>
+        <button class="fmtbtn" id="fmtHr" title="구분선">―</button>
       </div>
       <textarea class="editorbox" id="editorBox" placeholder="당신의 이야기를 적어보세요… [[카드 제목]]으로 다른 카드와 연결할 수 있어요."></textarea>
       <div class="preview" id="previewBox" style="display:none;"></div>
@@ -1111,6 +1119,7 @@
   el('fmtTable').onclick = () => insertTable();
   el('fmtTask').onclick = () => insertLinePrefix('- [ ] ');
   el('fmtCallout').onclick = () => insertCallout();
+  el('fmtHr').onclick = () => { const ta=editorBox; const s=ta.selectionStart; const ins='\n\n---\n\n'; ta.value=ta.value.slice(0,s)+ins+ta.value.slice(ta.selectionEnd); ta.selectionStart=ta.selectionEnd=s+ins.length; ta.focus(); ta.dispatchEvent(new Event('input')); };
 
   // ---------------- sidebar rendering ----------------
   function computeAllTags(){
@@ -1155,6 +1164,43 @@
     return sorted.filter(matchesSearch);
   }
 
+  const CARD_COLORS = ['#FF6B6B','#FF9F45','#FFD166','#06D6A0','#4CC9F0','#7B2FBE','#F72585','#90E0EF','#B5E48C','#ADB5BD'];
+
+  function noteColor(note){ const c=(note.properties||[]).find(p=>p.id==='__color'); return c?c.value:null; }
+
+  async function setNoteColor(note, color){
+    note.properties = (note.properties||[]).filter(p=>p.id!=='__color');
+    if(color) note.properties.push({id:'__color',value:color});
+    await updateNote(note);
+    renderCardList();
+  }
+
+  function showCardColorPalette(note, e){
+    document.querySelector('.card-color-palette')?.remove();
+    const pal = document.createElement('div');
+    pal.className = 'card-color-palette';
+    CARD_COLORS.forEach(c => {
+      const sw = document.createElement('div');
+      sw.className = 'card-color-swatch';
+      sw.style.background = c;
+      if(noteColor(note)===c) sw.style.borderColor='var(--ink)';
+      sw.onclick = ev => { ev.stopPropagation(); pal.remove(); setNoteColor(note, c); };
+      pal.appendChild(sw);
+    });
+    // "none" swatch
+    const none = document.createElement('div');
+    none.className = 'card-color-swatch';
+    none.title='색상 제거'; none.style.background='var(--bg)'; none.style.border='1.5px dashed var(--border)';
+    none.onclick = ev => { ev.stopPropagation(); pal.remove(); setNoteColor(note, null); };
+    pal.appendChild(none);
+    const rect = e.target.getBoundingClientRect();
+    pal.style.left = (rect.left + 10) + 'px';
+    pal.style.top = (rect.bottom + 4) + 'px';
+    document.body.appendChild(pal);
+    const close = ev => { if(!pal.contains(ev.target)){ pal.remove(); document.removeEventListener('mousedown', close); } };
+    setTimeout(()=>document.addEventListener('mousedown', close), 0);
+  }
+
   function renderCardList(){
     if(showingTrash){ renderTrashList(); return; }
     const filtered = visibleCards();
@@ -1170,12 +1216,18 @@
       const card = document.createElement('div');
       card.className = 'card-tab' + (m.id === currentId ? ' active' : '');
       card.style.animationDelay = (i * 0.02) + 's';
+      const cardColor = noteColor(m);
+      if(cardColor) card.style.borderLeft = '3px solid ' + cardColor;
       card.innerHTML = `
         <button class="delbtn" title="삭제">✕</button>
-        <div class="serial">${serialOf(origIdx)}${m.pinned ? ' <span class="pinmark">★</span>' : ''}</div>
+        <div class="serial">${serialOf(origIdx)}${m.pinned ? ' <span class="pinmark">★</span>' : ''}${isCanvasNote(m) ? ' <span class="canvas-badge">canvas</span>' : ''}</div>
         <div class="ttl">${escapeHtml(m.title || '제목 없음')}</div>
-        <div class="meta"><span class="updated">${formatDate(m.updated)}</span></div>
+        <div class="meta" style="display:flex;align-items:center;gap:4px;">
+          <span class="card-color-dot" style="background:${cardColor||'transparent'};${cardColor?'':'border-style:dashed;border-color:var(--border);'}" title="카드 색상 변경"></span>
+          <span class="updated">${formatDate(m.updated)}</span>
+        </div>
       `;
+      card.querySelector('.card-color-dot').addEventListener('click', e => { e.stopPropagation(); showCardColorPalette(m, e); });
       card.onclick = (e) => { if(e.target.classList.contains('delbtn')) return; openNote(m.id); };
       card.querySelector('.delbtn').onclick = async (e) => {
         e.stopPropagation();
@@ -2483,7 +2535,7 @@
       const hit=document.createElementNS('http://www.w3.org/2000/svg','path');
       hit.setAttribute('d',bez.path); hit.setAttribute('stroke','transparent');
       hit.setAttribute('stroke-width','14'); hit.setAttribute('fill','none');
-      hit.style.cursor='pointer';
+      hit.style.cursor='pointer'; hit.style.pointerEvents='all';
       hit.addEventListener('click',ev=>{ ev.stopPropagation(); cevSelectedConn=connId; cevSelectElement(null); cevRebuildSvg(); });
       hit.addEventListener('dblclick',ev=>{ ev.stopPropagation(); cevShowConnLabelEdit(conn,ev); });
       // Visible path

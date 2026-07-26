@@ -108,7 +108,7 @@
   .app.ready{ display:grid; }
   .app.dashboard-mode { grid-template-columns: var(--sidebar-w, 280px) 5px minmax(0,1fr); }
   .app.dashboard-mode #resizeRight, .app.dashboard-mode #rightpane { display:none; }
-  .app.trash-mode .searchwrap, .app.trash-mode .tagrow, .app.trash-mode .sortrow, .app.trash-mode #newBtn{ display:none; }
+  .app.trash-mode .searchwrap, .app.trash-mode .tagrow, .app.trash-mode .sortrow, .app.trash-mode #newBtn, .app.trash-mode .dbrow{ display:none; }
   .app.trash-mode #trashActionRow{ display:flex !important; }
   .app.trash-mode #resizeRight, .app.trash-mode #rightpane{ display:none; }
   .app.trash-mode { grid-template-columns: var(--sidebar-w, 280px) 5px minmax(0,1fr); }
@@ -226,6 +226,7 @@
   .panel-show-tab:hover{ color:var(--accent); background:var(--accent-soft); border-color:var(--accent); }
   .panel-show-tab.left{ left:0; border-left:none; border-radius:0 6px 6px 0; }
   .panel-show-tab.right{ right:0; border-right:none; border-radius:6px 0 0 6px; }
+  .panel-show-tab.collapse{ right:var(--rightpane-w, 260px); border-radius:6px 0 0 6px; box-shadow:-1px 0 3px rgba(0,0,0,0.05); }
   /* Table size picker */
   #tablePickerPopup{ position:fixed; background:var(--bg-panel); border:1px solid var(--border); border-radius:10px; padding:10px; box-shadow:0 6px 20px rgba(0,0,0,.16); z-index:300; display:none; user-select:none; }
   .tp-grid{ display:grid; grid-template-columns:repeat(8,20px); gap:3px; }
@@ -492,6 +493,10 @@
   .canvas-badge { font-size:9px; font-weight:700; letter-spacing:.03em; color:var(--accent); background:var(--accent-soft); border-radius:4px; padding:1px 5px; margin-left:4px; vertical-align:middle; }
   .table-badge  { font-size:9px; font-weight:700; letter-spacing:.03em; color:#16a34a; background:#dcfce7; border-radius:4px; padding:1px 5px; margin-left:4px; vertical-align:middle; }
   .collection-badge { font-size:9px; font-weight:700; letter-spacing:.03em; color:#7c3aed; background:#ede9fe; border-radius:4px; padding:1px 5px; margin-left:4px; vertical-align:middle; }
+  .dbrow { padding:10px 14px 2px 14px; flex-shrink:0; }
+  .dbbtn { width:100%; font-family:var(--sans); font-size:12.5px; font-weight:700; color:var(--ink-soft); background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-align:left; transition:background .12s, color .12s, border-color .12s; }
+  .dbbtn:hover { color:#7c3aed; border-color:#c4b5fd; background:#f5f3ff; }
+  .cov-view-title { font-size:14px; font-weight:700; color:var(--ink); }
   .cov-tag-label { font-size:12px; color:var(--ink-soft); font-weight:600; }
   .cov-tag-select { font-family:var(--sans); font-size:13px; padding:5px 8px; border:1px solid var(--border); border-radius:7px; background:var(--bg-card); color:var(--ink); outline:none; cursor:pointer; }
   .cov-tag-select:focus { border-color:var(--accent); }
@@ -732,6 +737,7 @@
         <button class="logout" id="logoutBtn">로그아웃</button>
       </div>
     </div>
+    <div class="dbrow"><button class="dbbtn" id="databaseBtn">🗄 데이터베이스</button></div>
     <div class="searchwrap"><input id="searchInput" type="text" placeholder="검색 (제목·본문·태그)"></div>
     <div class="newbtn-wrap" id="newBtnWrap">
       <button class="newbtn" id="newBtn">+ 새 카드 만들기</button>
@@ -739,7 +745,6 @@
         <button class="newbtn-item" id="newNoteItem">📄 일반 카드</button>
         <button class="newbtn-item" id="newCanvasItem">🎨 캔버스 카드</button>
         <button class="newbtn-item" id="newTableItem">📊 테이블 카드</button>
-        <button class="newbtn-item" id="newCollectionItem">📚 컬렉션 카드</button>
       </div>
     </div>
     <div id="trashActionRow" style="display:none; gap:6px; flex-direction:column;">
@@ -945,7 +950,7 @@
 
     <div id="collectionView" style="display:none; flex:1; position:relative; overflow:hidden; background:var(--bg); flex-direction:column;">
       <div class="tev-toolbar">
-        <input class="tev-title-input" id="covTitleInput" placeholder="컬렉션 제목" spellcheck="false">
+        <span class="cov-view-title">🗄 데이터베이스</span>
         <span class="cov-tag-label">태그 필터</span>
         <select id="covTagSelect" class="cov-tag-select"></select>
         <div style="flex:1"></div>
@@ -989,9 +994,6 @@
   <div class="resize-handle" id="resizeRight"></div>
 
   <div class="rightpane" id="rightpane">
-    <div class="rp-topbar">
-      <button class="panel-collapse-btn" id="rightpaneToggleBtn" title="패널 접기">›</button>
-    </div>
     <div class="rp-section" id="propSection" style="display:none;">
       <div class="rp-title">속성</div>
       <div id="propList"></div>
@@ -1005,6 +1007,7 @@
 
 <div class="toast" id="toast"></div>
 
+<button class="panel-show-tab collapse" id="rightpaneToggleBtn" title="패널 접기">›</button>
 <button class="panel-show-tab right" id="rightpaneShowTab" title="패널 열기">‹</button>
 
 <div id="canvasCtxBar">
@@ -1734,9 +1737,7 @@
       return;
     }
     if(isCollectionNote(note)){
-      showView('collection');
-      openCollection(note);
-      renderCardList();
+      openDatabaseView();
       return;
     }
     showView('note');
@@ -2209,7 +2210,7 @@
     el('rightpane').style.display        = rHidden ? 'none' : '';
     el('resizeRight').style.display      = rHidden ? 'none' : '';
     el('rightpaneShowTab').style.display = (rpApplicable && rightpaneCollapsed) ? 'flex' : 'none';
-    el('rightpaneToggleBtn').style.display = rpApplicable ? '' : 'none';
+    el('rightpaneToggleBtn').style.display = (rpApplicable && !rightpaneCollapsed) ? 'flex' : 'none';
 
     // Grid template (inline style is the single authority; overrides any CSS class rules)
     const sw = 'var(--sidebar-w, 280px)';
@@ -2517,8 +2518,8 @@
   function loadPanelWidths(){
     try{
       const saved = JSON.parse(localStorage.getItem('cardCatalogPanelWidths') || '{}');
-      if(saved.sidebar) appEl.style.setProperty('--sidebar-w', saved.sidebar + 'px');
-      if(saved.rightpane) appEl.style.setProperty('--rightpane-w', saved.rightpane + 'px');
+      if(saved.sidebar) document.documentElement.style.setProperty('--sidebar-w', saved.sidebar + 'px');
+      if(saved.rightpane) document.documentElement.style.setProperty('--rightpane-w', saved.rightpane + 'px');
     }catch(e){}
   }
 
@@ -2540,7 +2541,7 @@
       if(!dragging) return;
       const delta = invert ? (startX - e.clientX) : (e.clientX - startX);
       const w = Math.min(max, Math.max(min, startW + delta));
-      appEl.style.setProperty(varName, w + 'px');
+      document.documentElement.style.setProperty(varName, w + 'px');
     });
     window.addEventListener('mouseup', () => {
       if(!dragging) return;
@@ -3872,47 +3873,28 @@
   }
 
   // ============================================================
-  // Collection (Notion-style database view over notes + properties)
+  // Database (global Notion-style view over notes + properties) — single window
   // ============================================================
+  // legacy: detects any stray collection cards from the earlier card-based version
   function isCollectionNote(m){ return (m.content||'').trimStart().startsWith('```collection'); }
-  function parseCollectionConfig(content){
-    const m=(content||'').match(/```collection\n?([\s\S]*?)```/);
-    if(!m) return { filterTag:null };
-    try{ const o=JSON.parse(m[1].trim()); return { filterTag:o.filterTag??null }; }catch{ return { filterTag:null }; }
-  }
-  let covNoteId=null, covConfig={filterTag:null}, covSaveTimer=null;
+  let covConfig={filterTag:null};
 
-  function covSaveConfig(){
-    const note=index.find(n=>n.id===covNoteId); if(!note) return;
-    note.content='```collection\n'+JSON.stringify(covConfig)+'\n```';
-    clearTimeout(covSaveTimer);
-    covSaveTimer=setTimeout(()=>updateNote(note),400);
-  }
+  function loadCollectionConfig(){ try{ const o=JSON.parse(localStorage.getItem('stk-db')||'{}'); covConfig={filterTag:o.filterTag||null}; }catch{ covConfig={filterTag:null}; } }
+  function covSaveConfig(){ localStorage.setItem('stk-db', JSON.stringify(covConfig)); }
   function collectionMembers(){
     const t=covConfig.filterTag;
     if(!t) return [];
     return index.filter(n=>!n.deletedAt && !isCanvasNote(n) && !isTableNote(n) && !isCollectionNote(n) && (n.tags||[]).includes(t));
   }
-  function openCollection(note){
-    covNoteId=note.id;
-    covConfig=parseCollectionConfig(note.content||'');
-    el('covTitleInput').value=note.title||'';
+  function openDatabaseView(){
+    currentId=null;
+    loadCollectionConfig();
+    showView('collection');
     renderCollection();
+    renderCardList();
   }
   function exitCollection(){
-    covNoteId=null; currentId=null;
-    showView('empty'); clearRightPane(); renderCardList();
-  }
-  function createCollectionNote(){
-    return (async()=>{
-      const content='```collection\n'+JSON.stringify({filterTag:null})+'\n```';
-      const note=await insertNote({title:'새 컬렉션',content,tags:[],links:[],pinned:false,properties:[]});
-      if(!note) return;
-      index.unshift(note); computeAllTags(); renderTagRow(); renderCardList();
-      currentId=note.id;
-      showView('collection');
-      openCollection(note);
-    })();
+    showView('empty'); renderCardList();
   }
 
   function renderCollection(){
@@ -5092,13 +5074,8 @@
   }
   el('newCanvasItem').addEventListener('click',()=>{ el('newBtnMenu').style.display='none'; createCanvasNote(); });
   el('newTableItem').addEventListener('click',()=>{ el('newBtnMenu').style.display='none'; createTableNote(); });
-  el('newCollectionItem').addEventListener('click',()=>{ el('newBtnMenu').style.display='none'; createCollectionNote(); });
+  el('databaseBtn').addEventListener('click',()=>openDatabaseView());
   el('covExitBtn').addEventListener('click',()=>exitCollection());
-  el('covTitleInput').addEventListener('input',()=>{
-    if(!covNoteId) return;
-    const note=index.find(n=>n.id===covNoteId); if(!note) return;
-    note.title=el('covTitleInput').value; covSaveConfig(); renderCardList();
-  });
   el('covTagSelect').addEventListener('change',()=>{
     covConfig.filterTag = el('covTagSelect').value || null;
     covSaveConfig(); renderCollection();

@@ -314,10 +314,26 @@
   .prop-plus{ font-size:14px; font-weight:700; line-height:1; }
   .prop-preset-btn{ font-family:var(--sans); font-size:10px; font-weight:600; color:var(--ink-faint); background:none; border:1px solid var(--border); border-radius:5px; padding:2px 7px; cursor:pointer; }
   .prop-preset-btn:hover{ color:var(--accent); border-color:var(--accent); }
-  .prop-preset-wrap{ position:relative; }
-  .prop-preset-dropdown{ position:absolute; right:0; bottom:calc(100% + 4px); background:var(--bg-panel); border:1px solid var(--border); border-radius:8px; padding:5px; display:flex; flex-direction:column; gap:2px; z-index:100; min-width:80px; box-shadow:0 4px 12px rgba(0,0,0,.14); }
-  .prop-preset-item{ font-family:var(--sans); font-size:11.5px; color:var(--ink); background:none; border:none; cursor:pointer; padding:4px 9px; text-align:left; border-radius:5px; white-space:nowrap; }
-  .prop-preset-item:hover{ background:var(--accent-soft); color:var(--accent); }
+  .prop-preset-btn.active{ color:var(--accent); border-color:var(--accent); background:var(--accent-soft); }
+  /* Inline preset panel */
+  .prop-preset-panel{ border-top:1px solid var(--border-soft); padding:6px 0 2px 0; margin-top:4px; display:flex; flex-direction:column; gap:2px; }
+  .prop-preset-row-item{ display:flex; align-items:center; }
+  .prop-preset-apply{ flex:1; font-family:var(--sans); font-size:11.5px; color:var(--ink); background:none; border:none; cursor:pointer; padding:4px 5px; text-align:left; border-radius:5px; }
+  .prop-preset-apply:hover{ background:var(--accent-soft); color:var(--accent); }
+  .prop-preset-del-btn{ font-size:13px; color:var(--ink-faint); background:none; border:none; cursor:pointer; padding:0 4px; flex-shrink:0; }
+  .prop-preset-del-btn:hover{ color:var(--danger); }
+  .prop-preset-empty-msg{ font-size:11px; color:var(--ink-faint); font-style:italic; padding:3px 5px; }
+  .prop-preset-sep{ height:1px; background:var(--border-soft); margin:4px 0; }
+  .prop-preset-save-trigger{ font-family:var(--sans); font-size:11px; color:var(--ink-faint); background:none; border:none; cursor:pointer; padding:4px 5px; text-align:left; width:100%; }
+  .prop-preset-save-trigger:hover{ color:var(--accent); }
+  /* Save form */
+  .prop-preset-save-form{ display:flex; flex-direction:column; gap:5px; padding:2px 0; }
+  .prop-preset-name-inp{ font-family:var(--sans); font-size:12px; color:var(--ink); background:var(--bg-card); border:1px solid var(--border); border-radius:5px; padding:4px 8px; outline:none; width:100%; box-sizing:border-box; }
+  .prop-preset-name-inp:focus{ border-color:var(--accent); }
+  .prop-preset-save-btns{ display:flex; gap:5px; }
+  .prop-preset-save-ok{ flex:1; font-family:var(--sans); font-size:11.5px; font-weight:600; background:var(--accent); color:#fff; border:none; border-radius:5px; padding:4px; cursor:pointer; }
+  .prop-preset-save-ok:hover{ background:var(--accent-hover); }
+  .prop-preset-save-cancel{ font-family:var(--sans); font-size:11.5px; color:var(--ink-soft); background:none; border:1px solid var(--border); border-radius:5px; padding:4px 8px; cursor:pointer; }
   /* Inline form */
   .prop-inline-form{ display:flex; flex-direction:column; gap:6px; padding:2px 0 4px 0; }
   .prop-type-pills{ display:flex; gap:3px; flex-wrap:wrap; }
@@ -330,11 +346,7 @@
   .prop-inline-ok{ flex:1; font-family:var(--sans); font-size:11.5px; font-weight:600; background:var(--accent); color:#fff; border:none; border-radius:5px; padding:4px; cursor:pointer; }
   .prop-inline-ok:hover{ background:var(--accent-hover); }
   .prop-inline-cancel{ font-family:var(--sans); font-size:11.5px; color:var(--ink-soft); background:none; border:1px solid var(--border); border-radius:5px; padding:4px 8px; cursor:pointer; }
-  /* Empty state presets */
-  .prop-empty-state{ padding:4px 0 8px 0; }
-  .prop-quick-presets{ display:flex; gap:4px; flex-wrap:wrap; margin-top:8px; }
-  .prop-preset-chip{ font-family:var(--sans); font-size:10.5px; font-weight:500; color:var(--accent-hover); background:var(--accent-soft); border:none; border-radius:10px; padding:3px 9px; cursor:pointer; }
-  .prop-preset-chip:hover{ background:var(--accent); color:#fff; }
+  .prop-empty-state{ padding:4px 0 2px 0; }
 
   /* --- Canvas view --- */
   #canvasView{ flex:1; position:relative; overflow:hidden; background:var(--bg); }
@@ -590,6 +602,7 @@
       <span class="mark">Stacker</span>
       <span class="sub">note stack</span>
       <div class="brand-actions">
+        <button class="logout" id="dashboardBtn" title="대시보드">📊</button>
         <button class="logout" id="themeToggleBtn" title="다크 모드 전환">🌙</button>
         <button class="logout" id="logoutBtn">로그아웃</button>
       </div>
@@ -614,9 +627,7 @@
     <div class="tagrow" id="tagRow"></div>
     <div class="cardlist" id="cardList"></div>
     <div style="padding:0 14px 4px 14px;display:flex;flex-direction:column;gap:2px;">
-      <button class="logout" id="dashboardBtn" style="font-size:11px;text-align:left;">📊 대시보드</button>
       <button class="logout" id="paletteBtn" style="font-size:11px;text-align:left;">⚡ 빠른 전환 (Ctrl+P)</button>
-      <button class="logout" id="globalGraphBtn" style="font-size:11px;text-align:left;">🕸 전역 그래프</button>
       <button class="logout" id="trashBtn" style="font-size:11px;text-align:left;">🗑 휴지통 (<span id="trashCount">0</span>)</button>
     </div>
     <div class="synctag" id="syncTag"><span class="dot" id="syncDot"></span><span id="syncText">모든 기기와 자동 동기화됨</span></div>
@@ -825,6 +836,9 @@
     <div class="rp-section"><div class="rp-title">역링크</div><div id="backlinkList" class="rp-empty">이 카드를 가리키는 카드가 없습니다.</div></div>
     <div class="rp-section"><div class="rp-title">태그</div><div id="tagList" class="tag-list"><span class="rp-empty">태그 없음</span></div></div>
     <div class="rp-section"><div class="rp-title">연결 지도</div><svg class="graphmini" id="graphMini" viewBox="0 0 240 150"></svg></div>
+    <div style="position:sticky;bottom:-16px;margin:16px -16px -16px -16px;background:var(--bg-panel);border-top:1px solid var(--border-soft);padding:6px 16px;">
+      <button class="logout" id="globalGraphBtn" style="font-size:11px;text-align:left;width:100%;">🕸 전역 그래프</button>
+    </div>
   </div>
 </div>
 
@@ -2301,28 +2315,9 @@
   }
 
   // ---------------- properties ----------------
-  const PROP_PRESETS = {
-    '캐릭터': [
-      { name:'역할', type:'select', value:'', options:['주인공','조연','악당','엑스트라'] },
-      { name:'상태', type:'select', value:'기획', options:['기획','초고','완성'] },
-      { name:'소속', type:'text', value:'' }
-    ],
-    '씬': [
-      { name:'상태', type:'select', value:'기획', options:['기획','초고','완성'] },
-      { name:'막', type:'number', value:'' },
-      { name:'장소', type:'text', value:'' }
-    ],
-    '아이템': [
-      { name:'상태', type:'select', value:'기획', options:['기획','완성'] },
-      { name:'유형', type:'select', value:'', options:['무기','방어구','소비품','기타'] },
-      { name:'등급', type:'select', value:'', options:['일반','희귀','영웅','전설'] }
-    ],
-    '디자인': [
-      { name:'상태', type:'select', value:'초안', options:['초안','검토','확정'] },
-      { name:'유형', type:'select', value:'', options:['UI','그래픽','모션','기타'] },
-      { name:'담당', type:'text', value:'' }
-    ]
-  };
+  let userPresets = [];
+  function loadUserPresets(){ try{ userPresets=JSON.parse(localStorage.getItem('stacker-presets')||'[]'); }catch{ userPresets=[]; } }
+  function saveUserPresets(){ localStorage.setItem('stacker-presets', JSON.stringify(userPresets)); }
 
   function genPropId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 
@@ -2342,10 +2337,15 @@
   ];
   function propTypeIcon(type){ return (PROP_TYPE_META.find(m=>m.id===type)||{icon:'T'}).icon; }
 
-  let propAddState = { open:false, type:'text', presetOpen:false };
+  let propAddState = { open:false, type:'text', presetOpen:false, savingPreset:false };
 
-  async function applyPreset(presetName, note){
-    const presetProps = (PROP_PRESETS[presetName]||[]).map(p=>({...p, id:genPropId()}));
+  async function applyPreset(presetId, note){
+    const preset = userPresets.find(p=>p.id===presetId);
+    if(!preset) return;
+    const presetProps = preset.props.map(p=>({
+      ...p, id:genPropId(),
+      value: p.type==='checkbox' ? false : (p.type==='select' && p.options?.length ? p.options[0] : '')
+    }));
     note.properties = [...(note.properties||[]), ...presetProps];
     await savePropertiesOf(note.id, note.properties);
     renderPropertiesPane(note);
@@ -2364,52 +2364,100 @@
       addBtn.className = 'prop-add-btn';
       addBtn.innerHTML = '<span class="prop-plus">＋</span> 속성 추가';
       addBtn.onclick = () => {
-        propAddState.open = true; propAddState.type = 'text'; propAddState.presetOpen = false;
+        propAddState.open = true; propAddState.type = 'text';
+        propAddState.presetOpen = false; propAddState.savingPreset = false;
         renderPropAddRow(note);
         setTimeout(() => { const inp = addRow.querySelector('.prop-inline-name'); if(inp) inp.focus(); }, 0);
       };
 
-      const presetWrap = document.createElement('div');
-      presetWrap.className = 'prop-preset-wrap';
-
       const presetBtn = document.createElement('button');
-      presetBtn.className = 'prop-preset-btn';
-      presetBtn.textContent = '프리셋 ▾';
-      presetBtn.onclick = e => {
-        e.stopPropagation();
+      presetBtn.className = 'prop-preset-btn' + (propAddState.presetOpen ? ' active' : '');
+      presetBtn.textContent = propAddState.presetOpen ? '프리셋 ✕' : '프리셋 ▾';
+      presetBtn.onclick = () => {
         propAddState.presetOpen = !propAddState.presetOpen;
+        propAddState.savingPreset = false;
         renderPropAddRow(note);
       };
-      presetWrap.appendChild(presetBtn);
-
-      if(propAddState.presetOpen){
-        const dd = document.createElement('div');
-        dd.className = 'prop-preset-dropdown';
-        ['캐릭터','씬','아이템','디자인'].forEach(name => {
-          const item = document.createElement('button');
-          item.className = 'prop-preset-item';
-          item.textContent = name;
-          item.onclick = async e => {
-            e.stopPropagation();
-            propAddState.presetOpen = false;
-            await applyPreset(name, note);
-          };
-          dd.appendChild(item);
-        });
-        presetWrap.appendChild(dd);
-        setTimeout(() => {
-          document.addEventListener('click', function closeDd(){
-            propAddState.presetOpen = false;
-            const n = index.find(m=>m.id===currentId);
-            if(n) renderPropAddRow(n);
-            document.removeEventListener('click', closeDd);
-          }, { once:true });
-        }, 0);
-      }
 
       trigger.appendChild(addBtn);
-      trigger.appendChild(presetWrap);
+      trigger.appendChild(presetBtn);
       addRow.appendChild(trigger);
+
+      if(propAddState.presetOpen){
+        const panel = document.createElement('div');
+        panel.className = 'prop-preset-panel';
+
+        if(propAddState.savingPreset){
+          const saveForm = document.createElement('div');
+          saveForm.className = 'prop-preset-save-form';
+          const nameInp = document.createElement('input');
+          nameInp.className = 'prop-preset-name-inp';
+          nameInp.placeholder = '프리셋 이름';
+          nameInp.autocomplete = 'off';
+          const doSave = () => {
+            const n = nameInp.value.trim(); if(!n) return;
+            const cur = index.find(m=>m.id===currentId); if(!cur) return;
+            const props = (cur.properties||[]).filter(p=>p.id!=='__color').map(({name,type,options})=>({name,type,...(options?{options}:{})}));
+            if(!props.length) return;
+            userPresets.push({ id:genPropId(), name:n, props });
+            saveUserPresets();
+            propAddState.savingPreset = false;
+            renderPropAddRow(index.find(m=>m.id===currentId));
+          };
+          nameInp.onkeydown = e => {
+            if(e.key==='Enter') doSave();
+            if(e.key==='Escape'){ propAddState.savingPreset=false; renderPropAddRow(note); }
+          };
+          const saveBtns = document.createElement('div');
+          saveBtns.className = 'prop-preset-save-btns';
+          const saveOk = document.createElement('button');
+          saveOk.className = 'prop-preset-save-ok'; saveOk.textContent = '저장'; saveOk.onclick = doSave;
+          const saveCancel = document.createElement('button');
+          saveCancel.className = 'prop-preset-save-cancel'; saveCancel.textContent = '취소';
+          saveCancel.onclick = () => { propAddState.savingPreset=false; renderPropAddRow(note); };
+          saveBtns.appendChild(saveOk); saveBtns.appendChild(saveCancel);
+          saveForm.appendChild(nameInp); saveForm.appendChild(saveBtns);
+          panel.appendChild(saveForm);
+          setTimeout(() => nameInp.focus(), 0);
+        } else {
+          if(!userPresets.length){
+            const emptyMsg = document.createElement('div');
+            emptyMsg.className = 'prop-preset-empty-msg';
+            emptyMsg.textContent = '저장된 프리셋이 없습니다.';
+            panel.appendChild(emptyMsg);
+          } else {
+            userPresets.forEach(preset => {
+              const row = document.createElement('div');
+              row.className = 'prop-preset-row-item';
+              const applyBtn = document.createElement('button');
+              applyBtn.className = 'prop-preset-apply'; applyBtn.textContent = preset.name;
+              applyBtn.onclick = async () => {
+                propAddState.presetOpen = false;
+                await applyPreset(preset.id, note);
+              };
+              const delBtn = document.createElement('button');
+              delBtn.className = 'prop-preset-del-btn'; delBtn.innerHTML = '&times;';
+              delBtn.title = '프리셋 삭제';
+              delBtn.onclick = () => {
+                userPresets = userPresets.filter(p=>p.id!==preset.id);
+                saveUserPresets(); renderPropAddRow(note);
+              };
+              row.appendChild(applyBtn); row.appendChild(delBtn);
+              panel.appendChild(row);
+            });
+            panel.appendChild(Object.assign(document.createElement('div'), {className:'prop-preset-sep'}));
+          }
+          const currentProps = (note.properties||[]).filter(p=>p.id!=='__color');
+          if(currentProps.length){
+            const saveTrigger = document.createElement('button');
+            saveTrigger.className = 'prop-preset-save-trigger';
+            saveTrigger.textContent = '+ 현재 속성을 프리셋으로 저장';
+            saveTrigger.onclick = () => { propAddState.savingPreset=true; renderPropAddRow(note); };
+            panel.appendChild(saveTrigger);
+          }
+        }
+        addRow.appendChild(panel);
+      }
     } else {
       const form = document.createElement('div');
       form.className = 'prop-inline-form';
@@ -2490,18 +2538,7 @@
       empty.className = 'prop-empty-state';
       const msg = document.createElement('div');
       msg.className = 'rp-empty'; msg.textContent = '속성이 없습니다.';
-      const qpLabel = document.createElement('div');
-      qpLabel.style.cssText = 'font-size:10px;color:var(--ink-faint);margin-top:8px;margin-bottom:4px;';
-      qpLabel.textContent = '빠른 시작:';
-      const qpRow = document.createElement('div');
-      qpRow.className = 'prop-quick-presets';
-      ['캐릭터','씬','아이템','디자인'].forEach(name => {
-        const chip = document.createElement('button');
-        chip.className = 'prop-preset-chip'; chip.textContent = name;
-        chip.onclick = () => applyPreset(name, note);
-        qpRow.appendChild(chip);
-      });
-      empty.appendChild(msg); empty.appendChild(qpLabel); empty.appendChild(qpRow);
+      empty.appendChild(msg);
       propList.appendChild(empty);
       renderPropAddRow(note);
       return;
@@ -3759,6 +3796,7 @@
   });
 
   // ---------------- boot ----------------
+  loadUserPresets();
   async function boot(){
     const { data: { user } } = await sb.auth.getUser();
     if(user) setupRealtime(user.id);

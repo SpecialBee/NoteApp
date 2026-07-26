@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <title>Stacker</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -107,7 +109,9 @@
   .app.dashboard-mode { grid-template-columns: var(--sidebar-w, 280px) 5px minmax(0,1fr); }
   .app.dashboard-mode #resizeRight, .app.dashboard-mode #rightpane { display:none; }
   .app.trash-mode .searchwrap, .app.trash-mode .tagrow, .app.trash-mode .sortrow, .app.trash-mode #newBtn{ display:none; }
-  .app.trash-mode #backFromTrashBtn{ display:block !important; }
+  .app.trash-mode #trashActionRow{ display:flex !important; }
+  .app.trash-mode #resizeRight, .app.trash-mode #rightpane{ display:none; }
+  .app.trash-mode { grid-template-columns: var(--sidebar-w, 280px) 5px minmax(0,1fr); }
   .resize-handle{ cursor:col-resize; background:transparent; position:relative; z-index:5; }
   .resize-handle:hover, .resize-handle.dragging{ background:var(--accent-soft); }
   @media (max-width: 900px){ .app.ready{ grid-template-columns: 240px 1fr; } .rightpane{ display:none; } #resizeLeft, #resizeRight{ display:none; } }
@@ -579,7 +583,10 @@
         <button class="newbtn-item" id="newCanvasItem">🎨 캔버스 카드</button>
       </div>
     </div>
-    <button class="newbtn" id="backFromTrashBtn" style="display:none;background:var(--bg-card);color:var(--ink);border:1px solid var(--border);">← Stacker로 돌아가기</button>
+    <div id="trashActionRow" style="display:none; gap:6px; flex-direction:column;">
+      <button class="newbtn" id="backFromTrashBtn" style="background:var(--bg-card);color:var(--ink);border:1px solid var(--border);">← Stacker로 돌아가기</button>
+      <button class="newbtn" id="emptyTrashBtn" style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;">🗑 휴지통 전체 비우기</button>
+    </div>
     <div class="sortrow" id="sortRow">
       <button class="sortbtn" data-sort="updated">최근순</button>
       <button class="sortbtn" data-sort="title">제목순</button>
@@ -1686,6 +1693,7 @@
     computeAllTags();
     renderTagRow();
     renderCardList();
+    updateEmptyTrashBtn();
     refreshOpenNoteView();
     showToast('복원되었습니다');
   }
@@ -1695,7 +1703,25 @@
     trashCount.textContent = trashIndex.length;
     await hardDeleteRow(id);
     renderCardList();
+    updateEmptyTrashBtn();
     showToast('영구 삭제되었습니다');
+  }
+
+  function updateEmptyTrashBtn(){
+    const btn=el('emptyTrashBtn'); if(!btn) return;
+    btn.disabled=trashIndex.length===0;
+    btn.style.opacity=trashIndex.length===0?'0.4':'1';
+  }
+
+  async function emptyTrash(){
+    if(!trashIndex.length) return;
+    if(!confirm(`휴지통의 카드 ${trashIndex.length}개를 모두 영구 삭제할까요? 되돌릴 수 없습니다.`)) return;
+    const ids=[...trashIndex.map(m=>m.id)];
+    trashIndex=[]; trashCount.textContent=0;
+    renderCardList();
+    updateEmptyTrashBtn();
+    await Promise.all(ids.map(id=>hardDeleteRow(id)));
+    showToast(`${ids.length}개 카드가 영구 삭제되었습니다`);
   }
 
   function enterTrashView(){
@@ -1707,7 +1733,10 @@
     emptyMain.style.display = 'none';
     el('globalGraphView').style.display = 'none';
     el('dashboardView').style.display = 'none';
+    el('canvasEditorView').style.display = 'none';
+    el('canvasView').style.display = 'none';
     clearRightPane();
+    updateEmptyTrashBtn();
     renderCardList();
   }
 
@@ -1815,6 +1844,7 @@
   el('mobToggle').onclick = () => { appEl.classList.toggle('show-sidebar'); };
   el('trashBtn').onclick = async () => { await flushSave(); await loadTrash(); enterTrashView(); };
   el('backFromTrashBtn').onclick = () => exitTrashView();
+  el('emptyTrashBtn').onclick = () => emptyTrash();
 
   el('exportBtn').onclick = () => {
     const payload = index.map(m => ({ title:m.title, content:m.content, tags:m.tags, links:m.links, pinned:m.pinned, updated_at: new Date(m.updated).toISOString() }));
@@ -3659,9 +3689,7 @@ Stacker는 옵시디언처럼 [[마크다운]]과 카드 간 연결을 지원하
     computeAllTags();
     renderTagRow();
     renderCardList();
-    if(index.length && !currentId) {
-      // leave empty state until user clicks a card
-    }
+    if(!currentId) openDashboard();
   }
 
   // resume existing session on page load

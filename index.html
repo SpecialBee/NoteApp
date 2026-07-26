@@ -119,15 +119,15 @@
     #resizeLeft, #resizeRight{ display:none; }
   }
 
-  .sidebar{ background:var(--bg-panel); display:flex; flex-direction:column; border-right:1px solid var(--border); min-height:0; }
-  .brand{ padding:20px 18px 14px 18px; display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--border-soft); }
-  .brand .mark{ font-weight:800; font-size:18px; letter-spacing:0.2px; color:var(--ink); cursor:pointer; }
+  .sidebar{ background:var(--bg-panel); display:flex; flex-direction:column; border-right:1px solid var(--border); min-height:0; overflow:hidden; }
+  .brand{ padding:12px 14px 10px 14px; display:flex; align-items:center; gap:6px; border-bottom:1px solid var(--border-soft); flex-wrap:wrap; row-gap:4px; overflow:hidden; }
+  .brand .mark{ font-weight:800; font-size:17px; letter-spacing:0.2px; color:var(--ink); cursor:pointer; flex-shrink:0; }
   .brand .mark:hover{ color:var(--accent); }
-  .brand .sub{ font-size:10px; color:var(--ink-faint); letter-spacing:1.4px; text-transform:uppercase; }
-  .brand .spacer{ flex:1; }
-  .logout{ font-family:var(--sans); font-size:11px; font-weight:500; color:var(--ink-faint); cursor:pointer; background:none; border:none; padding:5px 7px; border-radius:6px; display:block; width:100%; text-align:left; }
+  .brand .sub{ font-size:10px; color:var(--ink-faint); letter-spacing:1.2px; text-transform:uppercase; flex-shrink:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+  .brand .spacer{ flex:1; min-width:4px; }
+  .logout{ font-family:var(--sans); font-size:11px; font-weight:500; color:var(--ink-faint); cursor:pointer; background:none; border:none; padding:5px 7px; border-radius:6px; display:block; width:100%; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .logout:hover{ color:var(--ink); background:var(--border-soft); }
-  .brand .logout{ display:inline; width:auto; }
+  .brand .logout{ display:inline; width:auto; flex-shrink:0; }
   .searchwrap{ padding:12px 14px 8px 14px; }
   .searchwrap input{ width:100%; background:var(--bg-card); border:1px solid var(--border); color:var(--ink); font-family:var(--sans); font-size:13px; padding:8px 10px; border-radius:8px; outline:none; }
   .searchwrap input:focus{ border-color:var(--accent); }
@@ -135,15 +135,15 @@
   .newbtn{ margin:6px 14px 10px 14px; background:var(--accent); color:#fff; font-family:var(--sans); font-weight:600; font-size:13px; border:none; border-radius:8px; padding:9px 10px; cursor:pointer; letter-spacing:0.1px; transition:background .15s ease, transform .1s ease; }
   .newbtn:hover{ background:var(--accent-hover); }
   .newbtn:active{ transform:scale(0.98); }
-  .sortrow{ display:flex; gap:4px; padding:0 14px 10px 14px; }
+  .sortrow{ display:flex; gap:4px; padding:0 14px 10px 14px; flex-wrap:wrap; }
   .sortbtn{ font-family:var(--sans); font-size:11px; font-weight:500; color:var(--ink-faint); background:none; border:1px solid var(--border); padding:4px 9px; border-radius:12px; cursor:pointer; }
   .sortbtn.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
   .tagrow{ display:flex; flex-wrap:wrap; gap:6px; padding:0 14px 10px 14px; }
   .tagchip{ font-family:var(--sans); font-size:11px; font-weight:500; color:var(--accent-hover); background:var(--accent-soft); border:1px solid transparent; padding:3px 9px; border-radius:12px; cursor:pointer; white-space:nowrap; }
   .tagchip.active{ background:var(--accent); color:#fff; }
-  .cardlist{ flex:1; overflow-y:auto; padding:4px 10px 16px 10px; display:flex; flex-direction:column; gap:5px; }
+  .cardlist{ flex:1; overflow-y:auto; padding:4px 8px 16px 8px; display:flex; flex-direction:column; gap:5px; min-width:0; }
   .cardlist.empty-state{ align-items:center; justify-content:center; text-align:center; color:var(--ink-faint); font-size:12.5px; padding:30px; line-height:1.7; }
-  .card-tab{ position:relative; background:var(--bg-card); color:var(--ink); border-radius:8px; padding:10px 12px 10px 12px; cursor:pointer; border:1px solid var(--border-soft); opacity:0; animation: fanin .3s ease forwards; transition: border-color .12s ease, background .12s ease; }
+  .card-tab{ position:relative; background:var(--bg-card); color:var(--ink); border-radius:8px; padding:10px 12px 10px 12px; cursor:pointer; border:1px solid var(--border-soft); opacity:0; animation: fanin .3s ease forwards; transition: border-color .12s ease, background .12s ease; min-width:0; overflow:hidden; }
   .card-tab:hover{ border-color:var(--accent); }
   .card-tab.active{ border-color:var(--accent); background:var(--accent-soft); }
   .card-tab .serial{ font-size:10px; color:var(--ink-faint); letter-spacing:0.3px; }
@@ -176,7 +176,7 @@
   .toolbar .spacer{ flex:1; min-width:4px; }
   .toolbar .pinbtn{ font-family:var(--sans); font-size:12px; font-weight:500; background:none; border:1px solid var(--border); color: var(--ink-soft); padding:5px 12px; border-radius:20px; cursor:pointer; transition:transform .1s ease; flex-shrink:0; white-space:nowrap; }
   .toolbar .pinbtn.pinned{ color:var(--accent); border-color:var(--accent); }
-  .cardsheet{ flex:1; overflow-y:auto; padding:30px 40px 60px 40px; min-height:0; }
+  .cardsheet{ flex:1; overflow-y:auto; padding:24px clamp(16px,6%,40px) 60px clamp(16px,6%,40px); min-height:0; }
   .cardsheet.fade-in{ animation: sheetFade .18s ease; }
   @keyframes sheetFade{ from{ opacity:0; transform:translateY(4px); } to{ opacity:1; transform:translateY(0); } }
   .titlefield{ width:100%; font-weight:800; font-size:28px; background:none; border:none; color:var(--ink); outline:none; font-family:var(--sans); }
@@ -222,7 +222,7 @@
   .emptymain button{ font-family:var(--sans); background:var(--accent); color:#fff; border:none; padding:9px 18px; border-radius:8px; cursor:pointer; font-weight:600; font-size:13px; }
   .emptymain button:hover{ background:var(--accent-hover); }
 
-  .rightpane{ background:var(--bg-panel); border-left:1px solid var(--border); padding:20px 16px; overflow-y:auto; min-height:0; }
+  .rightpane{ background:var(--bg-panel); border-left:1px solid var(--border); padding:16px clamp(10px,4%,20px); overflow-y:auto; min-height:0; }
   .rp-section{ margin-bottom:26px; }
   .rp-title{ font-size:10.5px; font-weight:600; letter-spacing:1.2px; text-transform:uppercase; color:var(--ink-faint); margin-bottom:10px; display:flex; align-items:center; gap:6px; }
   .rp-title::after{ content:''; flex:1; height:1px; background:var(--border); }
@@ -287,12 +287,12 @@
   .graph-canvas line.dim{ opacity:0.08; }
 
   /* --- Properties panel --- */
-  .prop-row{ display:flex; align-items:center; gap:6px; padding:5px 0; border-bottom:1px solid var(--border-soft); }
+  .prop-row{ display:flex; align-items:center; gap:6px; padding:5px 0; border-bottom:1px solid var(--border-soft); flex-wrap:wrap; }
   .prop-row:last-child{ border-bottom:none; }
-  .prop-name{ font-size:11.5px; font-weight:600; color:var(--ink-soft); min-width:60px; max-width:80px; flex-shrink:0; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .prop-name{ font-size:11.5px; font-weight:600; color:var(--ink-soft); min-width:52px; max-width:90px; flex-shrink:0; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .prop-name:hover{ color:var(--accent); }
   .prop-name-input{ font-family:var(--sans); font-size:11.5px; font-weight:600; color:var(--ink-soft); border:1px solid var(--accent); border-radius:4px; padding:1px 4px; width:72px; background:var(--bg); outline:none; }
-  .prop-value{ flex:1; min-width:0; }
+  .prop-value{ flex:1; min-width:80px; }
   .prop-input{ font-family:var(--sans); font-size:12px; color:var(--ink); background:var(--bg-card); border:1px solid var(--border); border-radius:5px; padding:3px 6px; width:100%; outline:none; box-sizing:border-box; }
   .prop-input:focus{ border-color:var(--accent); }
   .prop-select{ font-family:var(--sans); font-size:12px; color:var(--ink); background:var(--bg-card); border:1px solid var(--border); border-radius:5px; padding:3px 5px; width:100%; outline:none; cursor:pointer; }
@@ -2147,8 +2147,8 @@
   }
 
   loadPanelWidths();
-  setupResize(el('resizeLeft'), '--sidebar-w', 200, 460, false);
-  setupResize(el('resizeRight'), '--rightpane-w', 200, 460, true);
+  setupResize(el('resizeLeft'), '--sidebar-w', 180, 440, false);
+  setupResize(el('resizeRight'), '--rightpane-w', 180, 420, true);
 
   // ---------------- realtime ----------------
   function teardownRealtime(){

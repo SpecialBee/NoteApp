@@ -368,6 +368,20 @@
   .cev-link { stroke:var(--ink-soft); stroke-width:1.5; fill:none; }
   .cev-link.dashed { stroke-dasharray:6,4; }
   .cev-link-selected { stroke:var(--accent) !important; stroke-width:2.5 !important; }
+  /* Anchor connection points */
+  .cev-anchor {
+    position:absolute; width:12px; height:12px; border-radius:50%;
+    background:var(--accent); border:2px solid #fff;
+    box-shadow:0 0 0 1.5px var(--accent);
+    opacity:0; pointer-events:all; cursor:crosshair; z-index:30;
+    transition:opacity .12s, transform .1s;
+    transform:translate(-50%,-50%) scale(1);
+  }
+  .cev-el:hover > .cev-anchor { opacity:1; }
+  .cev-anchor:hover { transform:translate(-50%,-50%) scale(1.4); }
+  .cevInner-connecting .cev-anchor { opacity:1; }
+  .cev-drop-target { outline:2px solid var(--accent) !important; outline-offset:3px; }
+  .cev-temp-line { stroke:var(--accent); stroke-width:1.5; stroke-dasharray:6 4; fill:none; pointer-events:none; }
   /* new-card dropdown */
   .newbtn-wrap { position:relative; margin:0 14px 4px 14px; }
   .newbtn-wrap .newbtn { width:100%; margin:0; }
@@ -500,10 +514,9 @@
           <button class="cev-tool" data-tool="circle" title="원 (C)">○</button>
           <button class="cev-tool" data-tool="diamond" title="다이아몬드 (D)">◇</button>
           <button class="cev-tool" data-tool="text" title="텍스트 (T)">T</button>
-          <span class="cev-sep"></span>
-          <button class="cev-tool" data-tool="connect" title="연결선 (L)">⌒</button>
         </div>
-        <div class="cev-conn-types" id="cevConnTypes" style="display:none;">
+        <span class="cev-sep"></span>
+        <div class="cev-conn-types" id="cevConnTypes">
           <button class="cev-conn active" data-conn="arrow">→</button>
           <button class="cev-conn" data-conn="line">—</button>
           <button class="cev-conn" data-conn="dashed">╌</button>
@@ -2361,6 +2374,8 @@
   let cevSpaceDown = false;
   let cevSpacePanning = false;
   let cevSpacePanStart = null;
+  let cevConnDrawing = null; // { fromId, startX, startY }
+  let cevTempLine = null;
 
   function cevGenId(prefix){ return prefix + (++cevIdCounter) + '_' + Date.now().toString(36); }
   function isCanvasNote(note){ return (note.content||'').trimStart().startsWith('```canvas'); }
@@ -2482,6 +2497,35 @@
     });
   }
 
+  function cevAddAnchors(div, edata){
+    const positions=[
+      {side:'n',top:'0%',  left:'50%' },
+      {side:'s',top:'100%',left:'50%' },
+      {side:'w',top:'50%', left:'0%'  },
+      {side:'e',top:'50%', left:'100%'},
+    ];
+    positions.forEach(({side,top,left})=>{
+      const dot=document.createElement('div');
+      dot.className='cev-anchor'; dot.dataset.side=side;
+      dot.style.top=top; dot.style.left=left;
+      dot.addEventListener('mousedown',e=>{
+        e.stopPropagation(); e.preventDefault();
+        const canvasRect=el('cevCanvas').getBoundingClientRect();
+        const dotRect=dot.getBoundingClientRect();
+        const sx=(dotRect.left+dotRect.width/2-canvasRect.left-cevPanE.x)/cevZoom;
+        const sy=(dotRect.top+dotRect.height/2-canvasRect.top-cevPanE.y)/cevZoom;
+        cevConnDrawing={fromId:edata.id,startX:sx,startY:sy};
+        cevTempLine=document.createElementNS('http://www.w3.org/2000/svg','line');
+        cevTempLine.setAttribute('class','cev-temp-line');
+        cevTempLine.setAttribute('x1',sx); cevTempLine.setAttribute('y1',sy);
+        cevTempLine.setAttribute('x2',sx); cevTempLine.setAttribute('y2',sy);
+        el('cevSvg').appendChild(cevTempLine);
+        el('cevInner').classList.add('cevInner-connecting');
+      });
+      div.appendChild(dot);
+    });
+  }
+
   function cevUpdateElPos(edata){
     const div=el('cevInner').querySelector(`[data-elid="${edata.id}"]`); if(!div) return;
     if(edata.type==='circle'){ div.style.left=(edata.x-(edata.r||60))+'px'; div.style.top=(edata.y-(edata.r||60))+'px'; }
@@ -2569,20 +2613,10 @@
       if(e.target.contentEditable==='true') return;
       if(e.button!==0) return;
       e.stopPropagation(); cevDragMoved=false;
-      if(cevTool==='connect'){
-        if(!cevConnectingFrom){
-          cevConnectingFrom=edata.id;
-          el('cevInner').querySelector(`[data-elid="${edata.id}"]`)?.classList.add('connect-source');
-        } else if(cevConnectingFrom!==edata.id){
-          cevConnectors.push({id:cevGenId('c'),type:cevConnType,from:cevConnectingFrom,to:edata.id});
-          el('cevInner').querySelector(`[data-elid="${cevConnectingFrom}"]`)?.classList.remove('connect-source');
-          cevConnectingFrom=null; cevRebuildSvg(); cevSaveDebounced();
-        }
-        return;
-      }
       cevSelectElement(edata.id);
       cevMoving={id:edata.id,startMX:e.clientX,startMY:e.clientY,origX:edata.x,origY:edata.y};
     });
+    cevAddAnchors(div, edata);
     inner.appendChild(div);
   }
 
@@ -2644,7 +2678,6 @@
 
   function updateCevToolButtons(){
     document.querySelectorAll('.cev-tool').forEach(b=>b.classList.toggle('active',b.dataset.tool===cevTool));
-    const connArea=el('cevConnTypes'); if(connArea) connArea.style.display=cevTool==='connect'?'flex':'none';
   }
 
   document.querySelectorAll('.cev-tool').forEach(btn=>{
@@ -2663,8 +2696,8 @@
   el('cevCanvas').addEventListener('click',e=>{
     if(cevDragMoved) return;
     if(e.target.closest('.cev-el')) return;
-    if(cevTool==='select'||cevTool==='connect'){
-      cevSelectedConn=null; cevSelectElement(null); cevConnectingFrom=null; return;
+    if(cevTool==='select'){
+      cevSelectedConn=null; cevSelectElement(null); return;
     }
     const rect2=el('cevCanvas').getBoundingClientRect();
     const x=(e.clientX-rect2.left-cevPanE.x)/cevZoom,y=(e.clientY-rect2.top-cevPanE.y)/cevZoom;
@@ -2688,7 +2721,7 @@
     }
     const t=e.target;
     if(t===el('cevCanvas')||t===el('cevInner')||t.closest('svg')){
-      if(cevTool==='select'||cevTool==='connect'){
+      if(cevTool==='select'){
         cevPanningE=true; cevPanStartE={mx:e.clientX,my:e.clientY,px:cevPanE.x,py:cevPanE.y}; e.preventDefault();
       }
     }
@@ -2707,6 +2740,17 @@
       cevPanE.x=cevSpacePanStart.px+(e.clientX-cevSpacePanStart.mx);
       cevPanE.y=cevSpacePanStart.py+(e.clientY-cevSpacePanStart.my);
       cevApplyTransform(); return;
+    }
+    if(cevConnDrawing&&cevTempLine){
+      const cr=el('cevCanvas').getBoundingClientRect();
+      const mx=(e.clientX-cr.left-cevPanE.x)/cevZoom;
+      const my=(e.clientY-cr.top-cevPanE.y)/cevZoom;
+      cevTempLine.setAttribute('x2',mx); cevTempLine.setAttribute('y2',my);
+      el('cevInner').querySelectorAll('.cev-drop-target').forEach(d=>d.classList.remove('cev-drop-target'));
+      const tgt=document.elementFromPoint(e.clientX,e.clientY);
+      const tgtEl=tgt&&tgt.closest('[data-elid]');
+      if(tgtEl&&tgtEl.dataset.elid!==cevConnDrawing.fromId) tgtEl.classList.add('cev-drop-target');
+      return;
     }
     if(cevMoving){
       const dx=(e.clientX-cevMoving.startMX)/cevZoom,dy=(e.clientY-cevMoving.startMY)/cevZoom;
@@ -2732,7 +2776,19 @@
     }
   });
 
-  document.addEventListener('mouseup',()=>{
+  document.addEventListener('mouseup',e=>{
+    if(cevConnDrawing){
+      const tgt=document.elementFromPoint(e.clientX,e.clientY);
+      const tgtEl=tgt&&tgt.closest('[data-elid]');
+      if(tgtEl&&tgtEl.dataset.elid!==cevConnDrawing.fromId){
+        cevConnectors.push({id:cevGenId('c'),type:cevConnType,from:cevConnDrawing.fromId,to:tgtEl.dataset.elid});
+        cevRebuildSvg(); cevSaveDebounced();
+      }
+      if(cevTempLine){ cevTempLine.remove(); cevTempLine=null; }
+      el('cevInner').querySelectorAll('.cev-drop-target').forEach(d=>d.classList.remove('cev-drop-target'));
+      el('cevInner').classList.remove('cevInner-connecting');
+      cevConnDrawing=null; return;
+    }
     if(cevSpacePanning){ cevSpacePanning=false; if(cevSpaceDown) el('cevCanvas').style.cursor='grab'; }
     if(cevMoving||cevResizing){ cevSaveDebounced(); }
     cevMoving=null; cevResizing=null; cevPanningE=false; cevPanStartE=null;
@@ -2758,10 +2814,15 @@
     }
     if(e.target.tagName==='TEXTAREA'||e.target.contentEditable==='true') return;
     if(e.target.closest('input')) return;
-    const keys={v:'select',s:'sticky',r:'rect',c:'circle',d:'diamond',t:'text',l:'connect'};
+    const keys={v:'select',s:'sticky',r:'rect',c:'circle',d:'diamond',t:'text'};
     if(keys[e.key]){ cevTool=keys[e.key]; cevConnectingFrom=null; updateCevToolButtons(); }
     if(e.key==='Escape'){
-      if(cevConnectingFrom){ el('cevInner').querySelector(`[data-elid="${cevConnectingFrom}"]`)?.classList.remove('connect-source'); cevConnectingFrom=null; }
+      if(cevConnDrawing){
+        if(cevTempLine){ cevTempLine.remove(); cevTempLine=null; }
+        el('cevInner').querySelectorAll('.cev-drop-target').forEach(d=>d.classList.remove('cev-drop-target'));
+        el('cevInner').classList.remove('cevInner-connecting');
+        cevConnDrawing=null;
+      }
       cevSelectElement(null); cevSelectedConn=null; cevRebuildSvg();
       if(cevTool!=='select'){ cevTool='select'; updateCevToolButtons(); }
     }

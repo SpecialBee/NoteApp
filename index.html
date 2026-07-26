@@ -720,7 +720,6 @@
         <button class="logout" id="dashboardBtn" style="font-weight:700;">대시보드</button>
         <button class="logout" id="themeToggleBtn" title="다크 모드 전환">🌙</button>
         <button class="logout" id="logoutBtn">로그아웃</button>
-        <button class="logout" id="sidebarToggleBtn" title="사이드바 접기" style="margin-left:auto;">‹</button>
       </div>
     </div>
     <div class="searchwrap"><input id="searchInput" type="text" placeholder="검색 (제목·본문·태그)"></div>
@@ -983,7 +982,6 @@
 
 <div class="toast" id="toast"></div>
 
-<button class="panel-show-tab left" id="sidebarShowTab" title="사이드바 열기">›</button>
 <button class="panel-show-tab right" id="rightpaneShowTab" title="패널 열기">‹</button>
 
 <div id="canvasCtxBar">
@@ -2168,17 +2166,11 @@
     applyPanelState();
   }
 
-  // ---------------- panel collapse ----------------
-  let sidebarCollapsed   = localStorage.getItem('stk-sl') === '1';
+  // ---------------- panel collapse (right panel only; left sidebar is always shown) ----------------
   let rightpaneCollapsed = localStorage.getItem('stk-rl') === '1';
 
   function applyPanelState(){
     const rpApplicable = !!(VIEW_DEF[currentView] && VIEW_DEF[currentView].rightpane);
-
-    // Sidebar (applies to every view)
-    el('sidebar').style.display        = sidebarCollapsed ? 'none' : '';
-    el('resizeLeft').style.display     = sidebarCollapsed ? 'none' : '';
-    el('sidebarShowTab').style.display = sidebarCollapsed ? 'flex' : 'none';
 
     // Rightpane: only exists for views that declare it; user collapse is remembered
     const rHidden = !rpApplicable || rightpaneCollapsed;
@@ -2188,23 +2180,19 @@
     el('rightpaneToggleBtn').style.display = rpApplicable ? '' : 'none';
 
     // Grid template (inline style is the single authority; overrides any CSS class rules)
-    const sw = sidebarCollapsed ? '0px' : 'var(--sidebar-w, 280px)';
-    const sr = sidebarCollapsed ? '0px' : '5px';
+    const sw = 'var(--sidebar-w, 280px)';
     if(!rpApplicable){
-      appEl.style.gridTemplateColumns = `${sw} ${sr} minmax(0,1fr)`;
+      appEl.style.gridTemplateColumns = `${sw} 5px minmax(0,1fr)`;
     } else {
       const rw = rHidden ? '0px' : 'var(--rightpane-w, 260px)';
       const rr = rHidden ? '0px' : '5px';
-      appEl.style.gridTemplateColumns = `${sw} ${sr} minmax(0,1fr) ${rr} ${rw}`;
+      appEl.style.gridTemplateColumns = `${sw} 5px minmax(0,1fr) ${rr} ${rw}`;
     }
 
-    localStorage.setItem('stk-sl', sidebarCollapsed ? '1' : '0');
     localStorage.setItem('stk-rl', rightpaneCollapsed ? '1' : '0');
   }
 
-  el('sidebarToggleBtn').onclick = () => { sidebarCollapsed = !sidebarCollapsed; applyPanelState(); };
   el('rightpaneToggleBtn').onclick = () => { rightpaneCollapsed = !rightpaneCollapsed; applyPanelState(); };
-  el('sidebarShowTab').onclick = () => { sidebarCollapsed = false; applyPanelState(); };
   el('rightpaneShowTab').onclick = () => { rightpaneCollapsed = false; applyPanelState(); };
 
   // ---------------- global connection graph ----------------

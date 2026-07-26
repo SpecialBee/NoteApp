@@ -291,30 +291,49 @@
   .graph-canvas line.dim{ opacity:0.08; }
 
   /* --- Properties panel --- */
-  .prop-row{ display:flex; align-items:center; gap:6px; padding:5px 0; border-bottom:1px solid var(--border-soft); flex-wrap:wrap; }
+  .prop-row{ display:grid; grid-template-columns:92px 1fr 18px; align-items:stretch; border-bottom:1px solid var(--border-soft); min-height:30px; }
   .prop-row:last-child{ border-bottom:none; }
-  .prop-name{ font-size:11.5px; font-weight:600; color:var(--ink-soft); min-width:52px; max-width:90px; flex-shrink:0; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .prop-name:hover{ color:var(--accent); }
-  .prop-name-input{ font-family:var(--sans); font-size:11.5px; font-weight:600; color:var(--ink-soft); border:1px solid var(--accent); border-radius:4px; padding:1px 4px; width:72px; background:var(--bg); outline:none; }
-  .prop-value{ flex:1; min-width:80px; }
-  .prop-input{ font-family:var(--sans); font-size:12px; color:var(--ink); background:var(--bg-card); border:1px solid var(--border); border-radius:5px; padding:3px 6px; width:100%; outline:none; box-sizing:border-box; }
-  .prop-input:focus{ border-color:var(--accent); }
-  .prop-select{ font-family:var(--sans); font-size:12px; color:var(--ink); background:var(--bg-card); border:1px solid var(--border); border-radius:5px; padding:3px 5px; width:100%; outline:none; cursor:pointer; }
-  .prop-select:focus{ border-color:var(--accent); }
-  .prop-del{ font-family:var(--sans); font-size:14px; line-height:1; color:var(--ink-faint); background:none; border:none; cursor:pointer; padding:0 2px; flex-shrink:0; }
+  .prop-row:hover .prop-del{ opacity:1; }
+  .prop-name-cell{ display:flex; align-items:center; gap:4px; padding:5px 6px 5px 0; border-right:1px solid var(--border-soft); cursor:pointer; min-width:0; overflow:hidden; }
+  .prop-name-cell:hover .prop-name{ color:var(--accent); }
+  .prop-type-icon{ font-size:9px; font-weight:700; color:var(--ink-faint); min-width:13px; text-align:center; flex-shrink:0; line-height:1; }
+  .prop-name{ font-size:11.5px; font-weight:600; color:var(--ink-soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1; min-width:0; }
+  .prop-name-edit{ font-family:var(--sans); font-size:11.5px; font-weight:600; color:var(--ink); border:none; border-bottom:1.5px solid var(--accent); background:transparent; outline:none; width:100%; padding:1px 2px; }
+  .prop-val-cell{ display:flex; align-items:center; padding:4px 7px; min-width:0; overflow:hidden; }
+  .prop-input{ font-family:var(--sans); font-size:12px; color:var(--ink); background:transparent; border:none; outline:none; width:100%; padding:0; }
+  .prop-input::placeholder{ color:var(--ink-faint); }
+  .prop-select{ font-family:var(--sans); font-size:12px; color:var(--ink); background:transparent; border:none; outline:none; width:100%; cursor:pointer; padding:0; max-width:100%; }
+  .prop-checkbox{ width:14px; height:14px; cursor:pointer; accent-color:var(--accent); flex-shrink:0; }
+  .prop-del{ opacity:0; font-size:13px; line-height:1; color:var(--ink-faint); background:none; border:none; cursor:pointer; padding:0 2px; align-self:center; transition:opacity .1s; }
   .prop-del:hover{ color:var(--danger); }
-  .prop-add-btn{ font-family:var(--sans); font-size:14px; font-weight:700; line-height:1; color:var(--accent); background:none; border:none; cursor:pointer; padding:0 2px; flex-shrink:0; }
-  .prop-add-btn:hover{ color:var(--accent-hover); }
-  .prop-form{ padding:8px 0 4px 0; display:flex; flex-direction:column; gap:6px; }
-  .prop-form input, .prop-form select{ font-family:var(--sans); font-size:12px; color:var(--ink); background:var(--bg-card); border:1px solid var(--border); border-radius:5px; padding:5px 8px; width:100%; outline:none; box-sizing:border-box; }
-  .prop-form input:focus, .prop-form select:focus{ border-color:var(--accent); }
-  .prop-form-btns{ display:flex; gap:6px; }
-  .prop-form-btns button{ flex:1; font-family:var(--sans); font-size:12px; font-weight:600; padding:5px; border-radius:6px; cursor:pointer; border:none; }
-  .prop-confirm-btn{ background:var(--accent); color:#fff; }
-  .prop-confirm-btn:hover{ background:var(--accent-hover); }
-  .prop-cancel-btn{ background:var(--bg-card); color:var(--ink-soft); border:1px solid var(--border) !important; }
-  .prop-preset-row{ display:flex; gap:4px; flex-wrap:wrap; align-items:center; }
-  .prop-preset-chip{ font-family:var(--sans); font-size:10.5px; font-weight:500; color:var(--accent-hover); background:var(--accent-soft); border:none; border-radius:10px; padding:3px 8px; cursor:pointer; }
+  /* Add row */
+  .prop-add-row{ padding:7px 0 2px 0; }
+  .prop-add-trigger{ display:flex; align-items:center; justify-content:space-between; position:relative; }
+  .prop-add-btn{ font-family:var(--sans); font-size:11.5px; color:var(--ink-faint); background:none; border:none; cursor:pointer; padding:3px 0; display:flex; align-items:center; gap:3px; }
+  .prop-add-btn:hover{ color:var(--accent); }
+  .prop-plus{ font-size:14px; font-weight:700; line-height:1; }
+  .prop-preset-btn{ font-family:var(--sans); font-size:10px; font-weight:600; color:var(--ink-faint); background:none; border:1px solid var(--border); border-radius:5px; padding:2px 7px; cursor:pointer; }
+  .prop-preset-btn:hover{ color:var(--accent); border-color:var(--accent); }
+  .prop-preset-wrap{ position:relative; }
+  .prop-preset-dropdown{ position:absolute; right:0; bottom:calc(100% + 4px); background:var(--bg-panel); border:1px solid var(--border); border-radius:8px; padding:5px; display:flex; flex-direction:column; gap:2px; z-index:100; min-width:80px; box-shadow:0 4px 12px rgba(0,0,0,.14); }
+  .prop-preset-item{ font-family:var(--sans); font-size:11.5px; color:var(--ink); background:none; border:none; cursor:pointer; padding:4px 9px; text-align:left; border-radius:5px; white-space:nowrap; }
+  .prop-preset-item:hover{ background:var(--accent-soft); color:var(--accent); }
+  /* Inline form */
+  .prop-inline-form{ display:flex; flex-direction:column; gap:6px; padding:2px 0 4px 0; }
+  .prop-type-pills{ display:flex; gap:3px; flex-wrap:wrap; }
+  .prop-type-pill{ font-family:var(--sans); font-size:10px; font-weight:600; color:var(--ink-soft); background:var(--bg-card); border:1.5px solid var(--border); border-radius:5px; padding:2px 6px; cursor:pointer; white-space:nowrap; }
+  .prop-type-pill:hover,.prop-type-pill.active{ border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
+  .prop-inline-name,.prop-inline-options{ font-family:var(--sans); font-size:12px; color:var(--ink); background:var(--bg-card); border:1px solid var(--border); border-radius:5px; padding:4px 8px; outline:none; width:100%; box-sizing:border-box; }
+  .prop-inline-options{ font-size:11px; padding:3px 8px; }
+  .prop-inline-name:focus,.prop-inline-options:focus{ border-color:var(--accent); }
+  .prop-inline-btns{ display:flex; gap:5px; }
+  .prop-inline-ok{ flex:1; font-family:var(--sans); font-size:11.5px; font-weight:600; background:var(--accent); color:#fff; border:none; border-radius:5px; padding:4px; cursor:pointer; }
+  .prop-inline-ok:hover{ background:var(--accent-hover); }
+  .prop-inline-cancel{ font-family:var(--sans); font-size:11.5px; color:var(--ink-soft); background:none; border:1px solid var(--border); border-radius:5px; padding:4px 8px; cursor:pointer; }
+  /* Empty state presets */
+  .prop-empty-state{ padding:4px 0 8px 0; }
+  .prop-quick-presets{ display:flex; gap:4px; flex-wrap:wrap; margin-top:8px; }
+  .prop-preset-chip{ font-family:var(--sans); font-size:10.5px; font-weight:500; color:var(--accent-hover); background:var(--accent-soft); border:none; border-radius:10px; padding:3px 9px; cursor:pointer; }
   .prop-preset-chip:hover{ background:var(--accent); color:#fff; }
 
   /* --- Canvas view --- */
@@ -799,30 +818,9 @@
 
   <div class="rightpane" id="rightpane">
     <div class="rp-section" id="propSection" style="display:none;">
-      <div class="rp-title">속성 <button class="prop-add-btn" id="addPropBtn" title="속성 추가">＋</button></div>
+      <div class="rp-title">속성</div>
       <div id="propList"></div>
-      <div class="prop-form" id="propForm" style="display:none;">
-        <input id="propNameInput" placeholder="속성 이름" autocomplete="off" />
-        <select id="propTypeSelect">
-          <option value="text">텍스트</option>
-          <option value="select">선택목록</option>
-          <option value="number">숫자</option>
-          <option value="date">날짜</option>
-          <option value="checkbox">체크박스</option>
-        </select>
-        <input id="propOptionsInput" placeholder="옵션1, 옵션2, 옵션3" autocomplete="off" style="display:none;" />
-        <div class="prop-preset-row">
-          <span style="font-size:10px;color:var(--ink-faint);">프리셋:</span>
-          <button class="prop-preset-chip" data-preset="캐릭터">캐릭터</button>
-          <button class="prop-preset-chip" data-preset="씬">씬</button>
-          <button class="prop-preset-chip" data-preset="아이템">아이템</button>
-          <button class="prop-preset-chip" data-preset="디자인">디자인</button>
-        </div>
-        <div class="prop-form-btns">
-          <button class="prop-confirm-btn" id="propConfirmBtn">추가</button>
-          <button class="prop-cancel-btn" id="propCancelBtn">취소</button>
-        </div>
-      </div>
+      <div id="propAddRow"></div>
     </div>
     <div class="rp-section"><div class="rp-title">역링크</div><div id="backlinkList" class="rp-empty">이 카드를 가리키는 카드가 없습니다.</div></div>
     <div class="rp-section"><div class="rp-title">태그</div><div id="tagList" class="tag-list"><span class="rp-empty">태그 없음</span></div></div>
@@ -2335,126 +2333,259 @@
     await updateNote(note);
   }
 
+  const PROP_TYPE_META = [
+    { id:'text',     icon:'T',  label:'텍스트' },
+    { id:'number',   icon:'#',  label:'숫자' },
+    { id:'date',     icon:'📅', label:'날짜' },
+    { id:'select',   icon:'◉',  label:'선택' },
+    { id:'checkbox', icon:'☑',  label:'체크' },
+  ];
+  function propTypeIcon(type){ return (PROP_TYPE_META.find(m=>m.id===type)||{icon:'T'}).icon; }
+
+  let propAddState = { open:false, type:'text', presetOpen:false };
+
+  async function applyPreset(presetName, note){
+    const presetProps = (PROP_PRESETS[presetName]||[]).map(p=>({...p, id:genPropId()}));
+    note.properties = [...(note.properties||[]), ...presetProps];
+    await savePropertiesOf(note.id, note.properties);
+    renderPropertiesPane(note);
+  }
+
+  function renderPropAddRow(note){
+    const addRow = el('propAddRow');
+    if(!addRow || !note) return;
+    addRow.innerHTML = '';
+
+    if(!propAddState.open){
+      const trigger = document.createElement('div');
+      trigger.className = 'prop-add-trigger';
+
+      const addBtn = document.createElement('button');
+      addBtn.className = 'prop-add-btn';
+      addBtn.innerHTML = '<span class="prop-plus">＋</span> 속성 추가';
+      addBtn.onclick = () => {
+        propAddState.open = true; propAddState.type = 'text'; propAddState.presetOpen = false;
+        renderPropAddRow(note);
+        setTimeout(() => { const inp = addRow.querySelector('.prop-inline-name'); if(inp) inp.focus(); }, 0);
+      };
+
+      const presetWrap = document.createElement('div');
+      presetWrap.className = 'prop-preset-wrap';
+
+      const presetBtn = document.createElement('button');
+      presetBtn.className = 'prop-preset-btn';
+      presetBtn.textContent = '프리셋 ▾';
+      presetBtn.onclick = e => {
+        e.stopPropagation();
+        propAddState.presetOpen = !propAddState.presetOpen;
+        renderPropAddRow(note);
+      };
+      presetWrap.appendChild(presetBtn);
+
+      if(propAddState.presetOpen){
+        const dd = document.createElement('div');
+        dd.className = 'prop-preset-dropdown';
+        ['캐릭터','씬','아이템','디자인'].forEach(name => {
+          const item = document.createElement('button');
+          item.className = 'prop-preset-item';
+          item.textContent = name;
+          item.onclick = async e => {
+            e.stopPropagation();
+            propAddState.presetOpen = false;
+            await applyPreset(name, note);
+          };
+          dd.appendChild(item);
+        });
+        presetWrap.appendChild(dd);
+        setTimeout(() => {
+          document.addEventListener('click', function closeDd(){
+            propAddState.presetOpen = false;
+            const n = index.find(m=>m.id===currentId);
+            if(n) renderPropAddRow(n);
+            document.removeEventListener('click', closeDd);
+          }, { once:true });
+        }, 0);
+      }
+
+      trigger.appendChild(addBtn);
+      trigger.appendChild(presetWrap);
+      addRow.appendChild(trigger);
+    } else {
+      const form = document.createElement('div');
+      form.className = 'prop-inline-form';
+
+      const pillsRow = document.createElement('div');
+      pillsRow.className = 'prop-type-pills';
+      PROP_TYPE_META.forEach(t => {
+        const pill = document.createElement('button');
+        pill.className = 'prop-type-pill' + (propAddState.type===t.id ? ' active' : '');
+        pill.textContent = t.icon + ' ' + t.label;
+        pill.onclick = () => {
+          propAddState.type = t.id;
+          renderPropAddRow(note);
+          setTimeout(() => { const inp = addRow.querySelector('.prop-inline-name'); if(inp) inp.focus(); }, 0);
+        };
+        pillsRow.appendChild(pill);
+      });
+      form.appendChild(pillsRow);
+
+      const nameInp = document.createElement('input');
+      nameInp.className = 'prop-inline-name';
+      nameInp.placeholder = '속성 이름';
+      nameInp.autocomplete = 'off';
+      form.appendChild(nameInp);
+
+      let optInp = null;
+      if(propAddState.type === 'select'){
+        optInp = document.createElement('input');
+        optInp.className = 'prop-inline-options';
+        optInp.placeholder = '옵션1, 옵션2, 옵션3';
+        optInp.autocomplete = 'off';
+        form.appendChild(optInp);
+      }
+
+      const doConfirm = async () => {
+        if(!currentId) return;
+        const note2 = index.find(m=>m.id===currentId);
+        if(!note2) return;
+        const name = nameInp.value.trim() || '속성';
+        const type = propAddState.type;
+        const options = (type==='select' && optInp) ? optInp.value.split(',').map(s=>s.trim()).filter(Boolean) : undefined;
+        const defaultVal = type==='checkbox' ? false : (type==='select' && options?.length ? options[0] : '');
+        const prop = { id:genPropId(), name, type, value:defaultVal, ...(options ? {options} : {}) };
+        note2.properties = [...(note2.properties||[]), prop];
+        await savePropertiesOf(note2.id, note2.properties);
+        propAddState.open = false;
+        renderPropertiesPane(note2);
+      };
+      nameInp.onkeydown = e => {
+        if(e.key==='Enter') doConfirm();
+        if(e.key==='Escape'){ propAddState.open=false; renderPropAddRow(note); }
+      };
+
+      const btns = document.createElement('div');
+      btns.className = 'prop-inline-btns';
+      const okBtn = document.createElement('button');
+      okBtn.className = 'prop-inline-ok'; okBtn.textContent = '추가'; okBtn.onclick = doConfirm;
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'prop-inline-cancel'; cancelBtn.textContent = '취소';
+      cancelBtn.onclick = () => { propAddState.open=false; renderPropAddRow(note); };
+      btns.appendChild(okBtn); btns.appendChild(cancelBtn);
+      form.appendChild(btns);
+
+      addRow.appendChild(form);
+    }
+  }
+
   function renderPropertiesPane(note){
     const propList = el('propList');
     if(!propList) return;
     propList.innerHTML = '';
-    const props = note.properties || [];
+    propAddState.open = false;
+    propAddState.presetOpen = false;
+    const props = (note.properties||[]).filter(p=>p.id!=='__color');
+
     if(!props.length){
       const empty = document.createElement('div');
-      empty.className = 'rp-empty';
-      empty.textContent = '속성 없음';
+      empty.className = 'prop-empty-state';
+      const msg = document.createElement('div');
+      msg.className = 'rp-empty'; msg.textContent = '속성이 없습니다.';
+      const qpLabel = document.createElement('div');
+      qpLabel.style.cssText = 'font-size:10px;color:var(--ink-faint);margin-top:8px;margin-bottom:4px;';
+      qpLabel.textContent = '빠른 시작:';
+      const qpRow = document.createElement('div');
+      qpRow.className = 'prop-quick-presets';
+      ['캐릭터','씬','아이템','디자인'].forEach(name => {
+        const chip = document.createElement('button');
+        chip.className = 'prop-preset-chip'; chip.textContent = name;
+        chip.onclick = () => applyPreset(name, note);
+        qpRow.appendChild(chip);
+      });
+      empty.appendChild(msg); empty.appendChild(qpLabel); empty.appendChild(qpRow);
       propList.appendChild(empty);
+      renderPropAddRow(note);
       return;
     }
+
     props.forEach(prop => {
       const row = document.createElement('div');
       row.className = 'prop-row';
+
+      // Name cell
+      const nameCell = document.createElement('div');
+      nameCell.className = 'prop-name-cell';
+      nameCell.title = '클릭하여 이름 수정';
+      const icon = document.createElement('span');
+      icon.className = 'prop-type-icon'; icon.textContent = propTypeIcon(prop.type);
       const nameSpan = document.createElement('span');
-      nameSpan.className = 'prop-name';
-      nameSpan.textContent = prop.name;
-      nameSpan.title = '클릭하여 이름 수정';
-      nameSpan.onclick = () => {
+      nameSpan.className = 'prop-name'; nameSpan.textContent = prop.name;
+      nameCell.appendChild(icon); nameCell.appendChild(nameSpan);
+      nameCell.onclick = () => {
         const inp = document.createElement('input');
-        inp.className = 'prop-name-input';
-        inp.value = prop.name;
+        inp.className = 'prop-name-edit'; inp.value = prop.name;
+        inp.onclick = e => e.stopPropagation();
         inp.onblur = async () => {
           const v = inp.value.trim();
-          if(v && v !== prop.name){ prop.name = v; await savePropertiesOf(note.id, note.properties); }
+          if(v && v!==prop.name){ prop.name=v; await savePropertiesOf(note.id, note.properties); }
           renderPropertiesPane(note);
         };
-        inp.onkeydown = e => { if(e.key==='Enter') inp.blur(); if(e.key==='Escape'){ inp.value=prop.name; inp.blur(); } };
-        nameSpan.replaceWith(inp); inp.focus(); inp.select();
+        inp.onkeydown = e => {
+          if(e.key==='Enter') inp.blur();
+          if(e.key==='Escape'){ inp.value=prop.name; inp.blur(); }
+        };
+        nameCell.innerHTML=''; nameCell.appendChild(icon); nameCell.appendChild(inp);
+        inp.focus(); inp.select();
       };
-      const valWrap = document.createElement('span');
-      valWrap.className = 'prop-value';
-      if(prop.type === 'checkbox'){
+
+      // Value cell
+      const valCell = document.createElement('div');
+      valCell.className = 'prop-val-cell';
+      if(prop.type==='checkbox'){
         const cb = document.createElement('input');
-        cb.type = 'checkbox'; cb.checked = !!prop.value;
-        cb.onchange = async () => { prop.value = cb.checked; await savePropertiesOf(note.id, note.properties); };
-        valWrap.appendChild(cb);
-      } else if(prop.type === 'select'){
+        cb.type='checkbox'; cb.checked=!!prop.value; cb.className='prop-checkbox';
+        cb.onchange = async () => { prop.value=cb.checked; await savePropertiesOf(note.id, note.properties); };
+        valCell.appendChild(cb);
+      } else if(prop.type==='select'){
         const sel = document.createElement('select');
-        sel.className = 'prop-select';
+        sel.className='prop-select';
         (prop.options||[]).forEach(opt => {
           const o = document.createElement('option');
-          o.value = opt; o.textContent = opt;
-          if(opt === prop.value) o.selected = true;
+          o.value=opt; o.textContent=opt; if(opt===prop.value) o.selected=true;
           sel.appendChild(o);
         });
-        sel.onchange = async () => { prop.value = sel.value; await savePropertiesOf(note.id, note.properties); };
-        valWrap.appendChild(sel);
+        sel.onchange = async () => { prop.value=sel.value; await savePropertiesOf(note.id, note.properties); };
+        valCell.appendChild(sel);
       } else {
         const inp = document.createElement('input');
-        inp.className = 'prop-input';
-        inp.type = prop.type === 'number' ? 'number' : (prop.type === 'date' ? 'date' : 'text');
-        inp.value = prop.value ?? '';
-        inp.placeholder = '값 입력';
+        inp.className='prop-input';
+        inp.type = prop.type==='number' ? 'number' : (prop.type==='date' ? 'date' : 'text');
+        inp.value = prop.value ?? ''; inp.placeholder='—';
         let saveT;
         inp.oninput = () => {
           clearTimeout(saveT);
           saveT = setTimeout(async () => {
-            prop.value = prop.type === 'number' ? (inp.value === '' ? '' : parseFloat(inp.value)) : inp.value;
+            prop.value = prop.type==='number' ? (inp.value==='' ? '' : parseFloat(inp.value)) : inp.value;
             await savePropertiesOf(note.id, note.properties);
           }, 500);
         };
-        valWrap.appendChild(inp);
+        valCell.appendChild(inp);
       }
+
+      // Delete (hover-only)
       const delBtn = document.createElement('button');
-      delBtn.className = 'prop-del'; delBtn.textContent = '×'; delBtn.title = '속성 삭제';
+      delBtn.className='prop-del'; delBtn.innerHTML='&times;'; delBtn.title='속성 삭제';
       delBtn.onclick = async () => {
-        note.properties = note.properties.filter(p => p.id !== prop.id);
+        note.properties = note.properties.filter(p=>p.id!==prop.id);
         await savePropertiesOf(note.id, note.properties);
         renderPropertiesPane(note);
       };
-      row.appendChild(nameSpan);
-      row.appendChild(valWrap);
-      row.appendChild(delBtn);
+
+      row.appendChild(nameCell); row.appendChild(valCell); row.appendChild(delBtn);
       propList.appendChild(row);
     });
-  }
 
-  function setupPropForm(){
-    const form = el('propForm');
-    const nameInp = el('propNameInput');
-    const typeSelect = el('propTypeSelect');
-    const optionsInp = el('propOptionsInput');
-    el('addPropBtn').onclick = () => {
-      form.style.display = form.style.display === 'none' ? 'block' : 'none';
-      if(form.style.display !== 'none'){ nameInp.value=''; typeSelect.value='text'; optionsInp.style.display='none'; optionsInp.value=''; nameInp.focus(); }
-    };
-    typeSelect.onchange = () => { optionsInp.style.display = typeSelect.value === 'select' ? 'block' : 'none'; };
-    el('propCancelBtn').onclick = () => { form.style.display = 'none'; };
-    el('propConfirmBtn').onclick = async () => {
-      if(!currentId) return;
-      const note = index.find(m => m.id === currentId);
-      if(!note) return;
-      const name = nameInp.value.trim() || '속성';
-      const type = typeSelect.value;
-      const options = type === 'select' ? optionsInp.value.split(',').map(s=>s.trim()).filter(Boolean) : undefined;
-      const defaultVal = type==='checkbox' ? false : (type==='select' && options?.length ? options[0] : '');
-      const prop = { id: genPropId(), name, type, value: defaultVal, ...(options ? { options } : {}) };
-      note.properties = [...(note.properties||[]), prop];
-      await savePropertiesOf(note.id, note.properties);
-      renderPropertiesPane(note);
-      form.style.display = 'none';
-    };
-    nameInp.onkeydown = e => { if(e.key==='Enter') el('propConfirmBtn').click(); };
-    document.querySelectorAll('.prop-preset-chip').forEach(chip => {
-      chip.onclick = async () => {
-        if(!currentId) return;
-        const note = index.find(m => m.id === currentId);
-        if(!note) return;
-        const presetProps = (PROP_PRESETS[chip.dataset.preset]||[]).map(p => ({ ...p, id: genPropId() }));
-        note.properties = [...(note.properties||[]), ...presetProps];
-        await savePropertiesOf(note.id, note.properties);
-        renderPropertiesPane(note);
-        form.style.display = 'none';
-      };
-    });
+    renderPropAddRow(note);
   }
-
-  setupPropForm();
 
   // ---------------- canvas ----------------
   function getCanvasPositions(){

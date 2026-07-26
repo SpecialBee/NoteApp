@@ -5161,11 +5161,15 @@
     return streak;
   }
 
+  // local (not UTC) YYYY-MM-DD key — activity must bucket by the user's own day,
+  // otherwise KST early-morning activity lands on the previous UTC day
+  function localDateKey(dLike){ const d=new Date(dLike); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+
   function dashComputeHeatmap(){
     const counts={};
     index.forEach(n=>{
       if(n.deletedAt) return;
-      const add=(d)=>{ const k=new Date(d).toISOString().slice(0,10); counts[k]=(counts[k]||0)+1; };
+      const add=(d)=>{ const k=localDateKey(d); counts[k]=(counts[k]||0)+1; };
       add(n.created);
       if(n.updated!==n.created) add(n.updated);
     });
@@ -5319,7 +5323,7 @@
         const dt=new Date(start); dt.setDate(start.getDate()+w*7+d);
         const cell=document.createElement('div'); cell.className='hm-cell';
         if(dt>today){ col.appendChild(cell); continue; }
-        const key=dt.toISOString().slice(0,10);
+        const key=localDateKey(dt);
         const c=counts[key]||0;
         const intens=c===0?0:Math.min(4,Math.ceil(c/maxC*4));
         cell.dataset.intensity=intens;
@@ -5380,7 +5384,7 @@
     for(let i=0;i<firstDay;i++) html+='<div></div>';
     for(let d=1;d<=daysInMonth;d++){
       const dt=new Date(dashCalY,dashCalM,d);
-      const key=dt.toISOString().slice(0,10);
+      const key=localDateKey(dt);
       const cnt=counts[key]||0;
       const intens=cnt===0?0:Math.min(4,Math.ceil(cnt/maxC*4));
       const isToday=dt.toDateString()===todayStr;

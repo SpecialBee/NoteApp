@@ -451,7 +451,14 @@
   .cevctx-color.active{ outline:2px solid var(--ink); outline-offset:2px; }
   .cevctx-sep{ width:1px; height:16px; background:var(--border); margin:0 2px; flex-shrink:0; }
   .cevctx-btn{ font-family:var(--sans); font-size:11px; color:var(--ink-soft); background:none; border:none; cursor:pointer; padding:2px 6px; border-radius:4px; white-space:nowrap; }
-  .cevctx-btn:hover{ color:#dc2626; background:#fee2e2; }
+  .cevctx-icon{ font-size:13px; min-width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center; padding:0 5px; }
+  .cevctx-icon:hover{ color:var(--accent); background:var(--accent-soft); }
+  .cevctx-btn.on{ color:var(--accent); background:var(--accent-soft); }
+  .cevctx-btn.danger:hover{ color:#dc2626; background:#fee2e2; }
+  .cev-el.locked{ cursor:default; }
+  .cev-el.locked::after{ content:'🔒'; position:absolute; top:2px; left:2px; font-size:9px; opacity:.55; pointer-events:none; z-index:11; }
+  .cev-action:disabled{ opacity:.35; cursor:default; }
+  .cev-action.active{ color:var(--accent); background:var(--accent-soft); border-color:var(--accent); }
   .cev-link.dashed { stroke-dasharray:6,4; }
   .cev-link-selected { stroke:var(--accent) !important; stroke-width:2.5 !important; }
   /* Anchor connection points */
@@ -881,6 +888,10 @@
         </div>
         <div class="cev-actions">
           <input class="cev-title-input" id="cevTitleInput" placeholder="캔버스 제목" spellcheck="false">
+          <button class="cev-action" id="cevUndoBtn" title="실행 취소 (Ctrl+Z)">↶</button>
+          <button class="cev-action" id="cevRedoBtn" title="다시 실행 (Ctrl+Shift+Z)">↷</button>
+          <button class="cev-action" id="cevSnapBtn" title="격자에 맞춤">⊞</button>
+          <button class="cev-action" id="cevFitBtn" title="전체 보기">⤢</button>
           <button class="cev-action" id="cevZoomOutBtn" title="축소">−</button>
           <button class="cev-action" id="cevZoomInBtn" title="확대">+</button>
           <button class="cev-action" id="cevCardColorBtn" title="카드 색상">🎨</button>
@@ -891,6 +902,7 @@
       <div id="cevCanvas" style="position:relative; flex:1; overflow:hidden; cursor:default;">
         <div id="cevInner" style="position:absolute; top:0; left:0; transform-origin:0 0; will-change:transform;">
           <svg id="cevSvg" style="position:absolute;top:0;left:0;width:100%;height:100%;overflow:visible;pointer-events:none;"></svg>
+          <div id="cevMarqueeBox" style="display:none;position:absolute;border:1.5px solid var(--accent);background:color-mix(in srgb, var(--accent) 12%, transparent);pointer-events:none;z-index:40;"></div>
         </div>
       </div>
     </div>
@@ -3287,8 +3299,15 @@
   let cevSpacePanStart = null;
   let cevConnDrawing = null; // { fromId, startX, startY }
   let cevTempLine = null;
+  let cevSelectedIds = new Set(); // multi-selection (source of truth)
+  let cevSnap = false;            // snap-to-grid toggle
+  let cevMarquee = null;          // { x0,y0 } during rubber-band select
+  let cevGroupMove = null;        // { startMX,startMY, origins:[{id,x,y}] } during multi-drag
+  let cevHistory = [];
+  let cevHistoryIdx = -1;
+  const CEV_GRID = 24;
 
-  function cevGenId(prefix){ return prefix + (++cevIdCounter) + '_' + Date.now().toString(36); }
+  function cevGenId(prefix){ return prefix + (++cevIdCounter) + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
   function isCanvasNote(note){ return (note.content||'').trimStart().startsWith('```canvas'); }
   function isTableNote(note){ return (note.content||'').trimStart().startsWith('```table'); }
 
@@ -3822,7 +3841,18 @@
   function parseCanvasContent(content){
     const match = (content||'').match(/```canvas\n?([\s\S]*?)```/);
     if(!match) return { elements:[], connectors:[] };
-    const raw = match[1];
+    const raw0 = match[1].trim();
+    if(raw0.startsWith('{')){
+      try{
+        const o = JSON.parse(raw0);
+        return { elements: Array.isArray(o.elements)?o.elements:[], connectors: Array.isArray(o.connectors)?o.connectors:[] };
+      }catch{ return { elements:[], connectors:[] }; }
+    }
+    return parseCanvasLegacy(match[1]);
+  }
+
+  // legacy @-directive format (pre-JSON canvases still load)
+  function parseCanvasLegacy(raw){
     const elements = [], connectors = [];
     const lines = raw.split('\n');
     let cur = null, textLines = [];
@@ -3852,29 +3882,13 @@
   }
 
   function serializeCanvasContent(elements, connectors){
-    const lines = ['```canvas'];
-    for(const edata of elements){
-      if(edata.type==='sticky') lines.push(`@sticky ${edata.id} ${Math.round(edata.x)} ${Math.round(edata.y)} ${Math.round(edata.w)} ${Math.round(edata.h)} ${edata.color||'#FFE066'}`);
-      else if(edata.type==='rect') lines.push(`@rect ${edata.id} ${Math.round(edata.x)} ${Math.round(edata.y)} ${Math.round(edata.w)} ${Math.round(edata.h)} ${edata.color||'#E8E8E8'}`);
-      else if(edata.type==='circle') lines.push(`@circle ${edata.id} ${Math.round(edata.x)} ${Math.round(edata.y)} ${Math.round(edata.r||60)} ${edata.color||'#E8E8E8'}`);
-      else if(edata.type==='diamond') lines.push(`@diamond ${edata.id} ${Math.round(edata.x)} ${Math.round(edata.y)} ${Math.round(edata.w)} ${Math.round(edata.h)} ${edata.color||'#E8E8E8'}`);
-      else if(edata.type==='text') lines.push(`@text ${edata.id} ${Math.round(edata.x)} ${Math.round(edata.y)}`);
-      else if(edata.type==='section') lines.push(`@section ${edata.id} ${Math.round(edata.x)} ${Math.round(edata.y)} ${Math.round(edata.w)} ${Math.round(edata.h)} ${edata.color||'#82C4F8'}`);
-      const body = edata.type==='section' ? edata.label : edata.text;
-      // escape body lines that start with '@' so they aren't re-parsed as directives
-      if(body) lines.push(body.split('\n').map(l => l.startsWith('@') ? '\\'+l : l).join('\n'));
-      lines.push('');
-    }
-    for(const c of connectors){
-      if(c.from&&c.to){
-        let cl=`@${c.type} ${c.from} ${c.to}`;
-        if(c.fromSide&&c.toSide) cl+=` ${c.fromSide} ${c.toSide}`;
-        if(c.label) cl+=` | ${c.label}`;
-        lines.push(cl);
-      } else if(c.x1!=null) lines.push(`@line ${c.x1} ${c.y1} ${c.x2} ${c.y2}`);
-    }
-    lines.push('```');
-    return lines.join('\n');
+    // JSON storage: robust round-trip for all props (color, text, label, locked, fontSize, bold, textColor, ...)
+    const els = elements.map(e => {
+      const o = {...e};
+      ['x','y','w','h','r'].forEach(k => { if(typeof o[k]==='number') o[k]=Math.round(o[k]); });
+      return o;
+    });
+    return '```canvas\n' + JSON.stringify({elements: els, connectors}) + '\n```';
   }
 
   function cevElCenter(edata){ if(edata.type==='circle') return {x:edata.x,y:edata.y}; return {x:edata.x+(edata.w||120)/2,y:edata.y+(edata.h||80)/2}; }
@@ -3903,10 +3917,7 @@
     svg.style.width=svgW+'px'; svg.style.height=svgH+'px';
     svg.innerHTML=`<defs>
       <marker id="cev-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
-        <polygon points="0 0,8 3,0 6" fill="var(--ink-soft)"/>
-      </marker>
-      <marker id="cev-arrow-sel" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
-        <polygon points="0 0,8 3,0 6" fill="var(--accent)"/>
+        <polygon points="0 0,8 3,0 6" fill="context-stroke"/>
       </marker>
     </defs>`;
     for(const conn of cevConnectors){
@@ -3931,16 +3942,16 @@
       hit.setAttribute('d',bez.path); hit.setAttribute('stroke','transparent');
       hit.setAttribute('stroke-width','14'); hit.setAttribute('fill','none');
       hit.style.cursor='pointer'; hit.style.pointerEvents='all';
-      hit.addEventListener('click',ev=>{ ev.stopPropagation(); cevSelectedConn=connId; cevSelectElement(null); cevRebuildSvg(); });
+      hit.addEventListener('click',ev=>{ ev.stopPropagation(); cevSelectedIds.clear(); cevApplySelection(); cevSelectedConn=connId; cevRebuildSvg(); showCevConnCtxBar(conn, ev.clientX, ev.clientY); });
       hit.addEventListener('dblclick',ev=>{ ev.stopPropagation(); cevShowConnLabelEdit(conn,ev); });
       // Visible path
       const path=document.createElementNS('http://www.w3.org/2000/svg','path');
       path.setAttribute('d',bez.path); path.setAttribute('fill','none');
-      path.setAttribute('stroke',isSel?'var(--accent)':'var(--ink-soft)');
-      path.setAttribute('stroke-width',isSel?'2':'1.5');
+      path.setAttribute('stroke',isSel?'var(--accent)':(conn.color||'var(--ink-soft)'));
+      path.setAttribute('stroke-width',isSel?'2.5':'1.5');
       if(conn.type==='dashed'||conn.type==='dashed-arrow') path.setAttribute('stroke-dasharray','7 5');
       if(conn.type==='arrow'||conn.type==='dashed-arrow')
-        path.setAttribute('marker-end',isSel?'url(#cev-arrow-sel)':'url(#cev-arrow)');
+        path.setAttribute('marker-end','url(#cev-arrow)');
       svg.appendChild(hit); svg.appendChild(path);
       // Label
       if(conn.label){
@@ -3960,7 +3971,7 @@
     input.style.left=(e.clientX-50)+'px'; input.style.top=(e.clientY-14)+'px';
     document.body.appendChild(input);
     input.focus(); input.select();
-    const commit=()=>{ conn.label=input.value.trim(); input.remove(); cevRebuildSvg(); cevSaveDebounced(); };
+    const commit=()=>{ conn.label=input.value.trim(); input.remove(); cevRebuildSvg(); cevCommit(); };
     input.addEventListener('blur',commit);
     input.addEventListener('keydown',ev=>{
       if(ev.key==='Enter'){ ev.preventDefault(); commit(); }
@@ -3973,54 +3984,276 @@
   }
 
   const CEV_CTX_COLORS = [null,'#FF9F9F','#FFE066','#85E09A','#82C4F8','#C3B1E1','#FFB347'];
+  const CEV_TEXT_COLORS = ['#3D3929','#DC2626','#2563EB','#16A34A','#CA8A04','#7C3AED','#ffffff'];
+  const CEV_CONN_COLORS = [null,'#DC2626','#2563EB','#16A34A','#CA8A04','#7C3AED'];
 
-  function showCevCtxBar(div, edata){
-    const bar = el('cevCtxBar'); if(!bar||!div||!edata) return;
-    bar.innerHTML = '';
-    CEV_CTX_COLORS.forEach(color => {
-      const dot = document.createElement('div');
-      dot.className = 'cevctx-color' + (edata.color === color ? ' active' : '');
+  // ---- history (undo / redo) ----
+  function cevSnapshot(){
+    const snap = JSON.stringify({elements:cevElements, connectors:cevConnectors});
+    // drop redo tail, then push
+    cevHistory = cevHistory.slice(0, cevHistoryIdx+1);
+    if(cevHistory[cevHistory.length-1] !== snap){ cevHistory.push(snap); cevHistoryIdx = cevHistory.length-1; }
+    if(cevHistory.length > 60){ cevHistory.shift(); cevHistoryIdx--; }
+    cevUpdateUndoButtons();
+  }
+  function cevResetHistory(){
+    cevHistory = [JSON.stringify({elements:cevElements, connectors:cevConnectors})];
+    cevHistoryIdx = 0; cevUpdateUndoButtons();
+  }
+  function cevRestore(idx){
+    if(idx<0||idx>=cevHistory.length) return;
+    cevHistoryIdx = idx;
+    const o = JSON.parse(cevHistory[idx]);
+    cevElements = o.elements||[]; cevConnectors = o.connectors||[];
+    cevSelectedIds.clear(); cevSelected=null; cevSelectedConn=null;
+    cevRenderAll(); cevSaveDebounced(); cevUpdateUndoButtons();
+  }
+  function cevUndo(){ if(cevHistoryIdx>0) cevRestore(cevHistoryIdx-1); }
+  function cevRedo(){ if(cevHistoryIdx<cevHistory.length-1) cevRestore(cevHistoryIdx+1); }
+  function cevUpdateUndoButtons(){
+    const u=el('cevUndoBtn'), r=el('cevRedoBtn');
+    if(u) u.disabled = cevHistoryIdx<=0;
+    if(r) r.disabled = cevHistoryIdx>=cevHistory.length-1;
+  }
+  // commit = persist + record undo step
+  function cevCommit(){ cevSaveDebounced(); cevSnapshot(); }
+
+  // ---- geometry helpers ----
+  function cevBBox(e){
+    if(e.type==='circle'){ const r=e.r||60; return {x:e.x-r,y:e.y-r,w:r*2,h:r*2}; }
+    if(e.type==='text'){ return {x:e.x,y:e.y,w:e.w||120,h:e.h||30}; }
+    return {x:e.x,y:e.y,w:e.w||120,h:e.h||80};
+  }
+  function cevSetBBoxPos(e,nx,ny){ // move element so its bbox top-left is nx,ny
+    if(e.type==='circle'){ const r=e.r||60; e.x=nx+r; e.y=ny+r; } else { e.x=nx; e.y=ny; }
+  }
+  function cevSnapVal(v){ return cevSnap ? Math.round(v/CEV_GRID)*CEV_GRID : v; }
+
+  // ---- selection ----
+  function cevSelDivs(){ return el('cevInner')?.querySelectorAll('.cev-el.selected')||[]; }
+  function cevClearSelectionVisuals(){
+    const inner=el('cevInner'); if(!inner) return;
+    inner.querySelectorAll('.cev-el.selected').forEach(d=>{ d.classList.remove('selected'); d.querySelectorAll('.cev-handle').forEach(h=>h.remove()); });
+    inner.querySelectorAll('.connect-source').forEach(d=>d.classList.remove('connect-source'));
+  }
+  // Select one element (optionally add to existing multi-selection)
+  function cevSelectElement(id, additive){
+    const inner=el('cevInner'); if(!inner) return;
+    cevSelectedConn=null;
+    if(!additive) cevSelectedIds.clear();
+    if(id){
+      if(additive && cevSelectedIds.has(id)) cevSelectedIds.delete(id);
+      else cevSelectedIds.add(id);
+    }
+    cevApplySelection();
+  }
+  function cevSelectMany(ids){
+    cevSelectedConn=null; cevSelectedIds = new Set(ids); cevApplySelection();
+  }
+  // Reflect cevSelectedIds onto the DOM + context bar
+  function cevApplySelection(){
+    const inner=el('cevInner'); if(!inner) return;
+    cevClearSelectionVisuals();
+    const ids=[...cevSelectedIds];
+    cevSelected = ids.length===1 ? ids[0] : null;
+    ids.forEach(id=>{ const d=inner.querySelector(`[data-elid="${id}"]`); if(d) d.classList.add('selected'); });
+    if(ids.length===0){ hideCevCtxBar(); return; }
+    if(ids.length===1){
+      const div=inner.querySelector(`[data-elid="${ids[0]}"]`);
+      const edata=cevElements.find(e=>e.id===ids[0]);
+      if(div&&edata){ if(!edata.locked) cevAddHandles(div,edata); showCevNodeCtxBar(div,edata); }
+    } else {
+      showCevGroupCtxBar();
+    }
+  }
+
+  function hideCevCtxBar(){ const b=el('cevCtxBar'); if(b){ b.style.display='none'; b.innerHTML=''; } }
+
+  // small builders for the context bar
+  function cevCtxSep(){ const s=document.createElement('div'); s.className='cevctx-sep'; return s; }
+  function cevCtxIconBtn(label,title,onClick){
+    const b=document.createElement('button'); b.className='cevctx-btn cevctx-icon'; b.textContent=label; b.title=title||'';
+    b.addEventListener('mousedown',e=>e.stopPropagation());
+    b.addEventListener('click',e=>{ e.stopPropagation(); onClick(); });
+    return b;
+  }
+  function cevCtxColorRow(current, colors, onPick){
+    const frag=document.createDocumentFragment();
+    colors.forEach(color=>{
+      const dot=document.createElement('div');
+      dot.className='cevctx-color'+(current===color||(current==null&&color==null)?' active':'');
       dot.style.cssText = color ? `background:${color};border:1.5px solid ${color};` : `background:var(--bg-card);border:1.5px solid var(--border);`;
-      dot.addEventListener('mousedown', e => e.stopPropagation());
-      dot.addEventListener('click', e => {
-        e.stopPropagation();
-        edata.color = color || undefined;
-        cevRenderAll(); cevSaveDebounced();
-      });
-      bar.appendChild(dot);
+      dot.title = color||'없음';
+      dot.addEventListener('mousedown',e=>e.stopPropagation());
+      dot.addEventListener('click',e=>{ e.stopPropagation(); onPick(color); });
+      frag.appendChild(dot);
     });
-    const sep = document.createElement('div'); sep.className = 'cevctx-sep'; bar.appendChild(sep);
-    const delBtn = document.createElement('button'); delBtn.className = 'cevctx-btn'; delBtn.textContent = '🗑 삭제';
-    delBtn.addEventListener('mousedown', e => e.stopPropagation());
-    delBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      cevElements = cevElements.filter(e => e.id !== edata.id);
-      cevConnectors = cevConnectors.filter(c => c.from !== edata.id && c.to !== edata.id);
-      cevSelected = null; hideCevCtxBar(); cevRenderAll(); cevSaveDebounced();
-    });
-    bar.appendChild(delBtn);
-    bar.style.display = 'flex';
-    requestAnimationFrame(() => {
-      const rect = div.getBoundingClientRect();
-      const barW = bar.offsetWidth || 220; const barH = bar.offsetHeight || 34;
-      bar.style.left = Math.max(8, Math.min(rect.left + rect.width/2 - barW/2, window.innerWidth - barW - 8)) + 'px';
-      bar.style.top = (rect.top > barH + 16 ? rect.top - barH - 10 : rect.bottom + 10) + 'px';
+    return frag;
+  }
+  function cevPositionCtxBarAt(screenX, screenY){
+    const bar=el('cevCtxBar');
+    requestAnimationFrame(()=>{
+      const barW=bar.offsetWidth||220, barH=bar.offsetHeight||34;
+      bar.style.left = Math.max(8, Math.min(screenX - barW/2, window.innerWidth - barW - 8)) + 'px';
+      bar.style.top  = Math.max(8, screenY - barH - 12) + 'px';
     });
   }
 
-  function hideCevCtxBar(){ const b=el('cevCtxBar'); if(b) b.style.display='none'; }
+  // ---- single-node context bar (adaptive by type) ----
+  function showCevNodeCtxBar(div, edata){
+    const bar=el('cevCtxBar'); if(!bar||!div||!edata) return;
+    bar.innerHTML=''; bar._for={kind:'node',id:edata.id};
+    const isShape = ['sticky','rect','circle','diamond'].includes(edata.type);
+    const hasText = isShape || edata.type==='text';
 
-  function cevSelectElement(id){
-    const inner=el('cevInner'); if(!inner) return;
-    const prevDiv=inner.querySelector('.cev-el.selected');
-    if(prevDiv){ prevDiv.classList.remove('selected'); prevDiv.querySelectorAll('.cev-handle').forEach(h=>h.remove()); }
-    inner.querySelectorAll('.connect-source').forEach(d=>d.classList.remove('connect-source'));
-    cevSelected=id;
-    if(!id){ hideCevCtxBar(); return; }
-    const div=inner.querySelector(`[data-elid="${id}"]`); if(!div) return;
-    div.classList.add('selected');
-    const edata=cevElements.find(e=>e.id===id);
-    if(edata){ cevAddHandles(div,edata); showCevCtxBar(div,edata); }
+    if(edata.type!=='text'){
+      bar.appendChild(cevCtxColorRow(edata.color??null, CEV_CTX_COLORS, color=>{ edata.color=color||undefined; cevRenderAll(); cevApplySelection(); cevCommit(); }));
+    }
+    if(hasText){
+      bar.appendChild(cevCtxSep());
+      // text color
+      bar.appendChild(cevCtxColorRow(edata.textColor??null, CEV_TEXT_COLORS, color=>{ edata.textColor=color; cevRenderAll(); cevApplySelection(); cevCommit(); }));
+      // font size cycle + bold
+      bar.appendChild(cevCtxIconBtn('A±','글자 크기', ()=>{ const cyc=[12,14,18,24]; const i=cyc.indexOf(edata.fontSize||14); edata.fontSize=cyc[(i+1)%cyc.length]; cevRenderAll(); cevApplySelection(); cevCommit(); }));
+      const boldBtn=cevCtxIconBtn('B','굵게', ()=>{ edata.bold=!edata.bold; cevRenderAll(); cevApplySelection(); cevCommit(); });
+      boldBtn.style.fontWeight='800'; if(edata.bold) boldBtn.classList.add('on');
+      bar.appendChild(boldBtn);
+    }
+    bar.appendChild(cevCtxSep());
+    bar.appendChild(cevCtxIconBtn('⧉','복제 (Ctrl+D)', ()=>cevDuplicateSelection()));
+    bar.appendChild(cevCtxIconBtn('⤒','맨 앞으로', ()=>{ cevBringToFront(); }));
+    bar.appendChild(cevCtxIconBtn('⤓','맨 뒤로', ()=>{ cevSendToBack(); }));
+    const lockBtn=cevCtxIconBtn(edata.locked?'🔒':'🔓', edata.locked?'잠금 해제':'잠금', ()=>{ edata.locked=!edata.locked; cevRenderAll(); cevApplySelection(); cevCommit(); });
+    if(edata.locked) lockBtn.classList.add('on');
+    bar.appendChild(lockBtn);
+    bar.appendChild(cevCtxSep());
+    const del=cevCtxIconBtn('🗑','삭제', ()=>cevDeleteSelection());
+    del.classList.add('danger'); bar.appendChild(del);
+
+    bar.style.display='flex';
+    const rect=div.getBoundingClientRect();
+    cevPositionCtxBarAt(rect.left+rect.width/2, rect.top);
+  }
+
+  // ---- multi-node (group) context bar ----
+  function showCevGroupCtxBar(){
+    const bar=el('cevCtxBar'); if(!bar) return;
+    bar.innerHTML=''; bar._for={kind:'group'};
+    const mk=(label,title,mode)=>cevCtxIconBtn(label,title,()=>cevAlign(mode));
+    bar.appendChild(mk('⇤','왼쪽 정렬','left'));
+    bar.appendChild(mk('⇥','오른쪽 정렬','right'));
+    bar.appendChild(mk('⤝','가로 중앙','centerX'));
+    bar.appendChild(mk('⤒','위 정렬','top'));
+    bar.appendChild(mk('⤓','아래 정렬','bottom'));
+    bar.appendChild(mk('⤟','세로 중앙','centerY'));
+    bar.appendChild(cevCtxSep());
+    bar.appendChild(cevCtxIconBtn('⧉','복제', ()=>cevDuplicateSelection()));
+    bar.appendChild(cevCtxIconBtn('⤒','맨 앞', ()=>cevBringToFront()));
+    bar.appendChild(cevCtxIconBtn('⤓','맨 뒤', ()=>cevSendToBack()));
+    bar.appendChild(cevCtxSep());
+    const del=cevCtxIconBtn('🗑','선택 삭제', ()=>cevDeleteSelection());
+    del.classList.add('danger'); bar.appendChild(del);
+    bar.style.display='flex';
+    // position above the group bbox
+    const boxes=[...cevSelectedIds].map(id=>cevElements.find(e=>e.id===id)).filter(Boolean).map(cevBBox);
+    if(boxes.length){
+      const minx=Math.min(...boxes.map(b=>b.x)), maxx=Math.max(...boxes.map(b=>b.x+b.w)), miny=Math.min(...boxes.map(b=>b.y));
+      const cr=el('cevCanvas').getBoundingClientRect();
+      const sx=cr.left+cevPanE.x+((minx+maxx)/2)*cevZoom;
+      const sy=cr.top +cevPanE.y+miny*cevZoom;
+      cevPositionCtxBarAt(sx, sy);
+    }
+  }
+
+  // ---- connector context bar ----
+  function showCevConnCtxBar(conn, screenX, screenY){
+    const bar=el('cevCtxBar'); if(!bar||!conn) return;
+    bar.innerHTML=''; bar._for={kind:'conn',id:conn.id};
+    const types=[['arrow','→'],['line','—'],['dashed','╌'],['dashed-arrow','╌→']];
+    types.forEach(([t,lab])=>{
+      const b=cevCtxIconBtn(lab, t, ()=>{ conn.type=t; cevRebuildSvg(); showCevConnCtxBar(conn, screenX, screenY); cevCommit(); });
+      if(conn.type===t) b.classList.add('on');
+      bar.appendChild(b);
+    });
+    bar.appendChild(cevCtxSep());
+    bar.appendChild(cevCtxColorRow(conn.color??null, CEV_CONN_COLORS, color=>{ conn.color=color||undefined; cevRebuildSvg(); showCevConnCtxBar(conn, screenX, screenY); cevCommit(); }));
+    bar.appendChild(cevCtxSep());
+    bar.appendChild(cevCtxIconBtn('🏷','라벨', ()=>{ cevShowConnLabelEdit(conn, {clientX:screenX, clientY:screenY}); }));
+    const del=cevCtxIconBtn('🗑','삭제', ()=>{ cevConnectors=cevConnectors.filter(c=>c.id!==conn.id); cevSelectedConn=null; hideCevCtxBar(); cevRebuildSvg(); cevCommit(); });
+    del.classList.add('danger'); bar.appendChild(del);
+    bar.style.display='flex';
+    cevPositionCtxBarAt(screenX, screenY);
+  }
+
+  // keep the context bar glued to its target during pan/zoom
+  function cevRepositionCtxBar(){
+    const bar=el('cevCtxBar'); if(!bar||bar.style.display==='none'||!bar._for) return;
+    const f=bar._for;
+    if(f.kind==='node'){
+      const div=el('cevInner')?.querySelector(`[data-elid="${f.id}"]`);
+      if(div){ const r=div.getBoundingClientRect(); cevPositionCtxBarAt(r.left+r.width/2, r.top); }
+    } else if(f.kind==='group'){
+      showCevGroupCtxBar();
+    }
+  }
+
+  // ---- edit actions ----
+  function cevSelectedElements(){ return [...cevSelectedIds].map(id=>cevElements.find(e=>e.id===id)).filter(Boolean); }
+  function cevDeleteSelection(){
+    if(!cevSelectedIds.size) return;
+    cevElements = cevElements.filter(e=>!cevSelectedIds.has(e.id));
+    cevConnectors = cevConnectors.filter(c=>!cevSelectedIds.has(c.from)&&!cevSelectedIds.has(c.to));
+    cevSelectedIds.clear(); cevSelected=null; hideCevCtxBar(); cevRenderAll(); cevCommit();
+  }
+  function cevDuplicateSelection(){
+    const sel=cevSelectedElements(); if(!sel.length) return;
+    const idMap={}; const clones=[];
+    sel.forEach(e=>{ const c=JSON.parse(JSON.stringify(e)); c.id=cevGenId(e.type[0]); c.x=(e.x||0)+CEV_GRID; c.y=(e.y||0)+CEV_GRID; c.locked=false; idMap[e.id]=c.id; clones.push(c); });
+    cevElements.push(...clones);
+    // duplicate connectors fully inside the selection
+    cevConnectors.filter(c=>idMap[c.from]&&idMap[c.to]).forEach(c=>{
+      const nc=JSON.parse(JSON.stringify(c)); nc.id=cevGenId('c'); nc.from=idMap[c.from]; nc.to=idMap[c.to]; cevConnectors.push(nc);
+    });
+    cevSelectMany(clones.map(c=>c.id)); cevRenderAll(); cevApplySelection(); cevCommit();
+  }
+  function cevBringToFront(){
+    const sel=cevSelectedElements(); if(!sel.length) return;
+    cevElements = cevElements.filter(e=>!cevSelectedIds.has(e.id)).concat(sel);
+    cevRenderAll(); cevApplySelection(); cevCommit();
+  }
+  function cevSendToBack(){
+    const sel=cevSelectedElements(); if(!sel.length) return;
+    cevElements = sel.concat(cevElements.filter(e=>!cevSelectedIds.has(e.id)));
+    cevRenderAll(); cevApplySelection(); cevCommit();
+  }
+  function cevAlign(mode){
+    const sel=cevSelectedElements(); if(sel.length<2) return;
+    const boxes=sel.map(e=>({e,b:cevBBox(e)}));
+    const minx=Math.min(...boxes.map(o=>o.b.x)), maxx=Math.max(...boxes.map(o=>o.b.x+o.b.w));
+    const miny=Math.min(...boxes.map(o=>o.b.y)), maxy=Math.max(...boxes.map(o=>o.b.y+o.b.h));
+    const cx=(minx+maxx)/2, cy=(miny+maxy)/2;
+    boxes.forEach(({e,b})=>{
+      if(mode==='left') cevSetBBoxPos(e, minx, b.y);
+      else if(mode==='right') cevSetBBoxPos(e, maxx-b.w, b.y);
+      else if(mode==='centerX') cevSetBBoxPos(e, cx-b.w/2, b.y);
+      else if(mode==='top') cevSetBBoxPos(e, b.x, miny);
+      else if(mode==='bottom') cevSetBBoxPos(e, b.x, maxy-b.h);
+      else if(mode==='centerY') cevSetBBoxPos(e, b.x, cy-b.h/2);
+    });
+    cevRenderAll(); cevApplySelection(); cevCommit();
+  }
+  function cevFitView(){
+    if(!cevElements.length){ cevPanE={x:100,y:100}; cevZoom=1; cevApplyTransform(); return; }
+    const boxes=cevElements.map(cevBBox);
+    const minx=Math.min(...boxes.map(b=>b.x)), maxx=Math.max(...boxes.map(b=>b.x+b.w));
+    const miny=Math.min(...boxes.map(b=>b.y)), maxy=Math.max(...boxes.map(b=>b.y+b.h));
+    const cr=el('cevCanvas').getBoundingClientRect();
+    const pad=80, bw=Math.max(maxx-minx,1), bh=Math.max(maxy-miny,1);
+    const z=Math.min((cr.width-pad*2)/bw, (cr.height-pad*2)/bh, 2);
+    cevZoom=Math.max(0.15, z);
+    cevPanE.x = (cr.width  - (minx+maxx)*cevZoom)/2;
+    cevPanE.y = (cr.height - (miny+maxy)*cevZoom)/2;
+    cevApplyTransform();
   }
 
   function cevGetAnchorPos(edata, side){
@@ -4135,49 +4368,71 @@
     }
   }
 
+  function cevApplyTextStyle(node, edata){
+    if(edata.fontSize) node.style.fontSize = edata.fontSize + 'px';
+    if(edata.bold) node.style.fontWeight = '800';
+    if(edata.textColor) node.style.color = edata.textColor;
+  }
+  // shared element pointer-down: selection (with Shift additive) + single/group drag, respects lock
+  function cevElMouseDown(e, edata, lbl){
+    if(e.target.closest('.cev-handle')) return;
+    if(e.target.tagName==='TEXTAREA') return;
+    if(e.target.isContentEditable) return;
+    if(lbl && e.target===lbl && lbl.contentEditable==='true') return;
+    if(e.button!==0) return;
+    e.stopPropagation(); cevDragMoved=false;
+    if(e.shiftKey){ cevSelectElement(edata.id, true); return; }
+    if(!cevSelectedIds.has(edata.id)) cevSelectElement(edata.id);
+    if(edata.locked) return;
+    const movers = cevSelectedElements().filter(m=>!m.locked);
+    if(movers.length>1){
+      cevGroupMove={ startMX:e.clientX, startMY:e.clientY, origins: movers.map(m=>({id:m.id, x:m.x, y:m.y})) };
+    } else {
+      cevMoving={id:edata.id,startMX:e.clientX,startMY:e.clientY,origX:edata.x,origY:edata.y};
+    }
+  }
+
   function cevRenderElement(edata){
     const inner=el('cevInner'); if(!inner) return;
     const existing=inner.querySelector(`[data-elid="${edata.id}"]`); if(existing) existing.remove();
     const div=document.createElement('div');
     div.className='cev-el'; div.dataset.elid=edata.id;
     if(cevConnectingFrom===edata.id) div.classList.add('connect-source');
-
-    const colorBtnHtml=()=>{
-      const cb=document.createElement('div');
-      cb.className='cev-color-btn';
-      const isRound=(edata.type==='circle'||edata.type==='diamond');
-      cb.style.cssText=`position:absolute;${isRound?'top:50%;left:50%;transform:translate(-50%,-120%)':'top:4px;right:6px;'};width:14px;height:14px;border-radius:50%;background:rgba(0,0,0,0.18);cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;color:#fff;z-index:10;`;
-      cb.textContent='●'; cb.title='색상 변경';
-      cb.addEventListener('mousedown',e=>{ e.stopPropagation(); showCevColorPalette(e,edata); });
-      return cb;
-    };
+    if(edata.locked) div.classList.add('locked');
 
     if(edata.type==='sticky'){
       div.style.cssText=`left:${edata.x}px;top:${edata.y}px;width:${edata.w}px;height:${edata.h}px;`;
       div.classList.add('cev-sticky'); div.style.background=edata.color||'#FFE066';
       const ta=document.createElement('textarea'); ta.value=edata.text||''; ta.placeholder='내용 입력…';
       ta.style.cssText='width:calc(100% - 20px);height:calc(100% - 28px);margin-top:6px;pointer-events:none;';
+      cevApplyTextStyle(ta, edata);
       ta.addEventListener('input',()=>{ edata.text=ta.value; cevSaveDebounced(); });
-      ta.addEventListener('blur',()=>{ ta.style.pointerEvents='none'; });
-      div.addEventListener('dblclick',e=>{ e.stopPropagation(); ta.style.pointerEvents='auto'; ta.focus(); });
-      div.appendChild(ta); div.appendChild(colorBtnHtml());
+      ta.addEventListener('blur',()=>{ ta.style.pointerEvents='none'; cevSnapshot(); });
+      div.addEventListener('dblclick',e=>{ if(edata.locked) return; e.stopPropagation(); ta.style.pointerEvents='auto'; ta.focus(); });
+      div.appendChild(ta);
     } else if(edata.type==='rect'){
       div.style.cssText=`left:${edata.x}px;top:${edata.y}px;width:${edata.w}px;height:${edata.h}px;`;
       div.classList.add('cev-rect'); div.style.background=edata.color||'var(--bg-card)'; div.style.borderColor=cevShadeColor(edata.color||'#E0E0E0',-40);
       const lbl=document.createElement('div'); lbl.className='cev-shape-label'; lbl.contentEditable='false'; lbl.style.pointerEvents='none'; lbl.textContent=edata.text||'';
+      cevApplyTextStyle(lbl, edata);
       lbl.addEventListener('input',()=>{ edata.text=lbl.textContent; cevSaveDebounced(); });
-      lbl.addEventListener('blur',()=>{ lbl.contentEditable='false'; lbl.style.pointerEvents='none'; });
-      div.addEventListener('dblclick',e=>{ e.stopPropagation(); lbl.contentEditable='true'; lbl.style.pointerEvents='auto'; lbl.focus(); const r=document.createRange(); r.selectNodeContents(lbl); const s=window.getSelection(); s.removeAllRanges(); s.addRange(r); });
-      div.appendChild(lbl); div.appendChild(colorBtnHtml());
+      lbl.addEventListener('blur',()=>{ lbl.contentEditable='false'; lbl.style.pointerEvents='none'; cevSnapshot(); });
+      div.addEventListener('dblclick',e=>{ if(edata.locked) return; e.stopPropagation(); lbl.contentEditable='true'; lbl.style.pointerEvents='auto'; lbl.focus(); const r=document.createRange(); r.selectNodeContents(lbl); const s=window.getSelection(); s.removeAllRanges(); s.addRange(r); });
+      div.appendChild(lbl);
+      div.addEventListener('mousedown',e=>cevElMouseDown(e,edata,lbl));
+      cevAddAnchors(div, edata); inner.appendChild(div); return;
     } else if(edata.type==='circle'){
       const r=edata.r||60;
       div.style.cssText=`left:${edata.x-r}px;top:${edata.y-r}px;width:${r*2}px;height:${r*2}px;`;
       div.classList.add('cev-circle'); div.style.background=edata.color||'var(--bg-card)'; div.style.borderColor=cevShadeColor(edata.color||'#E0E0E0',-40);
       const lbl=document.createElement('div'); lbl.className='cev-shape-label'; lbl.contentEditable='false'; lbl.style.pointerEvents='none'; lbl.textContent=edata.text||'';
+      cevApplyTextStyle(lbl, edata);
       lbl.addEventListener('input',()=>{ edata.text=lbl.textContent; cevSaveDebounced(); });
-      lbl.addEventListener('blur',()=>{ lbl.contentEditable='false'; lbl.style.pointerEvents='none'; });
-      div.addEventListener('dblclick',e=>{ e.stopPropagation(); lbl.contentEditable='true'; lbl.style.pointerEvents='auto'; lbl.focus(); const rng=document.createRange(); rng.selectNodeContents(lbl); const s=window.getSelection(); s.removeAllRanges(); s.addRange(rng); });
-      div.appendChild(lbl); div.appendChild(colorBtnHtml());
+      lbl.addEventListener('blur',()=>{ lbl.contentEditable='false'; lbl.style.pointerEvents='none'; cevSnapshot(); });
+      div.addEventListener('dblclick',e=>{ if(edata.locked) return; e.stopPropagation(); lbl.contentEditable='true'; lbl.style.pointerEvents='auto'; lbl.focus(); const rng=document.createRange(); rng.selectNodeContents(lbl); const s=window.getSelection(); s.removeAllRanges(); s.addRange(rng); });
+      div.appendChild(lbl);
+      div.addEventListener('mousedown',e=>cevElMouseDown(e,edata,lbl));
+      cevAddAnchors(div, edata); inner.appendChild(div); return;
     } else if(edata.type==='diamond'){
       const w=edata.w||100,h=edata.h||100;
       div.style.cssText=`left:${edata.x}px;top:${edata.y}px;width:${w}px;height:${h}px;`;
@@ -4185,19 +4440,23 @@
       const inner_d=document.createElement('div'); inner_d.className='cev-diamond-inner';
       inner_d.style.cssText=`width:${w*0.707}px;height:${h*0.707}px;transform:rotate(45deg);background:${edata.color||'var(--bg-card)'};border-color:${cevShadeColor(edata.color||'#E0E0E0',-40)};`;
       const lbl=document.createElement('div'); lbl.className='cev-shape-label'; lbl.style.transform='rotate(-45deg)'; lbl.contentEditable='false'; lbl.style.pointerEvents='none'; lbl.textContent=edata.text||'';
+      cevApplyTextStyle(lbl, edata);
       lbl.addEventListener('input',()=>{ edata.text=lbl.textContent; cevSaveDebounced(); });
-      lbl.addEventListener('blur',()=>{ lbl.contentEditable='false'; lbl.style.pointerEvents='none'; });
-      div.addEventListener('dblclick',e=>{ e.stopPropagation(); lbl.contentEditable='true'; lbl.style.pointerEvents='auto'; lbl.focus(); });
-      inner_d.appendChild(lbl); div.appendChild(inner_d); div.appendChild(colorBtnHtml());
+      lbl.addEventListener('blur',()=>{ lbl.contentEditable='false'; lbl.style.pointerEvents='none'; cevSnapshot(); });
+      div.addEventListener('dblclick',e=>{ if(edata.locked) return; e.stopPropagation(); lbl.contentEditable='true'; lbl.style.pointerEvents='auto'; lbl.focus(); });
+      inner_d.appendChild(lbl); div.appendChild(inner_d);
+      div.addEventListener('mousedown',e=>cevElMouseDown(e,edata,lbl));
+      cevAddAnchors(div, edata); inner.appendChild(div); return;
     } else if(edata.type==='text'){
       div.style.cssText=`left:${edata.x}px;top:${edata.y}px;min-width:60px;min-height:24px;`;
       div.classList.add('cev-text-el'); div.contentEditable='false'; div.textContent=edata.text||'텍스트';
+      cevApplyTextStyle(div, edata);
       div.addEventListener('input',()=>{ edata.text=div.textContent; cevSaveDebounced(); });
-      div.addEventListener('blur',()=>{ div.contentEditable='false'; });
-      div.addEventListener('dblclick',e=>{ e.stopPropagation(); div.contentEditable='true'; div.focus(); });
-    }
-
-    if(edata.type==='section'){
+      div.addEventListener('blur',()=>{ div.contentEditable='false'; cevSnapshot(); });
+      div.addEventListener('dblclick',e=>{ if(edata.locked) return; e.stopPropagation(); div.contentEditable='true'; div.focus(); });
+      div.addEventListener('mousedown',e=>cevElMouseDown(e,edata,null));
+      cevAddAnchors(div, edata); inner.appendChild(div); return;
+    } else if(edata.type==='section'){
       const w=edata.w||300, h=edata.h||200;
       div.style.cssText=`left:${edata.x}px;top:${edata.y}px;width:${w}px;height:${h}px;`;
       div.classList.add('cev-section');
@@ -4206,29 +4465,16 @@
       const lbl=document.createElement('div'); lbl.className='cev-section-label';
       lbl.style.color=edata.color||'#82C4F8'; lbl.textContent=edata.label||'섹션';
       div.appendChild(lbl);
-      lbl.addEventListener('dblclick',e=>{ e.stopPropagation(); lbl.contentEditable='true'; lbl.style.cursor='text'; lbl.focus(); const r=document.createRange(); r.selectNodeContents(lbl); const s=window.getSelection(); s.removeAllRanges(); s.addRange(r); });
-      lbl.addEventListener('blur',()=>{ lbl.contentEditable='false'; lbl.style.cursor=''; edata.label=lbl.textContent.trim()||'섹션'; lbl.textContent=edata.label; cevSaveDebounced(); });
+      lbl.addEventListener('dblclick',e=>{ if(edata.locked) return; e.stopPropagation(); lbl.contentEditable='true'; lbl.style.cursor='text'; lbl.focus(); const r=document.createRange(); r.selectNodeContents(lbl); const s=window.getSelection(); s.removeAllRanges(); s.addRange(r); });
+      lbl.addEventListener('blur',()=>{ lbl.contentEditable='false'; lbl.style.cursor=''; edata.label=lbl.textContent.trim()||'섹션'; lbl.textContent=edata.label; cevCommit(); });
       lbl.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); lbl.blur(); } e.stopPropagation(); });
-      div.addEventListener('mousedown',e=>{
-        if(e.target.closest('.cev-handle')||e.target===lbl&&lbl.contentEditable==='true') return;
-        if(e.button!==0) return;
-        e.stopPropagation(); cevDragMoved=false;
-        cevSelectElement(edata.id);
-        cevMoving={id:edata.id,startMX:e.clientX,startMY:e.clientY,origX:edata.x,origY:edata.y};
-      });
+      div.addEventListener('mousedown',e=>cevElMouseDown(e,edata,lbl));
       inner.insertBefore(div, inner.firstChild);
       return;
     }
 
-    div.addEventListener('mousedown',e=>{
-      if(e.target.closest('.cev-handle')) return;
-      if(e.target.tagName==='TEXTAREA') return;
-      if(e.target.contentEditable==='true') return;
-      if(e.button!==0) return;
-      e.stopPropagation(); cevDragMoved=false;
-      cevSelectElement(edata.id);
-      cevMoving={id:edata.id,startMX:e.clientX,startMY:e.clientY,origX:edata.x,origY:edata.y};
-    });
+    // fallback (sticky handled above without early return)
+    div.addEventListener('mousedown',e=>cevElMouseDown(e,edata,null));
     cevAddAnchors(div, edata);
     inner.appendChild(div);
   }
@@ -4236,17 +4482,14 @@
   function cevRenderAll(){
     const inner=el('cevInner'); if(!inner) return;
     const svg=el('cevSvg');
-    Array.from(inner.children).forEach(c=>{ if(c!==svg) inner.removeChild(c); });
+    const marquee=el('cevMarqueeBox');
+    Array.from(inner.children).forEach(c=>{ if(c!==svg&&c!==marquee) inner.removeChild(c); });
     cevElements.forEach(e=>cevRenderElement(e));
     inner.appendChild(svg);
-    if(cevSelected){
-      const selDiv=inner.querySelector(`[data-elid="${cevSelected}"]`);
-      if(selDiv){
-        selDiv.classList.add('selected');
-        const ed=cevElements.find(e=>e.id===cevSelected);
-        if(ed){ cevAddHandles(selDiv,ed); showCevCtxBar(selDiv,ed); }
-      }
-    } else { hideCevCtxBar(); }
+    if(marquee) inner.appendChild(marquee);
+    // prune stale selection ids, then reflect selection
+    [...cevSelectedIds].forEach(id=>{ if(!cevElements.find(e=>e.id===id)) cevSelectedIds.delete(id); });
+    cevApplySelection();
     cevRebuildSvg(); cevApplyTransform();
   }
 
@@ -4259,6 +4502,7 @@
       canvas.style.backgroundSize=`${gs}px ${gs}px`;
       canvas.style.backgroundPosition=`${((cevPanE.x%gs)+gs)%gs}px ${((cevPanE.y%gs)+gs)%gs}px`;
     }
+    cevRepositionCtxBar();
   }
 
   function openCanvasEditor(note){
@@ -4266,7 +4510,9 @@
     const parsed=parseCanvasContent(note.content||'');
     cevElements=parsed.elements; cevConnectors=parsed.connectors;
     cevSelected=null; cevSelectedConn=null; cevConnectingFrom=null; cevTool='select';
+    cevSelectedIds.clear();
     cevPanE={x:100,y:100}; cevZoom=1;
+    cevResetHistory();
     const ti=el('cevTitleInput'); if(ti) ti.value=note.title||'';
     updateCevToolButtons();
     el('canvasEditorView').style.display='flex';
@@ -4328,7 +4574,7 @@
       cevSelectedConn=null; cevSelectElement(null); return;
     }
     const rect2=el('cevCanvas').getBoundingClientRect();
-    const x=(e.clientX-rect2.left-cevPanE.x)/cevZoom,y=(e.clientY-rect2.top-cevPanE.y)/cevZoom;
+    const x=cevSnapVal((e.clientX-rect2.left-cevPanE.x)/cevZoom),y=cevSnapVal((e.clientY-rect2.top-cevPanE.y)/cevZoom);
     let newEl=null;
     if(cevTool==='sticky') newEl={id:cevGenId('s'),type:'sticky',x:x-100,y:y-80,w:200,h:160,color:'#FFE066',text:''};
     else if(cevTool==='rect') newEl={id:cevGenId('r'),type:'rect',x:x-90,y:y-50,w:180,h:100,color:'#E8E8E8',text:''};
@@ -4342,7 +4588,7 @@
     if(newEl){
       cevElements.push(newEl);
       cevTool='select'; updateCevToolButtons();
-      cevRenderAll(); cevSelectElement(newEl.id); cevSaveDebounced();
+      cevRenderAll(); cevSelectElement(newEl.id); cevCommit();
     }
   });
 
@@ -4350,14 +4596,21 @@
     // fresh interaction on the canvas surface: clear the drag flag so a leftover
     // 'true' from a previous element move can't suppress the next shape-creation click
     cevDragMoved=false;
-    if(cevSpaceDown){
+    // pan with space+drag or middle-mouse-drag (left-drag on empty is marquee select)
+    if(cevSpaceDown || e.button===1){
       cevSpacePanning=true; cevSpacePanStart={mx:e.clientX,my:e.clientY,px:cevPanE.x,py:cevPanE.y};
       el('cevCanvas').style.cursor='grabbing'; e.preventDefault(); return;
     }
+    if(e.button!==0) return;
     const t=e.target;
     if(t===el('cevCanvas')||t===el('cevInner')||t===el('cevSvg')){
       if(cevTool==='select'){
-        cevPanningE=true; cevPanStartE={mx:e.clientX,my:e.clientY,px:cevPanE.x,py:cevPanE.y}; e.preventDefault();
+        // empty-canvas drag with select tool = rubber-band marquee selection
+        const rect2=el('cevCanvas').getBoundingClientRect();
+        const x=(e.clientX-rect2.left-cevPanE.x)/cevZoom, y=(e.clientY-rect2.top-cevPanE.y)/cevZoom;
+        cevMarquee={x0:x,y0:y,addMode:e.shiftKey,base:e.shiftKey?new Set(cevSelectedIds):new Set()};
+        const box=el('cevMarqueeBox'); if(box){ box.style.display='block'; box.style.left=x+'px'; box.style.top=y+'px'; box.style.width='0px'; box.style.height='0px'; }
+        e.preventDefault();
       }
     }
   });
@@ -4387,11 +4640,35 @@
       if(tgtEl&&tgtEl.dataset.elid!==cevConnDrawing.fromId) tgtEl.classList.add('cev-drop-target');
       return;
     }
+    if(cevMarquee){
+      const cr=el('cevCanvas').getBoundingClientRect();
+      const x=(e.clientX-cr.left-cevPanE.x)/cevZoom, y=(e.clientY-cr.top-cevPanE.y)/cevZoom;
+      const mx=Math.min(x,cevMarquee.x0), my=Math.min(y,cevMarquee.y0), mw=Math.abs(x-cevMarquee.x0), mh=Math.abs(y-cevMarquee.y0);
+      const box=el('cevMarqueeBox'); if(box){ box.style.left=mx+'px'; box.style.top=my+'px'; box.style.width=mw+'px'; box.style.height=mh+'px'; }
+      if(mw>3||mh>3) cevDragMoved=true;
+      // live-highlight intersecting elements
+      const hit=new Set(cevMarquee.base);
+      cevElements.forEach(ed=>{ const b=cevBBox(ed); if(b.x<mx+mw&&b.x+b.w>mx&&b.y<my+mh&&b.y+b.h>my) hit.add(ed.id); });
+      const inner=el('cevInner');
+      inner.querySelectorAll('.cev-el').forEach(d=>d.classList.toggle('selected', hit.has(d.dataset.elid)));
+      cevMarquee.current=hit;
+      return;
+    }
+    if(cevGroupMove){
+      let dx=(e.clientX-cevGroupMove.startMX)/cevZoom, dy=(e.clientY-cevGroupMove.startMY)/cevZoom;
+      if(Math.abs(dx)>2||Math.abs(dy)>2) cevDragMoved=true;
+      cevGroupMove.origins.forEach(o=>{
+        const ed=cevElements.find(x=>x.id===o.id); if(!ed) return;
+        ed.x=cevSnapVal(o.x+dx); ed.y=cevSnapVal(o.y+dy); cevUpdateElPos(ed);
+      });
+      cevRebuildSvg();
+      return;
+    }
     if(cevMoving){
       const dx=(e.clientX-cevMoving.startMX)/cevZoom,dy=(e.clientY-cevMoving.startMY)/cevZoom;
       if(Math.abs(dx)>2||Math.abs(dy)>2) cevDragMoved=true;
       const edata=cevElements.find(x=>x.id===cevMoving.id);
-      if(edata){ edata.x=cevMoving.origX+dx; edata.y=cevMoving.origY+dy; cevUpdateElPos(edata); }
+      if(edata){ edata.x=cevSnapVal(cevMoving.origX+dx); edata.y=cevSnapVal(cevMoving.origY+dy); cevUpdateElPos(edata); }
       cevRebuildSvg();
     } else if(cevResizing){
       const edata=cevElements.find(x=>x.id===cevResizing.id); if(!edata) return;
@@ -4422,35 +4699,44 @@
         const canY=(e.clientY-canRect.top -cevPanE.y)/cevZoom;
         const toSide=toEdata?cevClosestSide(toEdata,canX,canY):'w';
         cevConnectors.push({id:cevGenId('c'),type:cevConnType,from:cevConnDrawing.fromId,fromSide:cevConnDrawing.fromSide||'e',to:tgtEl.dataset.elid,toSide:toSide,label:''});
-        cevRebuildSvg(); cevSaveDebounced();
+        cevRebuildSvg(); cevCommit();
       }
       if(cevTempLine){ cevTempLine.remove(); cevTempLine=null; }
       el('cevInner').querySelectorAll('.cev-drop-target').forEach(d=>d.classList.remove('cev-drop-target'));
       el('cevInner').classList.remove('cev-connecting');
       cevDragMoved=false; cevConnDrawing=null; return;
     }
-    if(cevSpacePanning){ cevSpacePanning=false; if(cevSpaceDown) el('cevCanvas').style.cursor='grab'; }
-    if(cevMoving||cevResizing){
-      cevSaveDebounced();
+    if(cevMarquee){
+      const box=el('cevMarqueeBox'); if(box) box.style.display='none';
+      const ids=[...(cevMarquee.current||cevMarquee.base||[])];
+      cevMarquee=null;
+      cevSelectMany(ids);
+      cevPanningE=false; cevPanStartE=null;
+      return;
+    }
+    if(cevSpacePanning){ cevSpacePanning=false; el('cevCanvas').style.cursor=cevSpaceDown?'grab':(cevTool==='select'?'default':'crosshair'); }
+    if(cevGroupMove){
+      cevGroupMove=null; cevApplySelection(); cevCommit();
+    } else if(cevMoving||cevResizing){
+      if(cevResizing && cevSnap){
+        const ed=cevElements.find(e=>e.id===cevResizing.id);
+        if(ed){ if(ed.type==='circle'){ ed.r=Math.round(ed.r/CEV_GRID)*CEV_GRID||CEV_GRID; } else { ed.w=Math.round(ed.w/CEV_GRID)*CEV_GRID; ed.h=Math.round(ed.h/CEV_GRID)*CEV_GRID; ed.x=cevSnapVal(ed.x); ed.y=cevSnapVal(ed.y); } cevUpdateElSize(ed); cevRebuildSvg(); }
+      }
+      cevCommit();
       if(cevSelected){
         const selDiv=el('cevInner').querySelector(`[data-elid="${cevSelected}"]`);
         const ed=cevElements.find(e=>e.id===cevSelected);
-        if(selDiv&&ed) showCevCtxBar(selDiv,ed);
+        if(selDiv&&ed) showCevNodeCtxBar(selDiv,ed);
       }
     }
     cevMoving=null; cevResizing=null; cevPanningE=false; cevPanStartE=null;
   });
 
   el('cevDeleteBtn').addEventListener('click',()=>{
-    if(cevSelected){
-      cevElements=cevElements.filter(e=>e.id!==cevSelected);
-      cevConnectors=cevConnectors.filter(c=>c.from!==cevSelected&&c.to!==cevSelected);
-      const div=el('cevInner').querySelector(`[data-elid="${cevSelected}"]`);
-      if(div) div.remove();
-      cevSelected=null; cevRebuildSvg(); cevSaveDebounced();
-    } else if(cevSelectedConn){
+    if(cevSelectedIds.size){ cevDeleteSelection(); }
+    else if(cevSelectedConn){
       cevConnectors=cevConnectors.filter(c=>c.id!==cevSelectedConn);
-      cevSelectedConn=null; cevRebuildSvg(); cevSaveDebounced();
+      cevSelectedConn=null; hideCevCtxBar(); cevRebuildSvg(); cevCommit();
     }
   });
 
@@ -4461,6 +4747,15 @@
     }
     if(e.target.tagName==='TEXTAREA'||e.target.contentEditable==='true') return;
     if(e.target.closest('input')) return;
+    // Ctrl/Cmd shortcuts
+    if(e.ctrlKey||e.metaKey){
+      const k=e.key.toLowerCase();
+      if(k==='z'){ e.preventDefault(); if(e.shiftKey) cevRedo(); else cevUndo(); return; }
+      if(k==='y'){ e.preventDefault(); cevRedo(); return; }
+      if(k==='d'){ e.preventDefault(); cevDuplicateSelection(); return; }
+      if(k==='a'){ e.preventDefault(); cevSelectMany(cevElements.map(el=>el.id)); return; }
+      return;
+    }
     const keys={v:'select',s:'sticky',r:'rect',c:'circle',d:'diamond',t:'text'};
     if(keys[e.key]){ cevTool=keys[e.key]; cevConnectingFrom=null; updateCevToolButtons(); }
     if(e.key==='Escape'){
@@ -4475,14 +4770,10 @@
       if(cevTool!=='select'){ cevTool='select'; updateCevToolButtons(); }
     }
     if(e.key==='Delete'||e.key==='Backspace'){
-      if(cevSelected){
-        cevElements=cevElements.filter(ed=>ed.id!==cevSelected);
-        cevConnectors=cevConnectors.filter(c=>c.from!==cevSelected&&c.to!==cevSelected);
-        const div=el('cevInner').querySelector(`[data-elid="${cevSelected}"]`); if(div) div.remove();
-        cevSelected=null; cevRebuildSvg(); cevSaveDebounced();
-      } else if(cevSelectedConn){
+      if(cevSelectedIds.size){ cevDeleteSelection(); }
+      else if(cevSelectedConn){
         cevConnectors=cevConnectors.filter(c=>c.id!==cevSelectedConn);
-        cevSelectedConn=null; cevRebuildSvg(); cevSaveDebounced();
+        cevSelectedConn=null; hideCevCtxBar(); cevRebuildSvg(); cevCommit();
       }
     }
   });
@@ -4524,6 +4815,10 @@
   });
   el('cevZoomInBtn').addEventListener('click',()=>{ cevZoom=Math.min(cevZoom*1.2,4); cevApplyTransform(); });
   el('cevZoomOutBtn').addEventListener('click',()=>{ cevZoom=Math.max(cevZoom/1.2,0.15); cevApplyTransform(); });
+  el('cevUndoBtn').addEventListener('click',()=>cevUndo());
+  el('cevRedoBtn').addEventListener('click',()=>cevRedo());
+  el('cevFitBtn').addEventListener('click',()=>cevFitView());
+  el('cevSnapBtn').addEventListener('click',()=>{ cevSnap=!cevSnap; el('cevSnapBtn').classList.toggle('active',cevSnap); });
 
   async function createCanvasNote(){
     const note=await insertNote({title:'새 캔버스',content:'```canvas\n```',tags:[],links:[],pinned:false,properties:[]});

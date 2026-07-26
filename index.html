@@ -102,8 +102,10 @@
   .loginbox .msg{ font-size:12px; margin-top:14px; min-height:16px; color:var(--danger); }
   .loginbox .msg.ok{ color:var(--ok); }
 
-  .app{ display:none; grid-template-columns: var(--sidebar-w, 280px) 5px 1fr 5px var(--rightpane-w, 260px); height:100vh; width:100vw; }
+  .app{ display:none; grid-template-columns: var(--sidebar-w, 280px) 5px minmax(0,1fr) 5px var(--rightpane-w, 260px); height:100vh; width:100vw; overflow:hidden; }
   .app.ready{ display:grid; }
+  .app.dashboard-mode { grid-template-columns: var(--sidebar-w, 280px) 5px minmax(0,1fr); }
+  .app.dashboard-mode #resizeRight, .app.dashboard-mode #rightpane { display:none; }
   .app.trash-mode .searchwrap, .app.trash-mode .tagrow, .app.trash-mode .sortrow, .app.trash-mode #newBtn{ display:none; }
   .app.trash-mode #backFromTrashBtn{ display:block !important; }
   .resize-handle{ cursor:col-resize; background:transparent; position:relative; z-index:5; }
@@ -164,15 +166,15 @@
   @keyframes dotPop{ 0%{transform:scale(1);} 45%{transform:scale(1.8);} 100%{transform:scale(1);} }
 
   .mainpane{ background: var(--bg-card); display:flex; flex-direction:column; min-width:0; min-height:0; }
-  .toolbar{ display:flex; align-items:center; gap:8px; padding:14px 22px; border-bottom:1px solid var(--border-soft); }
-  .toolbar button.mobonly{ display:none; background:none;border:none;color:var(--ink);font-size:18px;cursor:pointer; }
+  .toolbar{ display:flex; align-items:center; gap:6px; padding:10px 16px; border-bottom:1px solid var(--border-soft); flex-wrap:wrap; min-height:0; }
+  .toolbar button.mobonly{ display:none; background:none;border:none;color:var(--ink);font-size:18px;cursor:pointer;flex-shrink:0; }
   @media (max-width:640px){ .toolbar button.mobonly{ display:block; } }
-  .toolbar .submeta{ font-size:11px; color:var(--ink-faint); margin-left:4px; }
-  .toolbar .modebtn{ font-family:var(--sans); font-size:12px; font-weight:600; letter-spacing:0.1px; background:var(--bg-panel); color:var(--ink-soft); border:1px solid var(--border); border-radius:20px; padding:5px 13px; cursor:pointer; transition:transform .1s ease; }
+  .toolbar .submeta{ font-size:11px; color:var(--ink-faint); margin-left:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; flex-shrink:1; max-width:30%; }
+  .toolbar .modebtn{ font-family:var(--sans); font-size:12px; font-weight:600; letter-spacing:0.1px; background:var(--bg-panel); color:var(--ink-soft); border:1px solid var(--border); border-radius:20px; padding:5px 13px; cursor:pointer; transition:transform .1s ease; flex-shrink:0; white-space:nowrap; }
   .toolbar .modebtn.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
   .toolbar .modebtn:active, .toolbar .pinbtn:active{ transform:scale(0.94); }
-  .toolbar .spacer{ flex:1; }
-  .toolbar .pinbtn{ font-family:var(--sans); font-size:12px; font-weight:500; background:none; border:1px solid var(--border); color: var(--ink-soft); padding:5px 12px; border-radius:20px; cursor:pointer; transition:transform .1s ease; }
+  .toolbar .spacer{ flex:1; min-width:4px; }
+  .toolbar .pinbtn{ font-family:var(--sans); font-size:12px; font-weight:500; background:none; border:1px solid var(--border); color: var(--ink-soft); padding:5px 12px; border-radius:20px; cursor:pointer; transition:transform .1s ease; flex-shrink:0; white-space:nowrap; }
   .toolbar .pinbtn.pinned{ color:var(--accent); border-color:var(--accent); }
   .cardsheet{ flex:1; overflow-y:auto; padding:30px 40px 60px 40px; min-height:0; }
   .cardsheet.fade-in{ animation: sheetFade .18s ease; }
@@ -448,6 +450,22 @@
   .dash-today-card-title { font-size:14px; font-weight:700; color:var(--ink); margin-bottom:6px; }
   .dash-today-card-preview { font-size:12px; color:var(--ink-soft); line-height:1.5; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
   .dash-empty { font-size:13px; color:var(--ink-soft); text-align:center; padding:20px 0; }
+
+  /* Recent / Pinned rows */
+  .dash-recent-row, .dash-pinned-row { display:flex; gap:10px; overflow-x:auto; padding-bottom:4px; }
+  .dash-mini-card { flex:0 0 160px; background:var(--bg); border:1px solid var(--border-soft); border-radius:10px; padding:10px 12px; cursor:pointer; transition:box-shadow .15s; }
+  .dash-mini-card:hover { box-shadow:0 2px 10px rgba(0,0,0,.1); }
+  .dash-mini-card-title { font-size:12.5px; font-weight:700; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:4px; }
+  .dash-mini-card-meta { font-size:10.5px; color:var(--ink-faint); }
+  .dash-mini-card-badge { display:inline-block; font-size:9px; font-weight:700; color:var(--accent); background:var(--accent-soft); border-radius:3px; padding:1px 4px; margin-left:4px; }
+
+  /* Canvas list */
+  .dash-canvas-item { display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--border-soft); cursor:pointer; }
+  .dash-canvas-item:last-child { border-bottom:none; }
+  .dash-canvas-item:hover .dash-canvas-name { color:var(--accent); }
+  .dash-canvas-name { font-size:13px; font-weight:500; color:var(--ink); }
+  .dash-canvas-meta { font-size:11px; color:var(--ink-faint); margin-left:auto; }
+
   [data-theme="dark"] .hm-cell[data-intensity="1"] { background:#0e4429; }
   [data-theme="dark"] .hm-cell[data-intensity="2"] { background:#006d32; }
   [data-theme="dark"] .hm-cell[data-intensity="3"] { background:#26a641; }
@@ -576,6 +594,19 @@
         <div class="dash-level-card" id="dashLevelCard"></div>
       </div>
       <div class="dash-stats-row" id="dashStatsRow"></div>
+
+      <!-- 최근 카드 -->
+      <div class="dash-section" id="dashRecentSection">
+        <div class="dash-section-title">최근 카드</div>
+        <div class="dash-recent-row" id="dashRecentRow"></div>
+      </div>
+
+      <!-- 고정된 카드 (있을 때만 표시) -->
+      <div class="dash-section" id="dashPinnedSection" style="display:none;">
+        <div class="dash-section-title">고정된 카드 📌</div>
+        <div class="dash-pinned-row" id="dashPinnedRow"></div>
+      </div>
+
       <div class="dash-section">
         <div class="dash-section-title">활동 기록 <span class="dash-streak" id="dashStreak"></span></div>
         <div class="dash-heatmap-wrap">
@@ -591,10 +622,14 @@
           </div>
         </div>
       </div>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+      <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:20px;">
         <div class="dash-section">
           <div class="dash-section-title">자주 쓰는 태그</div>
           <div id="dashTags"></div>
+        </div>
+        <div class="dash-section">
+          <div class="dash-section-title">캔버스 보드</div>
+          <div id="dashCanvasList"></div>
         </div>
         <div class="dash-section">
           <div class="dash-section-title">오늘의 한 장 ✨</div>
@@ -625,6 +660,7 @@
           <input class="cev-title-input" id="cevTitleInput" placeholder="캔버스 제목" spellcheck="false">
           <button class="cev-action" id="cevZoomOutBtn" title="축소">−</button>
           <button class="cev-action" id="cevZoomInBtn" title="확대">+</button>
+          <button class="cev-action" id="cevCardColorBtn" title="카드 색상">🎨</button>
           <button class="cev-action" id="cevDeleteBtn" title="선택 삭제">🗑</button>
           <button class="cev-action" id="cevExitBtn">← 목록으로</button>
         </div>
@@ -1332,11 +1368,11 @@
   // ---------------- open / edit ----------------
   async function openNote(id){
     if(currentId && currentId !== id) await flushSave();
+    leaveDashboard();
     currentId = id;
     const note = index.find(m => m.id === id);
     if(!note){ showToast('카드를 찾을 수 없습니다'); return; }
     el('globalGraphView').style.display = 'none';
-    el('dashboardView').style.display = 'none';
     el('canvasEditorView').style.display = 'none';
     if(isCanvasNote(note)){
       emptyMain.style.display = 'none';
@@ -1952,11 +1988,11 @@
   function openGlobalGraph(){
     if(!index.length){ showToast('연결할 카드가 없습니다'); return; }
     if(showingTrash) exitTrashView();
+    leaveDashboard();
     currentId = null;
     cardSheet.style.display = 'none';
     toolbar.style.display = 'none';
     emptyMain.style.display = 'none';
-    el('dashboardView').style.display = 'none';
     globalGraphView.style.display = 'flex';
     clearRightPane();
     renderCardList();
@@ -2426,9 +2462,9 @@
   }
 
   function enterCanvasView(){
+    leaveDashboard();
     viewMode = 'canvas';
     el('globalGraphView').style.display = 'none';
-    el('dashboardView').style.display = 'none';
     emptyMain.style.display = 'none';
     cardSheet.style.display = 'none';
     toolbar.style.display = 'none';
@@ -3134,6 +3170,11 @@
   });
 
   el('cevExitBtn').addEventListener('click',()=>exitCanvasEditor());
+  el('cevCardColorBtn').addEventListener('click',(e)=>{
+    if(!cevCurrentNoteId) return;
+    const note=index.find(m=>m.id===cevCurrentNoteId);
+    if(note){ showCardColorPalette(note,e); }
+  });
 
   el('cevTitleInput').addEventListener('input',()=>{
     if(!cevCurrentNoteId) return;
@@ -3148,7 +3189,8 @@
     if(!note) return;
     index.unshift(note); computeAllTags(); renderTagRow(); renderCardList();
     currentId=note.id;
-    el('globalGraphView').style.display='none'; el('dashboardView').style.display='none'; emptyMain.style.display='none';
+    leaveDashboard();
+    el('globalGraphView').style.display='none'; emptyMain.style.display='none';
     cardSheet.style.display='none'; toolbar.style.display='none'; el('canvasView').style.display='none';
     openCanvasEditor(note);
   }
@@ -3219,6 +3261,11 @@
     return old[Math.floor(Math.random()*Math.min(old.length,20))];
   }
 
+  function leaveDashboard(){
+    appEl.classList.remove('dashboard-mode');
+    el('dashboardView').style.display='none';
+  }
+
   function openDashboard(){
     currentId=null;
     cardSheet.style.display='none';
@@ -3228,6 +3275,7 @@
     el('canvasEditorView').style.display='none';
     el('canvasView').style.display='none';
     el('dashboardView').style.display='flex';
+    appEl.classList.add('dashboard-mode');
     renderCardList();
     renderDashboard();
   }
@@ -3252,18 +3300,56 @@
       <div class="dash-xp-bar-wrap"><div class="dash-xp-bar" style="width:${xpPct}%"></div></div>
       <div class="dash-xp-label">${next?`다음: ${next.name} (${next.xp-xp}개 남음)`:'최고 레벨 달성! ⭐'}</div>`;
     el('dashStreak').textContent=streak>0?`🔥 ${streak}일 연속`:'';
+
     const canvasNotes=active.filter(n=>isCanvasNote(n));
     const allTags=new Set(active.flatMap(n=>n.tags||[]));
     const now=new Date();
     const thisWeek=active.filter(n=>(now-new Date(n.created))<7*24*3600*1000);
+    const totalWords=active.reduce((s,n)=>{
+      const txt=(n.content||'').replace(/```[\s\S]*?```/g,'').replace(/[#*`\[\]_]/g,'').trim();
+      return s+(txt?txt.split(/\s+/).filter(Boolean).length:0);
+    },0);
     el('dashStatsRow').innerHTML=`
       <div class="dash-stat-card"><div class="dash-stat-val">${active.length}</div><div class="dash-stat-label">전체 카드</div></div>
+      <div class="dash-stat-card"><div class="dash-stat-val">${totalWords>=1000?(totalWords/1000).toFixed(1)+'k':totalWords}</div><div class="dash-stat-label">총 단어 수</div></div>
       <div class="dash-stat-card"><div class="dash-stat-val">${canvasNotes.length}</div><div class="dash-stat-label">캔버스</div></div>
       <div class="dash-stat-card"><div class="dash-stat-val">${allTags.size}</div><div class="dash-stat-label">태그 종류</div></div>
       <div class="dash-stat-card"><div class="dash-stat-val">${thisWeek.length}</div><div class="dash-stat-label">이번 주 생성</div></div>
-      <div class="dash-stat-card"><div class="dash-stat-val">${todayNotes.length+todayEdited.length}</div><div class="dash-stat-label">오늘 활동</div></div>
-      <div class="dash-stat-card"><div class="dash-stat-val">${active.filter(n=>n.pinned).length}</div><div class="dash-stat-label">고정 카드</div></div>`;
+      <div class="dash-stat-card"><div class="dash-stat-val">${todayNotes.length+todayEdited.length}</div><div class="dash-stat-label">오늘 활동</div></div>`;
+
+    // 최근 카드 (최근 수정 순 7개)
+    const recent=active.filter(n=>!isCanvasNote(n)).sort((a,b)=>b.updated-a.updated).slice(0,7);
+    const rrow=el('dashRecentRow');
+    rrow.innerHTML=recent.length?recent.map(n=>{
+      const color=noteColor(n);
+      return `<div class="dash-mini-card" data-id="${n.id}" style="${color?'border-left:3px solid '+color:''}">
+        <div class="dash-mini-card-title">${escapeHtml(n.title||'제목 없음')}</div>
+        <div class="dash-mini-card-meta">${formatDate(n.updated)}</div>
+      </div>`;
+    }).join(''):'<div class="dash-empty">카드가 없습니다</div>';
+    rrow.querySelectorAll('.dash-mini-card').forEach(c=>c.addEventListener('click',()=>openNote(c.dataset.id)));
+
+    // 고정된 카드
+    const pinned=active.filter(n=>n.pinned);
+    const pSection=el('dashPinnedSection'), prow=el('dashPinnedRow');
+    if(pinned.length){
+      pSection.style.display='block';
+      prow.innerHTML=pinned.map(n=>{
+        const color=noteColor(n);
+        const badge=isCanvasNote(n)?'<span class="dash-mini-card-badge">canvas</span>':'';
+        return `<div class="dash-mini-card" data-id="${n.id}" style="${color?'border-left:3px solid '+color:''}">
+          <div class="dash-mini-card-title">${escapeHtml(n.title||'제목 없음')}${badge}</div>
+          <div class="dash-mini-card-meta">${formatDate(n.updated)}</div>
+        </div>`;
+      }).join('');
+      prow.querySelectorAll('.dash-mini-card').forEach(c=>c.addEventListener('click',()=>openNote(c.dataset.id)));
+    } else {
+      pSection.style.display='none';
+    }
+
     renderDashHeatmap();
+
+    // 태그
     const tags=dashComputeTagCounts();
     const maxT=tags[0]?tags[0][1]:1;
     el('dashTags').innerHTML=tags.length?tags.map(([t,c])=>`
@@ -3272,11 +3358,23 @@
         <div class="dash-tag-bar-wrap"><div class="dash-tag-bar" style="width:${Math.round(c/maxT*100)}%"></div></div>
         <div class="dash-tag-count">${c}</div>
       </div>`).join(''):'<div class="dash-empty">태그가 없습니다</div>';
+
+    // 캔버스 보드 목록
+    const cl=el('dashCanvasList');
+    cl.innerHTML=canvasNotes.length?canvasNotes.slice(0,8).map(n=>`
+      <div class="dash-canvas-item" data-id="${n.id}">
+        <span>🎨</span>
+        <span class="dash-canvas-name">${escapeHtml(n.title||'캔버스')}</span>
+        <span class="dash-canvas-meta">${formatDate(n.updated)}</span>
+      </div>`).join(''):'<div class="dash-empty">캔버스 보드 없음</div>';
+    cl.querySelectorAll('.dash-canvas-item').forEach(c=>c.addEventListener('click',()=>openNote(c.dataset.id)));
+
+    // 오늘의 한 장
     const rnd=dashTodayNote();
     const tc=el('dashTodayCard');
     if(rnd){
-      tc.innerHTML=`<div class="dash-today-card-inner"><div class="dash-today-card-title">${rnd.title||'제목 없음'}</div><div class="dash-today-card-preview">${(rnd.content||'').replace(/```[\s\S]*?```/g,'').replace(/[#*`\[\]]/g,'').trim().slice(0,120)}</div></div>`;
-      tc.querySelector('.dash-today-card-inner').addEventListener('click',()=>{ openNote(rnd.id); });
+      tc.innerHTML=`<div class="dash-today-card-inner"><div class="dash-today-card-title">${escapeHtml(rnd.title||'제목 없음')}</div><div class="dash-today-card-preview">${(rnd.content||'').replace(/```[\s\S]*?```/g,'').replace(/[#*`\[\]]/g,'').trim().slice(0,120)}</div></div>`;
+      tc.querySelector('.dash-today-card-inner').addEventListener('click',()=>openNote(rnd.id));
     } else {
       tc.innerHTML='<div class="dash-empty">오늘 기록한 카드가 많네요! ✨</div>';
     }

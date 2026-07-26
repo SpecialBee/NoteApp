@@ -441,6 +441,17 @@
   .cev-color { width:24px; height:24px; border-radius:50%; cursor:pointer; border:2px solid transparent; flex-shrink:0; }
   .cev-color:hover { border-color:var(--ink); }
   .cev-link { stroke:var(--ink-soft); stroke-width:1.5; fill:none; }
+  /* Canvas editor: section + context toolbar */
+  .cev-section{ position:absolute; border:2px solid; border-radius:10px; z-index:0; box-sizing:border-box; cursor:grab; }
+  .cev-section.selected{ outline:2px solid var(--accent); outline-offset:2px; }
+  .cev-section-label{ font-size:11px; font-weight:700; padding:5px 9px; user-select:none; white-space:nowrap; }
+  #cevCtxBar{ position:fixed; display:none; align-items:center; gap:5px; background:var(--bg-card); border:1px solid var(--border); border-radius:9px; padding:6px 9px; box-shadow:0 4px 16px rgba(0,0,0,0.14); z-index:600; }
+  .cevctx-color{ width:15px; height:15px; border-radius:50%; cursor:pointer; flex-shrink:0; box-sizing:border-box; transition:transform .1s; }
+  .cevctx-color:hover{ transform:scale(1.2); }
+  .cevctx-color.active{ outline:2px solid var(--ink); outline-offset:2px; }
+  .cevctx-sep{ width:1px; height:16px; background:var(--border); margin:0 2px; flex-shrink:0; }
+  .cevctx-btn{ font-family:var(--sans); font-size:11px; color:var(--ink-soft); background:none; border:none; cursor:pointer; padding:2px 6px; border-radius:4px; white-space:nowrap; }
+  .cevctx-btn:hover{ color:#dc2626; background:#fee2e2; }
   .cev-link.dashed { stroke-dasharray:6,4; }
   .cev-link-selected { stroke:var(--accent) !important; stroke-width:2.5 !important; }
   /* Anchor connection points */
@@ -809,6 +820,8 @@
           <button class="cev-tool" data-tool="circle" title="원 (C)">○</button>
           <button class="cev-tool" data-tool="diamond" title="다이아몬드 (D)">◇</button>
           <button class="cev-tool" data-tool="text" title="텍스트 (T)">T</button>
+          <span class="cev-sep"></span>
+          <button class="cev-tool" data-tool="section" title="섹션 컨테이너">⊡</button>
         </div>
         <span class="cev-sep"></span>
         <div class="cev-conn-types" id="cevConnTypes">
@@ -895,6 +908,8 @@
   <div class="tp-grid" id="tpGrid"></div>
   <div class="tp-label" id="tpLabel">표 크기를 선택하세요</div>
 </div>
+
+<div id="cevCtxBar"></div>
 
 <div id="cevColorPalette">
   <div class="cev-color" data-color="#FFE066" style="background:#FFE066;"></div>
@@ -3320,16 +3335,55 @@
     try{ let n=parseInt((hex||'#9CA3AF').replace(/^var\(.*\)/,'#9CA3AF').slice(1),16); if(isNaN(n)) n=0x9CA3AF; const r=Math.max(0,Math.min(255,(n>>16)+pct)),g=Math.max(0,Math.min(255,((n>>8)&0xff)+pct)),b=Math.max(0,Math.min(255,(n&0xff)+pct)); return `rgb(${r},${g},${b})`; }catch(e){ return '#9CA3AF'; }
   }
 
+  const CEV_CTX_COLORS = [null,'#FF9F9F','#FFE066','#85E09A','#82C4F8','#C3B1E1','#FFB347'];
+
+  function showCevCtxBar(div, edata){
+    const bar = el('cevCtxBar'); if(!bar||!div||!edata) return;
+    bar.innerHTML = '';
+    CEV_CTX_COLORS.forEach(color => {
+      const dot = document.createElement('div');
+      dot.className = 'cevctx-color' + (edata.color === color ? ' active' : '');
+      dot.style.cssText = color ? `background:${color};border:1.5px solid ${color};` : `background:var(--bg-card);border:1.5px solid var(--border);`;
+      dot.addEventListener('mousedown', e => e.stopPropagation());
+      dot.addEventListener('click', e => {
+        e.stopPropagation();
+        edata.color = color || undefined;
+        cevRenderAll(); cevSaveDebounced();
+      });
+      bar.appendChild(dot);
+    });
+    const sep = document.createElement('div'); sep.className = 'cevctx-sep'; bar.appendChild(sep);
+    const delBtn = document.createElement('button'); delBtn.className = 'cevctx-btn'; delBtn.textContent = '🗑 삭제';
+    delBtn.addEventListener('mousedown', e => e.stopPropagation());
+    delBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      cevElements = cevElements.filter(e => e.id !== edata.id);
+      cevConnectors = cevConnectors.filter(c => c.from !== edata.id && c.to !== edata.id);
+      cevSelected = null; hideCevCtxBar(); cevRenderAll(); cevSaveDebounced();
+    });
+    bar.appendChild(delBtn);
+    bar.style.display = 'flex';
+    requestAnimationFrame(() => {
+      const rect = div.getBoundingClientRect();
+      const barW = bar.offsetWidth || 220; const barH = bar.offsetHeight || 34;
+      bar.style.left = Math.max(8, Math.min(rect.left + rect.width/2 - barW/2, window.innerWidth - barW - 8)) + 'px';
+      bar.style.top = (rect.top > barH + 16 ? rect.top - barH - 10 : rect.bottom + 10) + 'px';
+    });
+  }
+
+  function hideCevCtxBar(){ const b=el('cevCtxBar'); if(b) b.style.display='none'; }
+
   function cevSelectElement(id){
     const inner=el('cevInner'); if(!inner) return;
     const prevDiv=inner.querySelector('.cev-el.selected');
     if(prevDiv){ prevDiv.classList.remove('selected'); prevDiv.querySelectorAll('.cev-handle').forEach(h=>h.remove()); }
     inner.querySelectorAll('.connect-source').forEach(d=>d.classList.remove('connect-source'));
     cevSelected=id;
-    if(!id) return;
+    if(!id){ hideCevCtxBar(); return; }
     const div=inner.querySelector(`[data-elid="${id}"]`); if(!div) return;
     div.classList.add('selected');
-    const edata=cevElements.find(e=>e.id===id); if(edata) cevAddHandles(div,edata);
+    const edata=cevElements.find(e=>e.id===id);
+    if(edata){ cevAddHandles(div,edata); showCevCtxBar(div,edata); }
   }
 
   function cevGetAnchorPos(edata, side){
@@ -3506,6 +3560,29 @@
       div.addEventListener('dblclick',e=>{ e.stopPropagation(); div.contentEditable='true'; div.focus(); });
     }
 
+    if(edata.type==='section'){
+      const w=edata.w||300, h=edata.h||200;
+      div.style.cssText=`left:${edata.x}px;top:${edata.y}px;width:${w}px;height:${h}px;`;
+      div.classList.add('cev-section');
+      div.style.borderColor=edata.color||'#82C4F8';
+      div.style.background=(edata.color||'#82C4F8')+'18';
+      const lbl=document.createElement('div'); lbl.className='cev-section-label';
+      lbl.style.color=edata.color||'#82C4F8'; lbl.textContent=edata.label||'섹션';
+      div.appendChild(lbl);
+      lbl.addEventListener('dblclick',e=>{ e.stopPropagation(); lbl.contentEditable='true'; lbl.style.cursor='text'; lbl.focus(); const r=document.createRange(); r.selectNodeContents(lbl); const s=window.getSelection(); s.removeAllRanges(); s.addRange(r); });
+      lbl.addEventListener('blur',()=>{ lbl.contentEditable='false'; lbl.style.cursor=''; edata.label=lbl.textContent.trim()||'섹션'; lbl.textContent=edata.label; cevSaveDebounced(); });
+      lbl.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); lbl.blur(); } e.stopPropagation(); });
+      div.addEventListener('mousedown',e=>{
+        if(e.target.closest('.cev-handle')||e.target===lbl&&lbl.contentEditable==='true') return;
+        if(e.button!==0) return;
+        e.stopPropagation(); cevDragMoved=false;
+        cevSelectElement(edata.id);
+        cevMoving={id:edata.id,startMX:e.clientX,startMY:e.clientY,origX:edata.x,origY:edata.y};
+      });
+      inner.insertBefore(div, inner.firstChild);
+      return;
+    }
+
     div.addEventListener('mousedown',e=>{
       if(e.target.closest('.cev-handle')) return;
       if(e.target.tagName==='TEXTAREA') return;
@@ -3527,8 +3604,12 @@
     inner.appendChild(svg);
     if(cevSelected){
       const selDiv=inner.querySelector(`[data-elid="${cevSelected}"]`);
-      if(selDiv){ selDiv.classList.add('selected'); const ed=cevElements.find(e=>e.id===cevSelected); if(ed) cevAddHandles(selDiv,ed); }
-    }
+      if(selDiv){
+        selDiv.classList.add('selected');
+        const ed=cevElements.find(e=>e.id===cevSelected);
+        if(ed){ cevAddHandles(selDiv,ed); showCevCtxBar(selDiv,ed); }
+      }
+    } else { hideCevCtxBar(); }
     cevRebuildSvg(); cevApplyTransform();
   }
 
@@ -3556,6 +3637,7 @@
   }
 
   function exitCanvasEditor(){
+    hideCevCtxBar();
     el('canvasEditorView').style.display='none';
     currentId=cevCurrentNoteId;
     if(currentId){
@@ -3615,6 +3697,10 @@
     else if(cevTool==='circle') newEl={id:cevGenId('c'),type:'circle',x:x,y:y,r:60,color:'#E8E8E8',text:''};
     else if(cevTool==='diamond') newEl={id:cevGenId('d'),type:'diamond',x:x-50,y:y-50,w:100,h:100,color:'#E8E8E8',text:''};
     else if(cevTool==='text') newEl={id:cevGenId('t'),type:'text',x:x,y:y,w:120,h:30,color:'',text:'텍스트'};
+    else if(cevTool==='section'){
+      const colorIdx=cevElements.filter(e=>e.type==='section').length % SEC_COLORS.length;
+      newEl={id:cevGenId('sec'),type:'section',x:x-150,y:y-100,w:300,h:200,label:'섹션',color:SEC_COLORS[colorIdx]};
+    }
     if(newEl){
       cevElements.push(newEl);
       cevTool='select'; updateCevToolButtons();
@@ -3703,7 +3789,14 @@
       cevDragMoved=false; cevConnDrawing=null; return;
     }
     if(cevSpacePanning){ cevSpacePanning=false; if(cevSpaceDown) el('cevCanvas').style.cursor='grab'; }
-    if(cevMoving||cevResizing){ cevSaveDebounced(); }
+    if(cevMoving||cevResizing){
+      cevSaveDebounced();
+      if(cevSelected){
+        const selDiv=el('cevInner').querySelector(`[data-elid="${cevSelected}"]`);
+        const ed=cevElements.find(e=>e.id===cevSelected);
+        if(selDiv&&ed) showCevCtxBar(selDiv,ed);
+      }
+    }
     cevMoving=null; cevResizing=null; cevPanningE=false; cevPanStartE=null;
   });
 

@@ -407,6 +407,49 @@
   .cev-conn-label { font-size:11px; fill:var(--ink-soft); pointer-events:none; text-anchor:middle; dominant-baseline:middle; }
   .cev-conn-label-input { position:fixed; font-family:var(--sans); font-size:12px; background:var(--bg-card); border:1.5px solid var(--accent); border-radius:6px; padding:3px 8px; outline:none; z-index:300; min-width:60px; max-width:200px; text-align:center; box-shadow:0 2px 8px rgba(0,0,0,.12); }
   #cevCanvas { background-image:radial-gradient(circle, var(--border) 1.2px, transparent 1.2px); background-size:24px 24px; background-position:0 0; }
+
+  /* ===== Dashboard ===== */
+  #dashboardView { background: var(--bg); }
+  .dash-greeting { font-size:22px; font-weight:700; color:var(--ink); margin-bottom:4px; }
+  .dash-sub { font-size:13px; color:var(--ink-soft); }
+  .dash-section { background:var(--bg-card); border:1px solid var(--border-soft); border-radius:14px; padding:18px 20px; }
+  .dash-section-title { font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+  .dash-streak { font-size:13px; font-weight:700; color:var(--accent); letter-spacing:0; text-transform:none; }
+  .dash-stats-row { display:grid; grid-template-columns:repeat(auto-fill, minmax(130px,1fr)); gap:12px; }
+  .dash-stat-card { background:var(--bg-card); border:1px solid var(--border-soft); border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:4px; }
+  .dash-stat-val { font-size:26px; font-weight:800; color:var(--ink); line-height:1; }
+  .dash-stat-label { font-size:11px; color:var(--ink-soft); font-weight:500; }
+  .dash-level-card { background:var(--accent-soft); border:1.5px solid var(--accent); border-radius:14px; padding:14px 20px; min-width:200px; }
+  .dash-level-icon { font-size:28px; margin-bottom:4px; }
+  .dash-level-name { font-size:14px; font-weight:700; color:var(--accent); }
+  .dash-level-label { font-size:11px; color:var(--ink-soft); margin-bottom:8px; }
+  .dash-xp-bar-wrap { background:var(--border); border-radius:99px; height:6px; overflow:hidden; }
+  .dash-xp-bar { background:var(--accent); height:100%; border-radius:99px; transition:width .4s ease; }
+  .dash-xp-label { font-size:10px; color:var(--ink-soft); margin-top:4px; }
+  .dash-heatmap-wrap { overflow-x:auto; }
+  .dash-heatmap { display:flex; gap:3px; padding-bottom:6px; min-width:max-content; }
+  .hm-col { display:flex; flex-direction:column; gap:3px; }
+  .hm-cell { width:11px; height:11px; border-radius:2px; background:var(--border); flex-shrink:0; }
+  .hm-cell[data-intensity="0"] { background:var(--border); }
+  .hm-cell[data-intensity="1"] { background:#c6e48b; }
+  .hm-cell[data-intensity="2"] { background:#7bc96f; }
+  .hm-cell[data-intensity="3"] { background:#239a3b; }
+  .hm-cell[data-intensity="4"] { background:#196127; }
+  .dash-hm-legend { display:flex; align-items:center; gap:4px; margin-top:8px; font-size:10px; color:var(--ink-soft); }
+  .dash-tag-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .dash-tag-name { font-size:12px; color:var(--ink); min-width:70px; font-weight:500; }
+  .dash-tag-bar-wrap { flex:1; background:var(--border); border-radius:99px; height:5px; overflow:hidden; }
+  .dash-tag-bar { height:100%; border-radius:99px; background:var(--accent); }
+  .dash-tag-count { font-size:11px; color:var(--ink-soft); min-width:24px; text-align:right; }
+  .dash-today-card-inner { background:var(--bg); border:1px solid var(--border-soft); border-radius:10px; padding:14px; cursor:pointer; transition:box-shadow .15s; }
+  .dash-today-card-inner:hover { box-shadow:0 2px 12px rgba(0,0,0,.08); }
+  .dash-today-card-title { font-size:14px; font-weight:700; color:var(--ink); margin-bottom:6px; }
+  .dash-today-card-preview { font-size:12px; color:var(--ink-soft); line-height:1.5; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+  .dash-empty { font-size:13px; color:var(--ink-soft); text-align:center; padding:20px 0; }
+  [data-theme="dark"] .hm-cell[data-intensity="1"] { background:#0e4429; }
+  [data-theme="dark"] .hm-cell[data-intensity="2"] { background:#006d32; }
+  [data-theme="dark"] .hm-cell[data-intensity="3"] { background:#26a641; }
+  [data-theme="dark"] .hm-cell[data-intensity="4"] { background:#39d353; }
 </style>
 </head>
 <body>
@@ -464,6 +507,7 @@
     <div class="tagrow" id="tagRow"></div>
     <div class="cardlist" id="cardList"></div>
     <div style="padding:0 14px 4px 14px;display:flex;flex-direction:column;gap:2px;">
+      <button class="logout" id="dashboardBtn" style="font-size:11px;text-align:left;">📊 대시보드</button>
       <button class="logout" id="paletteBtn" style="font-size:11px;text-align:left;">⚡ 빠른 전환 (Ctrl+P)</button>
       <button class="logout" id="globalGraphBtn" style="font-size:11px;text-align:left;">🕸 전역 그래프</button>
       <button class="logout" id="trashBtn" style="font-size:11px;text-align:left;">🗑 휴지통 (<span id="trashCount">0</span>)</button>
@@ -518,6 +562,42 @@
         <button id="canvasExitBtn">← 목록으로</button>
       </div>
       <div class="canvas-hint">더블클릭: 열기 &nbsp;·&nbsp; 배경 드래그: 이동 &nbsp;·&nbsp; 스크롤: 확대/축소</div>
+    </div>
+
+    <div id="dashboardView" style="display:none; flex:1; flex-direction:column; overflow-y:auto; padding:28px 36px; gap:24px;">
+      <div style="display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:16px;">
+        <div>
+          <div class="dash-greeting" id="dashGreeting"></div>
+          <div class="dash-sub" id="dashSub"></div>
+        </div>
+        <div class="dash-level-card" id="dashLevelCard"></div>
+      </div>
+      <div class="dash-stats-row" id="dashStatsRow"></div>
+      <div class="dash-section">
+        <div class="dash-section-title">활동 기록 <span class="dash-streak" id="dashStreak"></span></div>
+        <div class="dash-heatmap-wrap">
+          <div class="dash-heatmap" id="dashHeatmap"></div>
+          <div class="dash-hm-legend">
+            <span>적음</span>
+            <div class="hm-cell" data-intensity="0"></div>
+            <div class="hm-cell" data-intensity="1"></div>
+            <div class="hm-cell" data-intensity="2"></div>
+            <div class="hm-cell" data-intensity="3"></div>
+            <div class="hm-cell" data-intensity="4"></div>
+            <span>많음</span>
+          </div>
+        </div>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+        <div class="dash-section">
+          <div class="dash-section-title">자주 쓰는 태그</div>
+          <div id="dashTags"></div>
+        </div>
+        <div class="dash-section">
+          <div class="dash-section-title">오늘의 한 장 ✨</div>
+          <div id="dashTodayCard"></div>
+        </div>
+      </div>
     </div>
 
     <div id="canvasEditorView" style="display:none; flex:1; position:relative; overflow:hidden; background:var(--bg); flex-direction:column;">
@@ -1251,6 +1331,7 @@
     const note = index.find(m => m.id === id);
     if(!note){ showToast('카드를 찾을 수 없습니다'); return; }
     el('globalGraphView').style.display = 'none';
+    el('dashboardView').style.display = 'none';
     el('canvasEditorView').style.display = 'none';
     if(isCanvasNote(note)){
       emptyMain.style.display = 'none';
@@ -1499,6 +1580,7 @@
     toolbar.style.display = 'none';
     emptyMain.style.display = 'none';
     el('globalGraphView').style.display = 'none';
+    el('dashboardView').style.display = 'none';
     clearRightPane();
     renderCardList();
   }
@@ -1864,6 +1946,7 @@
     cardSheet.style.display = 'none';
     toolbar.style.display = 'none';
     emptyMain.style.display = 'none';
+    el('dashboardView').style.display = 'none';
     globalGraphView.style.display = 'flex';
     clearRightPane();
     renderCardList();
@@ -2335,6 +2418,7 @@
   function enterCanvasView(){
     viewMode = 'canvas';
     el('globalGraphView').style.display = 'none';
+    el('dashboardView').style.display = 'none';
     emptyMain.style.display = 'none';
     cardSheet.style.display = 'none';
     toolbar.style.display = 'none';
@@ -3048,11 +3132,168 @@
     if(!note) return;
     index.unshift(note); computeAllTags(); renderTagRow(); renderCardList();
     currentId=note.id;
-    el('globalGraphView').style.display='none'; emptyMain.style.display='none';
+    el('globalGraphView').style.display='none'; el('dashboardView').style.display='none'; emptyMain.style.display='none';
     cardSheet.style.display='none'; toolbar.style.display='none'; el('canvasView').style.display='none';
     openCanvasEditor(note);
   }
   el('newCanvasItem').addEventListener('click',()=>{ el('newBtnMenu').style.display='none'; createCanvasNote(); });
+
+  // ---------------- Dashboard ----------------
+  const DASH_LEVELS = [
+    {level:1, name:'씨앗',       icon:'🌱', xp:0},
+    {level:2, name:'새싹',       icon:'🌿', xp:5},
+    {level:3, name:'묘목',       icon:'🌳', xp:15},
+    {level:4, name:'탐험가',     icon:'🗺️', xp:30},
+    {level:5, name:'연구자',     icon:'🔬', xp:55},
+    {level:6, name:'사상가',     icon:'💡', xp:90},
+    {level:7, name:'설계자',     icon:'🏛️', xp:140},
+    {level:8, name:'크리에이터', icon:'🎨', xp:210},
+    {level:9, name:'혁신가',     icon:'⚡', xp:300},
+    {level:10,name:'마스터',     icon:'⭐', xp:420},
+  ];
+
+  function dashGetLevel(xp){
+    let cur=DASH_LEVELS[0], next=DASH_LEVELS[1];
+    for(let i=DASH_LEVELS.length-1;i>=0;i--){
+      if(xp>=DASH_LEVELS[i].xp){ cur=DASH_LEVELS[i]; next=DASH_LEVELS[i+1]||null; break; }
+    }
+    return {cur, next};
+  }
+
+  function dashComputeStreak(){
+    const days=new Set();
+    index.forEach(n=>{
+      if(n.deletedAt) return;
+      const add=(d)=>days.add(new Date(d).toDateString());
+      add(n.created); add(n.updated);
+    });
+    let streak=0;
+    const today=new Date();
+    for(let i=0;i<365;i++){
+      const d=new Date(today); d.setDate(d.getDate()-i);
+      if(days.has(d.toDateString())) streak++;
+      else if(i>0) break;
+    }
+    return streak;
+  }
+
+  function dashComputeHeatmap(){
+    const counts={};
+    index.forEach(n=>{
+      if(n.deletedAt) return;
+      const add=(d)=>{ const k=new Date(d).toISOString().slice(0,10); counts[k]=(counts[k]||0)+1; };
+      add(n.created);
+      if(n.updated!==n.created) add(n.updated);
+    });
+    return counts;
+  }
+
+  function dashComputeTagCounts(){
+    const tc={};
+    index.filter(n=>!n.deletedAt).forEach(n=>{
+      (n.tags||[]).forEach(t=>{ tc[t]=(tc[t]||0)+1; });
+    });
+    return Object.entries(tc).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  }
+
+  function dashTodayNote(){
+    const todayStr=new Date().toDateString();
+    const old=index.filter(n=>!n.deletedAt&&n.content&&n.content.trim()&&new Date(n.updated).toDateString()!==todayStr);
+    if(!old.length) return null;
+    return old[Math.floor(Math.random()*Math.min(old.length,20))];
+  }
+
+  function openDashboard(){
+    currentId=null;
+    cardSheet.style.display='none';
+    toolbar.style.display='none';
+    emptyMain.style.display='none';
+    el('globalGraphView').style.display='none';
+    el('canvasEditorView').style.display='none';
+    el('canvasView').style.display='none';
+    el('dashboardView').style.display='flex';
+    renderCardList();
+    renderDashboard();
+  }
+
+  function renderDashboard(){
+    const active=index.filter(n=>!n.deletedAt);
+    const xp=active.length;
+    const {cur,next}=dashGetLevel(xp);
+    const streak=dashComputeStreak();
+    const hour=new Date().getHours();
+    const greet=hour<6?'깊은 밤에도 아이디어가 넘치는군요 🌙':hour<12?'좋은 아침이에요 ☀️':hour<18?'오후도 열심히 기록 중이에요 ✏️':'오늘 하루도 수고했어요 🌙';
+    el('dashGreeting').textContent=greet;
+    const today=new Date().toDateString();
+    const todayNotes=active.filter(n=>new Date(n.created).toDateString()===today);
+    const todayEdited=active.filter(n=>new Date(n.updated).toDateString()===today&&new Date(n.created).toDateString()!==today);
+    el('dashSub').textContent=`오늘 ${todayNotes.length}개 생성, ${todayEdited.length}개 수정`;
+    const xpPct=next?Math.round((xp-cur.xp)/(next.xp-cur.xp)*100):100;
+    el('dashLevelCard').innerHTML=`
+      <div class="dash-level-icon">${cur.icon}</div>
+      <div class="dash-level-name">Lv.${cur.level} ${cur.name}</div>
+      <div class="dash-level-label">노트 ${xp}개</div>
+      <div class="dash-xp-bar-wrap"><div class="dash-xp-bar" style="width:${xpPct}%"></div></div>
+      <div class="dash-xp-label">${next?`다음: ${next.name} (${next.xp-xp}개 남음)`:'최고 레벨 달성! ⭐'}</div>`;
+    el('dashStreak').textContent=streak>0?`🔥 ${streak}일 연속`:'';
+    const canvasNotes=active.filter(n=>isCanvasNote(n));
+    const allTags=new Set(active.flatMap(n=>n.tags||[]));
+    const now=new Date();
+    const thisWeek=active.filter(n=>(now-new Date(n.created))<7*24*3600*1000);
+    el('dashStatsRow').innerHTML=`
+      <div class="dash-stat-card"><div class="dash-stat-val">${active.length}</div><div class="dash-stat-label">전체 카드</div></div>
+      <div class="dash-stat-card"><div class="dash-stat-val">${canvasNotes.length}</div><div class="dash-stat-label">캔버스</div></div>
+      <div class="dash-stat-card"><div class="dash-stat-val">${allTags.size}</div><div class="dash-stat-label">태그 종류</div></div>
+      <div class="dash-stat-card"><div class="dash-stat-val">${thisWeek.length}</div><div class="dash-stat-label">이번 주 생성</div></div>
+      <div class="dash-stat-card"><div class="dash-stat-val">${todayNotes.length+todayEdited.length}</div><div class="dash-stat-label">오늘 활동</div></div>
+      <div class="dash-stat-card"><div class="dash-stat-val">${active.filter(n=>n.pinned).length}</div><div class="dash-stat-label">고정 카드</div></div>`;
+    renderDashHeatmap();
+    const tags=dashComputeTagCounts();
+    const maxT=tags[0]?tags[0][1]:1;
+    el('dashTags').innerHTML=tags.length?tags.map(([t,c])=>`
+      <div class="dash-tag-row">
+        <div class="dash-tag-name">#${t}</div>
+        <div class="dash-tag-bar-wrap"><div class="dash-tag-bar" style="width:${Math.round(c/maxT*100)}%"></div></div>
+        <div class="dash-tag-count">${c}</div>
+      </div>`).join(''):'<div class="dash-empty">태그가 없습니다</div>';
+    const rnd=dashTodayNote();
+    const tc=el('dashTodayCard');
+    if(rnd){
+      tc.innerHTML=`<div class="dash-today-card-inner"><div class="dash-today-card-title">${rnd.title||'제목 없음'}</div><div class="dash-today-card-preview">${(rnd.content||'').replace(/```[\s\S]*?```/g,'').replace(/[#*`\[\]]/g,'').trim().slice(0,120)}</div></div>`;
+      tc.querySelector('.dash-today-card-inner').addEventListener('click',()=>{ openNote(rnd.id); });
+    } else {
+      tc.innerHTML='<div class="dash-empty">오늘 기록한 카드가 많네요! ✨</div>';
+    }
+  }
+
+  function renderDashHeatmap(){
+    const counts=dashComputeHeatmap();
+    const hm=el('dashHeatmap'); if(!hm) return;
+    hm.innerHTML='';
+    const today=new Date();
+    const allVals=Object.values(counts);
+    const maxC=allVals.length?Math.max(...allVals):1;
+    const start=new Date(today);
+    start.setDate(start.getDate()-53*7);
+    start.setDate(start.getDate()-start.getDay());
+    for(let w=0;w<54;w++){
+      const col=document.createElement('div'); col.className='hm-col';
+      for(let d=0;d<7;d++){
+        const dt=new Date(start); dt.setDate(start.getDate()+w*7+d);
+        const cell=document.createElement('div'); cell.className='hm-cell';
+        if(dt>today){ col.appendChild(cell); continue; }
+        const key=dt.toISOString().slice(0,10);
+        const c=counts[key]||0;
+        const intens=c===0?0:Math.min(4,Math.ceil(c/maxC*4));
+        cell.dataset.intensity=intens;
+        cell.title=`${key}: ${c}개 활동`;
+        col.appendChild(cell);
+      }
+      hm.appendChild(col);
+    }
+  }
+
+  el('dashboardBtn').addEventListener('click',()=>openDashboard());
 
   // ---------------- boot ----------------
   async function boot(){

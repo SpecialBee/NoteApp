@@ -216,6 +216,37 @@
   .preview table{ width:100%; border-collapse:collapse; margin:0 0 16px 0; font-size:14.5px; }
   .preview th,.preview td{ border:1px solid var(--border); padding:8px 10px; text-align:left; }
   .preview th{ background:var(--bg-panel); font-weight:700; }
+  /* Table size picker */
+  #tablePickerPopup{ position:fixed; background:var(--bg-panel); border:1px solid var(--border); border-radius:10px; padding:10px; box-shadow:0 6px 20px rgba(0,0,0,.16); z-index:300; display:none; user-select:none; }
+  .tp-grid{ display:grid; grid-template-columns:repeat(8,20px); gap:3px; }
+  .tp-cell{ width:20px; height:20px; border:1.5px solid var(--border); border-radius:3px; cursor:pointer; transition:background .07s,border-color .07s; }
+  .tp-cell.hl{ background:var(--accent-soft); border-color:var(--accent); }
+  .tp-label{ font-family:var(--sans); font-size:11px; color:var(--ink-faint); text-align:center; margin-top:7px; }
+  /* Table view */
+  #tableView{ display:none; flex:1; overflow:hidden; flex-direction:column; background:var(--bg); }
+  .tv-bar{ display:flex; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid var(--border); background:var(--bg-panel); flex-shrink:0; }
+  .tv-bar-title{ font-size:13px; font-weight:700; color:var(--ink); }
+  .tv-filter{ font-family:var(--sans); font-size:12px; color:var(--ink); background:var(--bg-card); border:1px solid var(--border); border-radius:6px; padding:4px 8px; outline:none; cursor:pointer; }
+  .tv-filter:focus{ border-color:var(--accent); }
+  .tv-close{ font-family:var(--sans); font-size:12px; color:var(--ink-faint); background:none; border:1px solid var(--border); border-radius:6px; padding:4px 10px; cursor:pointer; margin-left:auto; }
+  .tv-close:hover{ color:var(--ink); background:var(--border-soft); }
+  .tv-scroll{ flex:1; overflow:auto; }
+  .tv-table{ width:max-content; min-width:100%; border-collapse:collapse; }
+  .tv-table th{ background:var(--bg-panel); font-size:10.5px; font-weight:600; color:var(--ink-faint); letter-spacing:.6px; text-transform:uppercase; padding:8px 12px; position:sticky; top:0; z-index:2; border:1px solid var(--border-soft); white-space:nowrap; }
+  .tv-table th:first-child{ position:sticky; left:0; z-index:3; min-width:180px; }
+  .tv-table td{ border:1px solid var(--border-soft); padding:0; vertical-align:middle; }
+  .tv-table td:first-child{ position:sticky; left:0; z-index:1; background:var(--bg); min-width:180px; max-width:240px; }
+  .tv-row:hover td{ background:var(--bg-panel); }
+  .tv-row:hover td:first-child{ background:var(--bg-panel); }
+  .tv-title-cell{ display:block; padding:8px 12px; font-size:13px; font-weight:600; color:var(--accent-hover); cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tv-title-cell:hover{ color:var(--accent); }
+  .tv-input{ font-family:var(--sans); font-size:12.5px; color:var(--ink); background:transparent; border:none; outline:none; width:100%; padding:8px 12px; min-width:110px; box-sizing:border-box; }
+  .tv-input:focus{ background:var(--accent-soft); }
+  .tv-select{ font-family:var(--sans); font-size:12.5px; color:var(--ink); background:transparent; border:none; outline:none; cursor:pointer; padding:8px 12px; width:100%; }
+  .tv-select:focus{ background:var(--accent-soft); }
+  .tv-cb-wrap{ display:flex; align-items:center; justify-content:center; padding:8px; }
+  .tv-checkbox{ width:14px; height:14px; cursor:pointer; accent-color:var(--accent); }
+  .tv-empty{ color:var(--ink-faint); padding:8px 12px; font-size:12.5px; }
   .preview .wikilink{ color:var(--accent); cursor:pointer; border-bottom:1px solid var(--accent); }
   .preview .wikilink:hover{ color:var(--accent-hover); }
   .preview .wikilink.missing{ color:var(--ink-soft); border-bottom:1px dashed var(--ink-faint); }
@@ -628,6 +659,7 @@
     <div class="cardlist" id="cardList"></div>
     <div style="padding:0 14px 4px 14px;display:flex;flex-direction:column;gap:2px;">
       <button class="logout" id="paletteBtn" style="font-size:11px;text-align:left;">⚡ 빠른 전환 (Ctrl+P)</button>
+      <button class="logout" id="tableViewBtn" style="font-size:11px;text-align:left;">▦ 테이블 뷰</button>
       <button class="logout" id="globalGraphBtn" style="font-size:11px;text-align:left;font-weight:700;color:var(--accent);">🕸 전역 그래프</button>
       <button class="logout" id="trashBtn" style="font-size:11px;text-align:left;">🗑 휴지통 (<span id="trashCount">0</span>)</button>
     </div>
@@ -656,6 +688,15 @@
       <code>[[다른 카드 제목]]</code> 으로 카드끼리 연결하고,
       <code>#태그</code> 로 분류할 수 있습니다.</div>
       <button id="emptyNewBtn">+ 첫 카드 만들기</button>
+    </div>
+
+    <div id="tableView">
+      <div class="tv-bar">
+        <span class="tv-bar-title">테이블 뷰</span>
+        <select class="tv-filter" id="tvTagFilter"><option value="">전체 카드</option></select>
+        <button class="tv-close" id="closeTableViewBtn">← Stacker로 돌아가기</button>
+      </div>
+      <div class="tv-scroll" id="tvScroll"></div>
     </div>
 
     <div id="globalGraphView" class="graphview" style="display:none;">
@@ -841,6 +882,11 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<div id="tablePickerPopup">
+  <div class="tp-grid" id="tpGrid"></div>
+  <div class="tp-label" id="tpLabel">표 크기를 선택하세요</div>
+</div>
 
 <div id="cevColorPalette">
   <div class="cev-color" data-color="#FFE066" style="background:#FFE066;"></div>
@@ -1310,15 +1356,58 @@
     }
   }
 
-  function insertTable(){
+  function insertTableSized(rows, cols){
     const ta = editorBox;
     const start = ta.selectionStart, end = ta.selectionEnd;
-    const template = '\n| 제목 | 제목 |\n| --- | --- |\n| 내용 | 내용 |\n';
-    ta.value = ta.value.slice(0, start) + template + ta.value.slice(end);
-    ta.focus();
-    ta.selectionStart = ta.selectionEnd = start + template.length;
+    const hdr = Array(cols).fill('제목').join(' | ');
+    const sep = Array(cols).fill('---').join(' | ');
+    const row = Array(cols).fill('내용').join(' | ');
+    let tpl = '\n| ' + hdr + ' |\n| ' + sep + ' |\n';
+    for(let r = 0; r < rows; r++) tpl += '| ' + row + ' |\n';
+    ta.value = ta.value.slice(0, start) + tpl + ta.value.slice(end);
+    ta.focus(); ta.selectionStart = ta.selectionEnd = start + tpl.length;
     ta.dispatchEvent(new Event('input'));
   }
+
+  // Table size picker popup
+  (function setupTablePicker(){
+    const popup = el('tablePickerPopup');
+    const grid  = el('tpGrid');
+    const label = el('tpLabel');
+    const ROWS = 6, COLS = 8;
+    let cells = [];
+    for(let r = 0; r < ROWS; r++){
+      for(let c = 0; c < COLS; c++){
+        const cell = document.createElement('div');
+        cell.className = 'tp-cell';
+        cell.dataset.r = r; cell.dataset.c = c;
+        cell.onmouseenter = () => {
+          const hr = parseInt(cell.dataset.r), hc = parseInt(cell.dataset.c);
+          cells.forEach(cc => cc.classList.toggle('hl', parseInt(cc.dataset.r)<=hr && parseInt(cc.dataset.c)<=hc));
+          label.textContent = `${hc+1} × ${hr+1} 표`;
+        };
+        cell.onclick = () => {
+          insertTableSized(parseInt(cell.dataset.r)+1, parseInt(cell.dataset.c)+1);
+          popup.style.display = 'none';
+        };
+        cells.push(cell); grid.appendChild(cell);
+      }
+    }
+    popup.onmouseleave = () => {
+      cells.forEach(cc => cc.classList.remove('hl'));
+      label.textContent = '표 크기를 선택하세요';
+    };
+    el('fmtTable').onclick = e => {
+      e.stopPropagation();
+      const rect = el('fmtTable').getBoundingClientRect();
+      popup.style.display = popup.style.display === 'none' ? 'block' : 'none';
+      popup.style.top  = (rect.bottom + 4) + 'px';
+      popup.style.left = rect.left + 'px';
+    };
+    document.addEventListener('click', e => {
+      if(!popup.contains(e.target) && e.target !== el('fmtTable')) popup.style.display = 'none';
+    });
+  })();
 
   function insertCallout(){
     const ta = editorBox;
@@ -1339,7 +1428,6 @@
   el('fmtQuote').onclick = () => insertLinePrefix('> ');
   el('fmtLink').onclick = () => insertLink();
   el('fmtCode').onclick = () => insertCode();
-  el('fmtTable').onclick = () => insertTable();
   el('fmtTask').onclick = () => insertLinePrefix('- [ ] ');
   el('fmtCallout').onclick = () => insertCallout();
   el('fmtHr').onclick = () => { const ta=editorBox; const s=ta.selectionStart; const ins='\n\n---\n\n'; ta.value=ta.value.slice(0,s)+ins+ta.value.slice(ta.selectionEnd); ta.selectionStart=ta.selectionEnd=s+ins.length; ta.focus(); ta.dispatchEvent(new Event('input')); };
@@ -1475,6 +1563,7 @@
     const note = index.find(m => m.id === id);
     if(!note){ showToast('카드를 찾을 수 없습니다'); return; }
     el('globalGraphView').style.display = 'none';
+    el('tableView').style.display = 'none';
     el('canvasEditorView').style.display = 'none';
     if(isCanvasNote(note)){
       emptyMain.style.display = 'none';
@@ -1742,6 +1831,7 @@
     toolbar.style.display = 'none';
     emptyMain.style.display = 'none';
     el('globalGraphView').style.display = 'none';
+    el('tableView').style.display = 'none';
     el('dashboardView').style.display = 'none';
     el('canvasEditorView').style.display = 'none';
     el('canvasView').style.display = 'none';
@@ -1926,6 +2016,143 @@
 
   paletteOverlay.addEventListener('click', (e) => { if(e.target === paletteOverlay) closePalette(); });
   el('paletteBtn').onclick = () => openPalette();
+
+  // ---------------- table view ----------------
+  function openTableView(){
+    currentId = null;
+    el('cardsheetbox').style.display  = 'none';
+    el('globalGraphView').style.display = 'none';
+    el('dashboardView').style.display   = 'none';
+    el('canvasEditorView').style.display= 'none';
+    el('tableView').style.display = 'flex';
+    renderCardList();
+    // populate tag filter
+    const sel = el('tvTagFilter');
+    const prevVal = sel.value;
+    sel.innerHTML = '<option value="">전체 카드</option>';
+    const allTags = [...new Set(index.flatMap(n => n.tags||[]))].sort();
+    allTags.forEach(t => {
+      const o = document.createElement('option');
+      o.value = t; o.textContent = '#' + t;
+      if(t === prevVal) o.selected = true;
+      sel.appendChild(o);
+    });
+    renderTableView(sel.value);
+  }
+
+  function closeTableView(){
+    el('tableView').style.display = 'none';
+    openDashboard();
+  }
+
+  function renderTableView(tagFilter){
+    const scroll = el('tvScroll');
+    if(!scroll) return;
+    let notes = index.filter(n => !n.deleted_at);
+    if(tagFilter) notes = notes.filter(n => (n.tags||[]).includes(tagFilter));
+    notes = notes.sort((a,b) => new Date(b.updated_at)-new Date(a.updated_at));
+
+    // Collect unique property names (by frequency)
+    const propCount = {};
+    notes.forEach(n => (n.properties||[]).filter(p=>p.id!=='__color').forEach(p => {
+      propCount[p.name] = (propCount[p.name]||0) + 1;
+    }));
+    const propNames = Object.entries(propCount).sort((a,b)=>b[1]-a[1]).map(([name])=>name);
+
+    // Build table
+    const table = document.createElement('table');
+    table.className = 'tv-table';
+
+    // Header
+    const thead = document.createElement('thead');
+    const hrow = document.createElement('tr');
+    const thTitle = document.createElement('th');
+    thTitle.textContent = '제목';
+    hrow.appendChild(thTitle);
+    propNames.forEach(name => {
+      const th = document.createElement('th');
+      // find type for this prop name (from first note that has it)
+      let icon = 'T';
+      for(const n of notes){
+        const p = (n.properties||[]).find(p=>p.name===name);
+        if(p){ icon = propTypeIcon(p.type); break; }
+      }
+      th.textContent = icon + ' ' + name;
+      hrow.appendChild(th);
+    });
+    thead.appendChild(hrow);
+    table.appendChild(thead);
+
+    // Body
+    const tbody = document.createElement('tbody');
+    if(!notes.length){
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = propNames.length + 1;
+      td.style.padding = '20px'; td.style.color = 'var(--ink-faint)'; td.style.textAlign = 'center';
+      td.textContent = '카드가 없습니다.';
+      tr.appendChild(td); tbody.appendChild(tr);
+    }
+    notes.forEach(note => {
+      const tr = document.createElement('tr');
+      tr.className = 'tv-row';
+
+      // Title cell
+      const tdTitle = document.createElement('td');
+      const titleSpan = document.createElement('span');
+      titleSpan.className = 'tv-title-cell';
+      titleSpan.textContent = note.title;
+      titleSpan.title = note.title;
+      titleSpan.onclick = () => { closeTableView(); openNote(note.id); };
+      tdTitle.appendChild(titleSpan);
+      tr.appendChild(tdTitle);
+
+      // Property cells
+      propNames.forEach(name => {
+        const td = document.createElement('td');
+        const prop = (note.properties||[]).find(p=>p.name===name && p.id!=='__color');
+        if(!prop){
+          td.innerHTML = '<span class="tv-empty">—</span>';
+        } else if(prop.type === 'checkbox'){
+          const wrap = document.createElement('div'); wrap.className = 'tv-cb-wrap';
+          const cb = document.createElement('input'); cb.type='checkbox'; cb.className='tv-checkbox'; cb.checked=!!prop.value;
+          cb.onchange = async () => { prop.value=cb.checked; await savePropertiesOf(note.id, note.properties); };
+          wrap.appendChild(cb); td.appendChild(wrap);
+        } else if(prop.type === 'select'){
+          const sel = document.createElement('select'); sel.className='tv-select';
+          (prop.options||[]).forEach(opt => {
+            const o = document.createElement('option'); o.value=opt; o.textContent=opt;
+            if(opt===prop.value) o.selected=true; sel.appendChild(o);
+          });
+          sel.onchange = async () => { prop.value=sel.value; await savePropertiesOf(note.id, note.properties); };
+          td.appendChild(sel);
+        } else {
+          const inp = document.createElement('input'); inp.className='tv-input';
+          inp.type = prop.type==='number'?'number':(prop.type==='date'?'date':'text');
+          inp.value = prop.value ?? ''; inp.placeholder = '—';
+          let st;
+          inp.oninput = () => {
+            clearTimeout(st);
+            st = setTimeout(async () => {
+              prop.value = prop.type==='number'?(inp.value===''?'':parseFloat(inp.value)):inp.value;
+              await savePropertiesOf(note.id, note.properties);
+            }, 500);
+          };
+          td.appendChild(inp);
+        }
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+
+    scroll.innerHTML = '';
+    scroll.appendChild(table);
+  }
+
+  el('closeTableViewBtn').onclick = () => closeTableView();
+  el('tableViewBtn').onclick = () => openTableView();
+  el('tvTagFilter').onchange = function(){ renderTableView(this.value); };
 
   // ---------------- global connection graph ----------------
   const globalGraphView = el('globalGraphView');
@@ -2735,6 +2962,7 @@
     leaveDashboard();
     viewMode = 'canvas';
     el('globalGraphView').style.display = 'none';
+    el('tableView').style.display = 'none';
     emptyMain.style.display = 'none';
     cardSheet.style.display = 'none';
     toolbar.style.display = 'none';
@@ -3542,6 +3770,7 @@
     toolbar.style.display='none';
     emptyMain.style.display='none';
     el('globalGraphView').style.display='none';
+    el('tableView').style.display='none';
     el('canvasEditorView').style.display='none';
     el('canvasView').style.display='none';
     el('dashboardView').style.display='flex';

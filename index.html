@@ -124,14 +124,14 @@
   }
 
   .sidebar{ background:var(--bg-panel); display:flex; flex-direction:column; border-right:1px solid var(--border); min-height:0; overflow:hidden; }
-  .brand{ padding:12px 14px 10px 14px; display:flex; align-items:center; gap:6px; border-bottom:1px solid var(--border-soft); flex-wrap:wrap; row-gap:4px; overflow:hidden; }
+  .brand{ padding:12px 14px 10px 14px; display:flex; flex-direction:column; gap:4px; border-bottom:1px solid var(--border-soft); overflow:hidden; }
   .brand .mark{ font-weight:800; font-size:17px; letter-spacing:0.2px; color:var(--ink); cursor:pointer; flex-shrink:0; }
   .brand .mark:hover{ color:var(--accent); }
-  .brand .sub{ font-size:10px; color:var(--ink-faint); letter-spacing:1.2px; text-transform:uppercase; flex-shrink:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
-  .brand .spacer{ flex:1; min-width:4px; }
+  .brand .sub{ font-size:10px; color:var(--ink-faint); letter-spacing:1.2px; text-transform:uppercase; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+  .brand-actions{ display:flex; gap:2px; }
   .logout{ font-family:var(--sans); font-size:11px; font-weight:500; color:var(--ink-faint); cursor:pointer; background:none; border:none; padding:5px 7px; border-radius:6px; display:block; width:100%; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .logout:hover{ color:var(--ink); background:var(--border-soft); }
-  .brand .logout{ display:inline; width:auto; flex-shrink:0; }
+  .brand-actions .logout{ display:inline; width:auto; flex-shrink:0; }
   .searchwrap{ padding:12px 14px 8px 14px; }
   .searchwrap input{ width:100%; background:var(--bg-card); border:1px solid var(--border); color:var(--ink); font-family:var(--sans); font-size:13px; padding:8px 10px; border-radius:8px; outline:none; }
   .searchwrap input:focus{ border-color:var(--accent); }
@@ -570,10 +570,10 @@
     <div class="brand">
       <span class="mark">Stacker</span>
       <span class="sub">note stack</span>
-      <span class="spacer"></span>
-      <button class="logout" id="themeToggleBtn" title="다크 모드 전환">🌙</button>
-      <button class="logout" id="exportBtn" title="모든 카드를 JSON으로 내보내기">내보내기</button>
-      <button class="logout" id="logoutBtn">로그아웃</button>
+      <div class="brand-actions">
+        <button class="logout" id="themeToggleBtn" title="다크 모드 전환">🌙</button>
+        <button class="logout" id="logoutBtn">로그아웃</button>
+      </div>
     </div>
     <div class="searchwrap"><input id="searchInput" type="text" placeholder="검색 (제목·본문·태그)"></div>
     <div class="newbtn-wrap" id="newBtnWrap">
@@ -1845,18 +1845,6 @@
   el('trashBtn').onclick = async () => { await flushSave(); await loadTrash(); enterTrashView(); };
   el('backFromTrashBtn').onclick = () => exitTrashView();
   el('emptyTrashBtn').onclick = () => emptyTrash();
-
-  el('exportBtn').onclick = () => {
-    const payload = index.map(m => ({ title:m.title, content:m.content, tags:m.tags, links:m.links, pinned:m.pinned, updated_at: new Date(m.updated).toISOString() }));
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    const stamp = new Date().toISOString().slice(0,10);
-    a.href = url; a.download = `stacker-backup-${stamp}.json`;
-    document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(url);
-    showToast('백업 파일을 내보냈습니다');
-  };
 
   // ---------------- sort options ----------------
   document.querySelectorAll('.sortbtn').forEach(btn => {

@@ -327,6 +327,46 @@
   .canvas-controls button:hover{ background:var(--accent-soft); color:var(--accent); border-color:var(--accent); }
   .canvas-hint{ position:absolute; bottom:12px; left:50%; transform:translateX(-50%); font-size:10.5px; color:var(--ink-faint); pointer-events:none; white-space:nowrap; background:var(--bg-card); padding:3px 10px; border-radius:10px; border:1px solid var(--border-soft); }
   .canvas-btn-active{ color:var(--accent) !important; background:var(--accent-soft) !important; }
+
+  /* --- Canvas Editor (FigJam-style) --- */
+  #canvasEditorView { display:none; flex-direction:column; }
+  .cev-toolbar { display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid var(--border-soft); background:var(--bg-panel); flex-shrink:0; flex-wrap:wrap; }
+  .cev-tools { display:flex; align-items:center; gap:2px; }
+  .cev-tool { font-family:var(--sans); font-size:15px; line-height:1; background:none; border:none; color:var(--ink-soft); padding:6px 9px; border-radius:7px; cursor:pointer; transition:background .12s; }
+  .cev-tool:hover { background:var(--border-soft); color:var(--ink); }
+  .cev-tool.active { background:var(--accent); color:#fff; }
+  .cev-sep { width:1px; height:20px; background:var(--border); margin:0 4px; flex-shrink:0; }
+  .cev-conn-types { display:flex; align-items:center; gap:4px; }
+  .cev-conn { font-family:var(--sans); font-size:13px; background:var(--bg-card); border:1px solid var(--border); color:var(--ink-soft); padding:4px 10px; border-radius:6px; cursor:pointer; }
+  .cev-conn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .cev-actions { display:flex; align-items:center; gap:6px; margin-left:auto; }
+  .cev-action { font-family:var(--sans); font-size:12px; font-weight:600; background:var(--bg-card); color:var(--ink-soft); border:1px solid var(--border); border-radius:7px; padding:5px 10px; cursor:pointer; }
+  .cev-action:hover { background:var(--accent-soft); color:var(--accent); }
+  .cev-el { position:absolute; cursor:move; user-select:none; box-sizing:border-box; }
+  .cev-el.selected { outline:2px solid var(--accent); outline-offset:2px; }
+  .cev-el.connect-source { outline:2px dashed var(--accent); outline-offset:2px; }
+  .cev-sticky { border-radius:4px; padding:10px; font-family:var(--sans); font-size:13px; line-height:1.5; color:#3D3929; box-shadow:2px 2px 6px rgba(0,0,0,0.12); }
+  .cev-sticky textarea { width:100%; height:100%; background:none; border:none; outline:none; resize:none; font-family:var(--sans); font-size:13px; line-height:1.5; color:inherit; cursor:text; box-sizing:border-box; }
+  .cev-rect { border:2px solid #9CA3AF; border-radius:6px; background:var(--bg-card); display:flex; align-items:center; justify-content:center; }
+  .cev-circle { border-radius:50%; border:2px solid #9CA3AF; background:var(--bg-card); display:flex; align-items:center; justify-content:center; }
+  .cev-diamond-wrap { display:flex; align-items:center; justify-content:center; }
+  .cev-diamond-inner { transform-origin:center; display:flex; align-items:center; justify-content:center; border:2px solid #9CA3AF; background:var(--bg-card); }
+  .cev-text-el { background:none; border:none; font-family:var(--sans); font-size:14px; font-weight:600; color:var(--ink); min-width:60px; min-height:28px; outline:none; cursor:text; }
+  .cev-shape-label { font-family:var(--sans); font-size:12px; color:var(--ink); text-align:center; padding:4px; outline:none; background:none; border:none; cursor:text; width:100%; }
+  .cev-handle { position:absolute; width:8px; height:8px; background:var(--accent); border:1px solid #fff; border-radius:2px; z-index:20; }
+  .cev-handle[data-h="nw"] { top:-5px; left:-5px; cursor:nw-resize; }
+  .cev-handle[data-h="n"]  { top:-5px; left:50%; transform:translateX(-50%); cursor:n-resize; }
+  .cev-handle[data-h="ne"] { top:-5px; right:-5px; cursor:ne-resize; }
+  .cev-handle[data-h="e"]  { top:50%; right:-5px; transform:translateY(-50%); cursor:e-resize; }
+  .cev-handle[data-h="se"] { bottom:-5px; right:-5px; cursor:se-resize; }
+  .cev-handle[data-h="s"]  { bottom:-5px; left:50%; transform:translateX(-50%); cursor:s-resize; }
+  .cev-handle[data-h="sw"] { bottom:-5px; left:-5px; cursor:sw-resize; }
+  .cev-handle[data-h="w"]  { top:50%; left:-5px; transform:translateY(-50%); cursor:w-resize; }
+  #cevColorPalette { display:none; position:fixed; z-index:300; background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:8px; box-shadow:0 4px 16px rgba(0,0,0,0.15); flex-wrap:wrap; gap:6px; width:140px; }
+  .cev-color { width:24px; height:24px; border-radius:50%; cursor:pointer; border:2px solid transparent; flex-shrink:0; }
+  .cev-color:hover { border-color:var(--ink); }
+  .cev-link { stroke:var(--ink-soft); stroke-width:1.5; fill:none; }
+  .cev-link.dashed { stroke-dasharray:6,4; }
 </style>
 </head>
 <body>
@@ -381,6 +421,7 @@
       <button class="logout" id="paletteBtn" style="font-size:11px;text-align:left;">⚡ 빠른 전환 (Ctrl+P)</button>
       <button class="logout" id="globalGraphBtn" style="font-size:11px;text-align:left;">🕸 전역 그래프</button>
       <button class="logout" id="canvasBtn" style="font-size:11px;text-align:left;">🗺 캔버스</button>
+      <button class="logout" id="newCanvasBtn" style="font-size:11px;text-align:left;">🎨 캔버스 카드</button>
       <button class="logout" id="trashBtn" style="font-size:11px;text-align:left;">🗑 휴지통 (<span id="trashCount">0</span>)</button>
     </div>
     <div class="synctag" id="syncTag"><span class="dot" id="syncDot"></span><span id="syncText">모든 기기와 자동 동기화됨</span></div>
@@ -433,6 +474,37 @@
         <button id="canvasExitBtn">← 목록으로</button>
       </div>
       <div class="canvas-hint">더블클릭: 열기 &nbsp;·&nbsp; 배경 드래그: 이동 &nbsp;·&nbsp; 스크롤: 확대/축소</div>
+    </div>
+
+    <div id="canvasEditorView" style="display:none; flex:1; position:relative; overflow:hidden; background:var(--bg); flex-direction:column;">
+      <div class="cev-toolbar" id="cevToolbar">
+        <div class="cev-tools">
+          <button class="cev-tool active" data-tool="select" title="선택 (V)">↖</button>
+          <span class="cev-sep"></span>
+          <button class="cev-tool" data-tool="sticky" title="스티키 노트 (S)">📝</button>
+          <button class="cev-tool" data-tool="rect" title="사각형 (R)">▭</button>
+          <button class="cev-tool" data-tool="circle" title="원 (C)">○</button>
+          <button class="cev-tool" data-tool="diamond" title="다이아몬드 (D)">◇</button>
+          <button class="cev-tool" data-tool="text" title="텍스트 (T)">T</button>
+          <span class="cev-sep"></span>
+          <button class="cev-tool" data-tool="connect" title="연결선 (L)">⌒</button>
+        </div>
+        <div class="cev-conn-types" id="cevConnTypes" style="display:none;">
+          <button class="cev-conn active" data-conn="arrow">→</button>
+          <button class="cev-conn" data-conn="line">—</button>
+          <button class="cev-conn" data-conn="dashed">╌</button>
+          <button class="cev-conn" data-conn="dashed-arrow">╌→</button>
+        </div>
+        <div class="cev-actions">
+          <button class="cev-action" id="cevDeleteBtn" title="삭제">🗑</button>
+          <button class="cev-action" id="cevExitBtn">← 목록으로</button>
+        </div>
+      </div>
+      <div id="cevCanvas" style="position:relative; flex:1; overflow:hidden; cursor:default;">
+        <div id="cevInner" style="position:absolute; top:0; left:0; transform-origin:0 0; will-change:transform;">
+          <svg id="cevSvg" style="position:absolute;top:0;left:0;width:1px;height:1px;overflow:visible;pointer-events:none;"></svg>
+        </div>
+      </div>
     </div>
 
     <div id="cardSheet" class="cardsheet" style="display:none;">
@@ -501,6 +573,16 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<div id="cevColorPalette">
+  <div class="cev-color" data-color="#FFE066" style="background:#FFE066;"></div>
+  <div class="cev-color" data-color="#FF9F9F" style="background:#FF9F9F;"></div>
+  <div class="cev-color" data-color="#85E09A" style="background:#85E09A;"></div>
+  <div class="cev-color" data-color="#82C4F8" style="background:#82C4F8;"></div>
+  <div class="cev-color" data-color="#C3B1E1" style="background:#C3B1E1;"></div>
+  <div class="cev-color" data-color="#FFB347" style="background:#FFB347;"></div>
+  <div class="cev-color" data-color="#F0F0F0" style="background:#F0F0F0;"></div>
+</div>
 
 <div class="palette-overlay" id="paletteOverlay" style="display:none;">
   <div class="palette-box">
@@ -1078,6 +1160,16 @@
     const note = index.find(m => m.id === id);
     if(!note){ showToast('카드를 찾을 수 없습니다'); return; }
     el('globalGraphView').style.display = 'none';
+    el('canvasEditorView').style.display = 'none';
+    if(isCanvasNote(note)){
+      emptyMain.style.display = 'none';
+      cardSheet.style.display = 'none';
+      toolbar.style.display = 'none';
+      el('canvasView').style.display = 'none';
+      openCanvasEditor(note);
+      renderCardList();
+      return;
+    }
     emptyMain.style.display = 'none';
     cardSheet.style.display = 'block';
     cardSheet.classList.remove('fade-in');
@@ -2231,6 +2323,371 @@
   el('canvasFitBtn').onclick = () => fitCanvas();
   el('canvasZoomInBtn').onclick = () => { canvasZoom=Math.min(canvasZoom*1.25,4); applyCanvasTransform(); };
   el('canvasZoomOutBtn').onclick = () => { canvasZoom=Math.max(canvasZoom/1.25,0.15); applyCanvasTransform(); };
+
+  // ========== Canvas Editor (FigJam-style) ==========
+  let cevElements = [];
+  let cevConnectors = [];
+  let cevSelected = null;
+  let cevTool = 'select';
+  let cevConnType = 'arrow';
+  let cevConnectingFrom = null;
+  let cevPanE = { x: 100, y: 100 };
+  let cevZoom = 1;
+  let cevMoving = null;
+  let cevResizing = null;
+  let cevPanningE = false;
+  let cevPanStartE = null;
+  let cevCurrentNoteId = null;
+  let cevDragMoved = false;
+  let cevIdCounter = 0;
+
+  function cevGenId(prefix){ return prefix + (++cevIdCounter) + '_' + Date.now().toString(36); }
+  function isCanvasNote(note){ return (note.content||'').trimStart().startsWith('```canvas'); }
+
+  function parseCanvasContent(content){
+    const match = (content||'').match(/```canvas\n?([\s\S]*?)```/);
+    if(!match) return { elements:[], connectors:[] };
+    const raw = match[1];
+    const elements = [], connectors = [];
+    const lines = raw.split('\n');
+    let cur = null, textLines = [];
+    const flush = () => { if(cur){ cur.text = textLines.join('\n').trim(); elements.push(cur); cur=null; textLines=[]; } };
+    for(const line of lines){
+      if(line.startsWith('@sticky')){ flush(); const p=line.split(' '); cur={id:p[1],type:'sticky',x:+p[2],y:+p[3],w:+p[4]||200,h:+p[5]||160,color:p[6]||'#FFE066',text:''}; }
+      else if(line.startsWith('@rect')){ flush(); const p=line.split(' '); cur={id:p[1],type:'rect',x:+p[2],y:+p[3],w:+p[4]||180,h:+p[5]||100,color:p[6]||'#E8E8E8',text:''}; }
+      else if(line.startsWith('@circle')){ flush(); const p=line.split(' '); cur={id:p[1],type:'circle',x:+p[2],y:+p[3],r:+p[4]||60,color:p[5]||'#E8E8E8',text:''}; }
+      else if(line.startsWith('@diamond')){ flush(); const p=line.split(' '); cur={id:p[1],type:'diamond',x:+p[2],y:+p[3],w:+p[4]||100,h:+p[5]||100,color:p[6]||'#E8E8E8',text:''}; }
+      else if(line.startsWith('@text')){ flush(); const p=line.split(' '); cur={id:p[1],type:'text',x:+p[2],y:+p[3],w:120,h:30,color:'',text:''}; }
+      else if(line.startsWith('@arrow ')){ flush(); const p=line.split(' '); connectors.push({id:cevGenId('c'),type:'arrow',from:p[1],to:p[2]}); }
+      else if(line.startsWith('@dashed-arrow ')){ flush(); const p=line.split(' '); connectors.push({id:cevGenId('c'),type:'dashed-arrow',from:p[1],to:p[2]}); }
+      else if(line.startsWith('@dashed ')){ flush(); const p=line.split(' '); connectors.push({id:cevGenId('c'),type:'dashed',from:p[1],to:p[2]}); }
+      else if(line.startsWith('@line ')){ flush(); const p=line.split(' '); if(p[1]&&isNaN(+p[1])) connectors.push({id:cevGenId('c'),type:'line',from:p[1],to:p[2]}); else connectors.push({id:cevGenId('c'),type:'line',x1:+p[1],y1:+p[2],x2:+p[3],y2:+p[4]}); }
+      else if(cur){ textLines.push(line); }
+    }
+    flush();
+    return { elements, connectors };
+  }
+
+  function serializeCanvasContent(elements, connectors){
+    const lines = ['```canvas'];
+    for(const edata of elements){
+      if(edata.type==='sticky') lines.push(`@sticky ${edata.id} ${Math.round(edata.x)} ${Math.round(edata.y)} ${Math.round(edata.w)} ${Math.round(edata.h)} ${edata.color||'#FFE066'}`);
+      else if(edata.type==='rect') lines.push(`@rect ${edata.id} ${Math.round(edata.x)} ${Math.round(edata.y)} ${Math.round(edata.w)} ${Math.round(edata.h)} ${edata.color||'#E8E8E8'}`);
+      else if(edata.type==='circle') lines.push(`@circle ${edata.id} ${Math.round(edata.x)} ${Math.round(edata.y)} ${Math.round(edata.r||60)} ${edata.color||'#E8E8E8'}`);
+      else if(edata.type==='diamond') lines.push(`@diamond ${edata.id} ${Math.round(edata.x)} ${Math.round(edata.y)} ${Math.round(edata.w)} ${Math.round(edata.h)} ${edata.color||'#E8E8E8'}`);
+      else if(edata.type==='text') lines.push(`@text ${edata.id} ${Math.round(edata.x)} ${Math.round(edata.y)}`);
+      if(edata.text) lines.push(edata.text);
+      lines.push('');
+    }
+    for(const c of connectors){
+      if(c.from&&c.to) lines.push(`@${c.type} ${c.from} ${c.to}`);
+      else if(c.x1!=null) lines.push(`@line ${c.x1} ${c.y1} ${c.x2} ${c.y2}`);
+    }
+    lines.push('```');
+    return lines.join('\n');
+  }
+
+  function cevElCenter(edata){ if(edata.type==='circle') return {x:edata.x,y:edata.y}; return {x:edata.x+(edata.w||120)/2,y:edata.y+(edata.h||80)/2}; }
+  function cevElBorderPt(edata, dir){
+    if(edata.type==='circle'){ const r=edata.r||60; return {x:edata.x+dir.dx*r,y:edata.y+dir.dy*r}; }
+    const hw=(edata.w||120)/2,hh=(edata.h||80)/2,cx=edata.x+hw,cy=edata.y+hh;
+    const abs=(v)=>v<0?-v:v;
+    if(abs(dir.dx)<0.001) return {x:cx,y:cy+(dir.dy>0?hh:-hh)};
+    if(abs(dir.dy)<0.001) return {x:cx+(dir.dx>0?hw:-hw),y:cy};
+    const t=Math.min(hw/abs(dir.dx),hh/abs(dir.dy));
+    return {x:cx+dir.dx*t,y:cy+dir.dy*t};
+  }
+  function cevConnPoints(fromEl, toEl){
+    const fc=cevElCenter(fromEl),tc=cevElCenter(toEl),dx=tc.x-fc.x,dy=tc.y-fc.y,len=Math.sqrt(dx*dx+dy*dy)||1;
+    const dir={dx:dx/len,dy:dy/len};
+    return {x1:cevElBorderPt(fromEl,dir).x,y1:cevElBorderPt(fromEl,dir).y,x2:cevElBorderPt(toEl,{dx:-dir.dx,dy:-dir.dy}).x,y2:cevElBorderPt(toEl,{dx:-dir.dx,dy:-dir.dy}).y};
+  }
+
+  function cevRebuildSvg(){
+    const svg = el('cevSvg'); if(!svg) return;
+    svg.innerHTML = `<defs><marker id="cev-arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="var(--ink-soft)"/></marker></defs>`;
+    for(const conn of cevConnectors){
+      let x1,y1,x2,y2;
+      if(conn.from&&conn.to){
+        const fe=cevElements.find(e=>e.id===conn.from),te=cevElements.find(e=>e.id===conn.to);
+        if(!fe||!te) continue;
+        const pts=cevConnPoints(fe,te); x1=pts.x1;y1=pts.y1;x2=pts.x2;y2=pts.y2;
+      } else if(conn.x1!=null){ x1=conn.x1;y1=conn.y1;x2=conn.x2;y2=conn.y2; } else continue;
+      const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+      line.setAttribute('x1',x1);line.setAttribute('y1',y1);line.setAttribute('x2',x2);line.setAttribute('y2',y2);
+      let cls='cev-link'; if(conn.type==='dashed'||conn.type==='dashed-arrow') cls+=' dashed';
+      line.setAttribute('class',cls);
+      if(conn.type==='arrow'||conn.type==='dashed-arrow') line.setAttribute('marker-end','url(#cev-arrow)');
+      svg.appendChild(line);
+    }
+  }
+
+  function cevShadeColor(hex, pct){
+    try{ let n=parseInt((hex||'#9CA3AF').replace(/^var\(.*\)/,'#9CA3AF').slice(1),16); if(isNaN(n)) n=0x9CA3AF; const r=Math.max(0,Math.min(255,(n>>16)+pct)),g=Math.max(0,Math.min(255,((n>>8)&0xff)+pct)),b=Math.max(0,Math.min(255,(n&0xff)+pct)); return `rgb(${r},${g},${b})`; }catch(e){ return '#9CA3AF'; }
+  }
+
+  function cevRenderElement(edata){
+    const inner=el('cevInner'); if(!inner) return;
+    const existing=inner.querySelector(`[data-elid="${edata.id}"]`); if(existing) existing.remove();
+    const div=document.createElement('div');
+    div.className='cev-el'; div.dataset.elid=edata.id;
+    const isSel=cevSelected===edata.id; if(isSel) div.classList.add('selected');
+    if(cevConnectingFrom===edata.id) div.classList.add('connect-source');
+
+    if(edata.type==='sticky'){
+      div.style.cssText=`left:${edata.x}px;top:${edata.y}px;width:${edata.w}px;height:${edata.h}px;`;
+      div.classList.add('cev-sticky'); div.style.background=edata.color||'#FFE066';
+      const ta=document.createElement('textarea'); ta.value=edata.text||''; ta.placeholder='내용 입력…';
+      ta.style.cssText='width:calc(100% - 20px);height:calc(100% - 20px);margin-top:6px;';
+      ta.addEventListener('mousedown',e=>e.stopPropagation());
+      ta.addEventListener('input',()=>{ edata.text=ta.value; cevSaveDebounced(); });
+      const colorBtn=document.createElement('div');
+      colorBtn.style.cssText='position:absolute;top:4px;right:6px;width:14px;height:14px;border-radius:50%;background:rgba(0,0,0,0.2);cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;color:#fff;';
+      colorBtn.textContent='●'; colorBtn.title='색상 변경';
+      colorBtn.addEventListener('mousedown',e=>{ e.stopPropagation(); showCevColorPalette(e,edata); });
+      div.appendChild(ta); div.appendChild(colorBtn);
+    } else if(edata.type==='rect'){
+      div.style.cssText=`left:${edata.x}px;top:${edata.y}px;width:${edata.w}px;height:${edata.h}px;`;
+      div.classList.add('cev-rect'); div.style.background=edata.color||'var(--bg-card)'; div.style.borderColor=cevShadeColor(edata.color||'#E0E0E0',-40);
+      const lbl=document.createElement('div'); lbl.className='cev-shape-label'; lbl.contentEditable='true'; lbl.textContent=edata.text||'';
+      lbl.addEventListener('mousedown',e=>e.stopPropagation()); lbl.addEventListener('input',()=>{ edata.text=lbl.textContent; cevSaveDebounced(); });
+      div.appendChild(lbl);
+    } else if(edata.type==='circle'){
+      const r=edata.r||60;
+      div.style.cssText=`left:${edata.x-r}px;top:${edata.y-r}px;width:${r*2}px;height:${r*2}px;`;
+      div.classList.add('cev-circle'); div.style.background=edata.color||'var(--bg-card)'; div.style.borderColor=cevShadeColor(edata.color||'#E0E0E0',-40);
+      const lbl=document.createElement('div'); lbl.className='cev-shape-label'; lbl.contentEditable='true'; lbl.textContent=edata.text||'';
+      lbl.addEventListener('mousedown',e=>e.stopPropagation()); lbl.addEventListener('input',()=>{ edata.text=lbl.textContent; cevSaveDebounced(); });
+      div.appendChild(lbl);
+    } else if(edata.type==='diamond'){
+      const w=edata.w||100,h=edata.h||100;
+      div.style.cssText=`left:${edata.x}px;top:${edata.y}px;width:${w}px;height:${h}px;`;
+      div.classList.add('cev-diamond-wrap');
+      const inner_d=document.createElement('div'); inner_d.className='cev-diamond-inner';
+      inner_d.style.cssText=`width:${w*0.707}px;height:${h*0.707}px;transform:rotate(45deg);background:${edata.color||'var(--bg-card)'};border-color:${cevShadeColor(edata.color||'#E0E0E0',-40)};`;
+      const lbl=document.createElement('div'); lbl.className='cev-shape-label'; lbl.style.transform='rotate(-45deg)'; lbl.contentEditable='true'; lbl.textContent=edata.text||'';
+      lbl.addEventListener('mousedown',e=>e.stopPropagation()); lbl.addEventListener('input',()=>{ edata.text=lbl.textContent; cevSaveDebounced(); });
+      inner_d.appendChild(lbl); div.appendChild(inner_d);
+    } else if(edata.type==='text'){
+      div.style.cssText=`left:${edata.x}px;top:${edata.y}px;min-width:60px;min-height:24px;`;
+      div.classList.add('cev-text-el'); div.contentEditable='true'; div.textContent=edata.text||'텍스트';
+      div.addEventListener('mousedown',e=>e.stopPropagation()); div.addEventListener('input',()=>{ edata.text=div.textContent; cevSaveDebounced(); });
+    }
+
+    if(isSel && edata.type!=='text'){
+      const handles=edata.type==='circle'?['n','e','s','w']:['nw','n','ne','e','se','s','sw','w'];
+      handles.forEach(h=>{
+        const hDiv=document.createElement('div'); hDiv.className='cev-handle'; hDiv.dataset.h=h;
+        hDiv.addEventListener('mousedown',e=>{
+          e.stopPropagation(); e.preventDefault();
+          cevResizing={id:edata.id,handle:h,startMX:e.clientX,startMY:e.clientY,origX:edata.x,origY:edata.y,origW:edata.w||((edata.r||60)*2),origH:edata.h||((edata.r||60)*2),origR:edata.r||60};
+        });
+        div.appendChild(hDiv);
+      });
+    }
+
+    div.addEventListener('mousedown',e=>{
+      if(e.target.closest('.cev-handle')) return;
+      if(e.target.tagName==='TEXTAREA'||e.target.contentEditable==='true') return;
+      if(e.button!==0) return;
+      e.stopPropagation(); cevDragMoved=false;
+      if(cevTool==='connect'){
+        if(!cevConnectingFrom){ cevConnectingFrom=edata.id; cevRenderAll(); }
+        else if(cevConnectingFrom!==edata.id){
+          cevConnectors.push({id:cevGenId('c'),type:cevConnType,from:cevConnectingFrom,to:edata.id});
+          cevConnectingFrom=null; cevRebuildSvg(); cevSaveDebounced();
+        }
+        return;
+      }
+      cevSelected=edata.id;
+      cevMoving={id:edata.id,startMX:e.clientX,startMY:e.clientY,origX:edata.x,origY:edata.y};
+      cevRenderAll();
+    });
+    inner.appendChild(div);
+  }
+
+  function cevRenderAll(){
+    const inner=el('cevInner'); if(!inner) return;
+    const svg=el('cevSvg');
+    Array.from(inner.children).forEach(c=>{ if(c!==svg) inner.removeChild(c); });
+    cevElements.forEach(e=>cevRenderElement(e));
+    cevRebuildSvg(); cevApplyTransform();
+  }
+
+  function cevApplyTransform(){
+    const inner=el('cevInner');
+    if(inner) inner.style.transform=`translate(${cevPanE.x}px,${cevPanE.y}px) scale(${cevZoom})`;
+  }
+
+  function openCanvasEditor(note){
+    cevCurrentNoteId=note.id;
+    const parsed=parseCanvasContent(note.content||'');
+    cevElements=parsed.elements; cevConnectors=parsed.connectors;
+    cevSelected=null; cevConnectingFrom=null; cevTool='select';
+    cevPanE={x:100,y:100}; cevZoom=1;
+    updateCevToolButtons();
+    el('canvasEditorView').style.display='flex';
+    cevRenderAll();
+  }
+
+  function exitCanvasEditor(){
+    el('canvasEditorView').style.display='none';
+    currentId=cevCurrentNoteId;
+    if(currentId){
+      const note=index.find(m=>m.id===currentId);
+      if(note && !isCanvasNote(note)){
+        cardSheet.style.display='block'; toolbar.style.display='flex';
+      } else {
+        emptyMain.style.display='flex'; currentId=null;
+      }
+    } else {
+      emptyMain.style.display='flex';
+    }
+    renderCardList();
+  }
+
+  let cevSaveTimer=null;
+  function cevSaveDebounced(){
+    clearTimeout(cevSaveTimer);
+    cevSaveTimer=setTimeout(async()=>{
+      if(!cevCurrentNoteId) return;
+      const note=index.find(m=>m.id===cevCurrentNoteId); if(!note) return;
+      note.content=serializeCanvasContent(cevElements,cevConnectors);
+      await updateNote(note);
+    },600);
+  }
+
+  function updateCevToolButtons(){
+    document.querySelectorAll('.cev-tool').forEach(b=>b.classList.toggle('active',b.dataset.tool===cevTool));
+    const connArea=el('cevConnTypes'); if(connArea) connArea.style.display=cevTool==='connect'?'flex':'none';
+  }
+
+  document.querySelectorAll('.cev-tool').forEach(btn=>{
+    btn.addEventListener('click',()=>{ cevTool=btn.dataset.tool; cevConnectingFrom=null; updateCevToolButtons(); cevRenderAll(); });
+  });
+  document.querySelectorAll('.cev-conn').forEach(btn=>{
+    btn.addEventListener('click',()=>{ cevConnType=btn.dataset.conn; document.querySelectorAll('.cev-conn').forEach(b=>b.classList.toggle('active',b===btn)); });
+  });
+
+  el('cevCanvas').addEventListener('click',e=>{
+    if(cevDragMoved) return;
+    if(e.target.closest('.cev-el')) return;
+    if(cevTool==='select'||cevTool==='connect'){ cevSelected=null; cevConnectingFrom=null; cevRenderAll(); return; }
+    const rect2=el('cevCanvas').getBoundingClientRect();
+    const x=(e.clientX-rect2.left-cevPanE.x)/cevZoom,y=(e.clientY-rect2.top-cevPanE.y)/cevZoom;
+    let newEl=null;
+    if(cevTool==='sticky') newEl={id:cevGenId('s'),type:'sticky',x:x-100,y:y-80,w:200,h:160,color:'#FFE066',text:''};
+    else if(cevTool==='rect') newEl={id:cevGenId('r'),type:'rect',x:x-90,y:y-50,w:180,h:100,color:'#E8E8E8',text:''};
+    else if(cevTool==='circle') newEl={id:cevGenId('c'),type:'circle',x:x,y:y,r:60,color:'#E8E8E8',text:''};
+    else if(cevTool==='diamond') newEl={id:cevGenId('d'),type:'diamond',x:x-50,y:y-50,w:100,h:100,color:'#E8E8E8',text:''};
+    else if(cevTool==='text') newEl={id:cevGenId('t'),type:'text',x:x,y:y,w:120,h:30,color:'',text:'텍스트'};
+    if(newEl){ cevElements.push(newEl); cevSelected=newEl.id; cevRenderAll(); cevSaveDebounced(); }
+  });
+
+  el('cevCanvas').addEventListener('mousedown',e=>{
+    const t=e.target;
+    if(t===el('cevCanvas')||t===el('cevInner')||t.closest('svg')){
+      if(cevTool==='select'||cevTool==='connect'){
+        cevPanningE=true; cevPanStartE={mx:e.clientX,my:e.clientY,px:cevPanE.x,py:cevPanE.y}; e.preventDefault();
+      }
+    }
+  });
+
+  el('cevCanvas').addEventListener('wheel',e=>{
+    e.preventDefault();
+    const rect2=el('cevCanvas').getBoundingClientRect(),mx=e.clientX-rect2.left,my=e.clientY-rect2.top;
+    const factor=e.deltaY<0?1.1:0.9,nz=Math.min(Math.max(cevZoom*factor,0.15),4);
+    cevPanE.x=mx-(mx-cevPanE.x)*(nz/cevZoom); cevPanE.y=my-(my-cevPanE.y)*(nz/cevZoom); cevZoom=nz;
+    cevApplyTransform();
+  },{passive:false});
+
+  document.addEventListener('mousemove',e=>{
+    if(cevMoving){
+      const dx=(e.clientX-cevMoving.startMX)/cevZoom,dy=(e.clientY-cevMoving.startMY)/cevZoom;
+      if(Math.abs(dx)>2||Math.abs(dy)>2) cevDragMoved=true;
+      const edata=cevElements.find(x=>x.id===cevMoving.id);
+      if(edata){ edata.x=cevMoving.origX+dx; edata.y=cevMoving.origY+dy; }
+      const domEl=document.querySelector(`[data-elid="${cevMoving.id}"]`);
+      if(domEl&&edata){
+        if(edata.type==='circle') domEl.style.cssText=`left:${edata.x-edata.r}px;top:${edata.y-edata.r}px;width:${edata.r*2}px;height:${edata.r*2}px;`;
+        else { domEl.style.left=edata.x+'px'; domEl.style.top=edata.y+'px'; }
+        if(edata.type==='sticky'||edata.type==='rect'||edata.type==='diamond'){ domEl.classList.remove('cev-diamond-wrap','cev-sticky','cev-rect'); }
+      }
+      cevRebuildSvg();
+    } else if(cevResizing){
+      const edata=cevElements.find(x=>x.id===cevResizing.id); if(!edata) return;
+      const dx=(e.clientX-cevResizing.startMX)/cevZoom,dy=(e.clientY-cevResizing.startMY)/cevZoom,h=cevResizing.handle;
+      if(edata.type==='circle'){
+        const dr=(Math.abs(dx)+Math.abs(dy))/2*(h==='s'||h==='e'?1:-1); edata.r=Math.max(20,cevResizing.origR+dr);
+      } else {
+        if(h.includes('e')) edata.w=Math.max(60,cevResizing.origW+dx);
+        if(h.includes('s')) edata.h=Math.max(40,cevResizing.origH+dy);
+        if(h.includes('w')){ const dw=Math.min(dx,cevResizing.origW-60); edata.x=cevResizing.origX+dw; edata.w=cevResizing.origW-dw; }
+        if(h.includes('n')){ const dh=Math.min(dy,cevResizing.origH-40); edata.y=cevResizing.origY+dh; edata.h=cevResizing.origH-dh; }
+      }
+      const domEl=document.querySelector(`[data-elid="${edata.id}"]`);
+      if(domEl){
+        if(edata.type==='circle') domEl.style.cssText=`left:${edata.x-edata.r}px;top:${edata.y-edata.r}px;width:${edata.r*2}px;height:${edata.r*2}px;`;
+        else { domEl.style.left=edata.x+'px'; domEl.style.top=edata.y+'px'; domEl.style.width=edata.w+'px'; domEl.style.height=edata.h+'px'; }
+      }
+      cevRebuildSvg();
+    } else if(cevPanningE&&cevPanStartE){
+      cevPanE.x=cevPanStartE.px+(e.clientX-cevPanStartE.mx); cevPanE.y=cevPanStartE.py+(e.clientY-cevPanStartE.my);
+      cevApplyTransform();
+    }
+  });
+
+  document.addEventListener('mouseup',()=>{
+    if(cevMoving||cevResizing){ cevRenderAll(); cevSaveDebounced(); }
+    cevMoving=null; cevResizing=null; cevPanningE=false; cevPanStartE=null;
+  });
+
+  el('cevDeleteBtn').addEventListener('click',()=>{
+    if(!cevSelected) return;
+    cevElements=cevElements.filter(e=>e.id!==cevSelected);
+    cevConnectors=cevConnectors.filter(c=>c.from!==cevSelected&&c.to!==cevSelected);
+    cevSelected=null; cevRenderAll(); cevSaveDebounced();
+  });
+
+  document.addEventListener('keydown',e=>{
+    if(!el('canvasEditorView')||el('canvasEditorView').style.display==='none') return;
+    if(e.target.tagName==='TEXTAREA'||e.target.contentEditable==='true') return;
+    const keys={v:'select',s:'sticky',r:'rect',c:'circle',d:'diamond',t:'text',l:'connect'};
+    if(keys[e.key]){ cevTool=keys[e.key]; updateCevToolButtons(); }
+    if((e.key==='Delete'||e.key==='Backspace')&&cevSelected){
+      cevElements=cevElements.filter(ed=>ed.id!==cevSelected);
+      cevConnectors=cevConnectors.filter(c=>c.from!==cevSelected&&c.to!==cevSelected);
+      cevSelected=null; cevRenderAll(); cevSaveDebounced();
+    }
+  });
+
+  function showCevColorPalette(e,edata){
+    const pal=el('cevColorPalette');
+    pal.style.display='flex'; pal.style.left=(e.clientX+8)+'px'; pal.style.top=(e.clientY+8)+'px';
+    pal._target=edata;
+  }
+  el('cevColorPalette').addEventListener('click',e=>{
+    const cc=e.target.closest('.cev-color'); if(!cc) return;
+    const pal=el('cevColorPalette'),edata=pal._target;
+    if(edata){ edata.color=cc.dataset.color; cevRenderAll(); cevSaveDebounced(); }
+    pal.style.display='none';
+  });
+  document.addEventListener('click',e=>{
+    const pal=el('cevColorPalette');
+    if(pal&&!e.target.closest('#cevColorPalette')&&e.target.textContent!=='●') pal.style.display='none';
+  });
+
+  el('cevExitBtn').addEventListener('click',()=>exitCanvasEditor());
+
+  el('newCanvasBtn').addEventListener('click',async()=>{
+    const note=await insertNote({title:'새 캔버스',content:'```canvas\n```',tags:[],links:[],pinned:false,properties:[]});
+    if(!note) return;
+    index.unshift(note); computeAllTags(); renderTagRow(); renderCardList();
+    currentId=note.id;
+    el('globalGraphView').style.display='none'; emptyMain.style.display='none';
+    cardSheet.style.display='none'; toolbar.style.display='none'; el('canvasView').style.display='none';
+    openCanvasEditor(note);
+  });
 
   // ---------------- boot ----------------
   async function boot(){

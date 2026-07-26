@@ -3826,9 +3826,17 @@
     const elements = [], connectors = [];
     const lines = raw.split('\n');
     let cur = null, textLines = [];
-    const flush = () => { if(cur){ cur.text = textLines.join('\n').trim(); elements.push(cur); cur=null; textLines=[]; } };
+    const flush = () => {
+      if(cur){
+        const t = textLines.join('\n').trim();
+        if(cur.type==='section') cur.label = t || '섹션';
+        else cur.text = t;
+        elements.push(cur); cur=null; textLines=[];
+      }
+    };
     for(const line of lines){
       if(line.startsWith('@sticky')){ flush(); const p=line.split(' '); cur={id:p[1],type:'sticky',x:+p[2],y:+p[3],w:+p[4]||200,h:+p[5]||160,color:p[6]||'#FFE066',text:''}; }
+      else if(line.startsWith('@section')){ flush(); const p=line.split(' '); cur={id:p[1],type:'section',x:+p[2],y:+p[3],w:+p[4]||300,h:+p[5]||200,color:p[6]||'#82C4F8',label:''}; }
       else if(line.startsWith('@rect')){ flush(); const p=line.split(' '); cur={id:p[1],type:'rect',x:+p[2],y:+p[3],w:+p[4]||180,h:+p[5]||100,color:p[6]||'#E8E8E8',text:''}; }
       else if(line.startsWith('@circle')){ flush(); const p=line.split(' '); cur={id:p[1],type:'circle',x:+p[2],y:+p[3],r:+p[4]||60,color:p[5]||'#E8E8E8',text:''}; }
       else if(line.startsWith('@diamond')){ flush(); const p=line.split(' '); cur={id:p[1],type:'diamond',x:+p[2],y:+p[3],w:+p[4]||100,h:+p[5]||100,color:p[6]||'#E8E8E8',text:''}; }
@@ -3837,7 +3845,7 @@
       else if(line.startsWith('@dashed-arrow ')){ flush(); const p=line.split(' '); const li=p.indexOf('|'); connectors.push({id:cevGenId('c'),type:'dashed-arrow',from:p[1],to:p[2],fromSide:p[3]||null,toSide:p[4]||null,label:li>0?p.slice(li+1).join(' ').trim():''}); }
       else if(line.startsWith('@dashed ')){ flush(); const p=line.split(' '); const li=p.indexOf('|'); connectors.push({id:cevGenId('c'),type:'dashed',from:p[1],to:p[2],fromSide:p[3]||null,toSide:p[4]||null,label:li>0?p.slice(li+1).join(' ').trim():''}); }
       else if(line.startsWith('@line ')){ flush(); const p=line.split(' '); if(p[1]&&isNaN(+p[1])){ const li=p.indexOf('|'); connectors.push({id:cevGenId('c'),type:'line',from:p[1],to:p[2],fromSide:p[3]||null,toSide:p[4]||null,label:li>0?p.slice(li+1).join(' ').trim():''}); } else connectors.push({id:cevGenId('c'),type:'line',x1:+p[1],y1:+p[2],x2:+p[3],y2:+p[4],label:''}); }
-      else if(cur){ textLines.push(line); }
+      else if(cur){ textLines.push(line.startsWith('\\@') ? line.slice(1) : line); }
     }
     flush();
     return { elements, connectors };
@@ -3851,7 +3859,10 @@
       else if(edata.type==='circle') lines.push(`@circle ${edata.id} ${Math.round(edata.x)} ${Math.round(edata.y)} ${Math.round(edata.r||60)} ${edata.color||'#E8E8E8'}`);
       else if(edata.type==='diamond') lines.push(`@diamond ${edata.id} ${Math.round(edata.x)} ${Math.round(edata.y)} ${Math.round(edata.w)} ${Math.round(edata.h)} ${edata.color||'#E8E8E8'}`);
       else if(edata.type==='text') lines.push(`@text ${edata.id} ${Math.round(edata.x)} ${Math.round(edata.y)}`);
-      if(edata.text) lines.push(edata.text);
+      else if(edata.type==='section') lines.push(`@section ${edata.id} ${Math.round(edata.x)} ${Math.round(edata.y)} ${Math.round(edata.w)} ${Math.round(edata.h)} ${edata.color||'#82C4F8'}`);
+      const body = edata.type==='section' ? edata.label : edata.text;
+      // escape body lines that start with '@' so they aren't re-parsed as directives
+      if(body) lines.push(body.split('\n').map(l => l.startsWith('@') ? '\\'+l : l).join('\n'));
       lines.push('');
     }
     for(const c of connectors){
@@ -4336,6 +4347,9 @@
   });
 
   el('cevCanvas').addEventListener('mousedown',e=>{
+    // fresh interaction on the canvas surface: clear the drag flag so a leftover
+    // 'true' from a previous element move can't suppress the next shape-creation click
+    cevDragMoved=false;
     if(cevSpaceDown){
       cevSpacePanning=true; cevSpacePanStart={mx:e.clientX,my:e.clientY,px:cevPanE.x,py:cevPanE.y};
       el('cevCanvas').style.cursor='grabbing'; e.preventDefault(); return;

@@ -497,6 +497,13 @@
   .dbbtn { width:100%; font-family:var(--sans); font-size:12.5px; font-weight:700; color:var(--ink-soft); background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-align:left; transition:background .12s, color .12s, border-color .12s; }
   .dbbtn:hover { color:#7c3aed; border-color:#c4b5fd; background:#f5f3ff; }
   .cov-view-title { font-size:14px; font-weight:700; color:var(--ink); }
+  .guide-modal { display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.42); align-items:center; justify-content:center; padding:24px; }
+  .guide-modal-box { background:var(--bg-card); border:1px solid var(--border); border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,0.28); width:min(720px,100%); max-height:88vh; display:flex; flex-direction:column; overflow:hidden; }
+  .guide-modal-head { display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-bottom:1px solid var(--border-soft); flex-shrink:0; }
+  .guide-modal-title { font-size:15px; font-weight:800; color:var(--ink); }
+  .guide-modal-close { font-family:var(--sans); font-size:15px; background:none; border:none; color:var(--ink-faint); cursor:pointer; padding:4px 8px; border-radius:6px; }
+  .guide-modal-close:hover { color:var(--ink); background:var(--bg-panel); }
+  .guide-modal-body { overflow-y:auto; padding:8px 24px 24px 24px; }
   .cov-tag-label { font-size:12px; color:var(--ink-soft); font-weight:600; }
   .cov-tag-select { font-family:var(--sans); font-size:13px; padding:5px 8px; border:1px solid var(--border); border-radius:7px; background:var(--bg-card); color:var(--ink); outline:none; cursor:pointer; }
   .cov-tag-select:focus { border-color:var(--accent); }
@@ -733,6 +740,7 @@
       <span class="sub">idea stack</span>
       <div class="brand-actions">
         <button class="logout" id="dashboardBtn" style="font-weight:700;">대시보드</button>
+        <button class="logout" id="guideBtn" title="사용법 보기">?</button>
         <button class="logout" id="themeToggleBtn" title="다크 모드 전환">🌙</button>
         <button class="logout" id="logoutBtn">로그아웃</button>
       </div>
@@ -1006,6 +1014,16 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<div id="guideModal" class="guide-modal">
+  <div class="guide-modal-box">
+    <div class="guide-modal-head">
+      <span class="guide-modal-title">📖 STACKER 사용법</span>
+      <button class="guide-modal-close" id="guideModalClose" title="닫기">✕</button>
+    </div>
+    <div class="guide-modal-body preview" id="guideModalBody"></div>
+  </div>
+</div>
 
 <button class="panel-show-tab collapse" id="rightpaneToggleBtn" title="패널 접기">›</button>
 <button class="panel-show-tab right" id="rightpaneShowTab" title="패널 열기">‹</button>
@@ -5423,17 +5441,8 @@
     openDashboard();
   });
 
-  // ---------------- boot ----------------
-  loadUserPresets();
-  applyPanelState();
-  async function boot(){
-    const { data: { user } } = await sb.auth.getUser();
-    if(user) setupRealtime(user.id);
-    await loadAll();
-    if(index.length === 0){
-      await createNote('STACKER 사용법');
-      const w = index.find(m => m.id === currentId);
-      w.content = `# STACKER에 오신 것을 환영합니다
+  // ---------------- usage guide (shared by onboarding card + one-time modal) ----------------
+  const GUIDE_MD = `# STACKER에 오신 것을 환영합니다
 
 STACKER는 생각을 **쌓아 올리는(stack)** 개인 작업 공간입니다.
 옵시디언처럼 [[마크다운]]과 카드 연결을, 노션처럼 속성·데이터베이스를,
@@ -5499,6 +5508,34 @@ STACKER는 생각을 **쌓아 올리는(stack)** 개인 작업 공간입니다.
 - 상단 **대시보드**에서 활동·연속 기록·최근 카드를 확인해요.
 
 이 카드는 자유롭게 고치거나 지워도 됩니다. 즐겁게 쌓아보세요! 🧱`;
+
+  function openGuideModal(){
+    el('guideModalBody').innerHTML = renderMarkdown(GUIDE_MD);
+    el('guideModal').style.display = 'flex';
+  }
+  function closeGuideModal(){ el('guideModal').style.display = 'none'; }
+  function maybeShowGuideOnce(){
+    if(localStorage.getItem('stk-guide-v2')) return;
+    localStorage.setItem('stk-guide-v2','1');
+    openGuideModal();
+  }
+  el('guideBtn').addEventListener('click', openGuideModal);
+  el('guideModalClose').addEventListener('click', closeGuideModal);
+  el('guideModal').addEventListener('click', e => { if(e.target===el('guideModal')) closeGuideModal(); });
+  document.addEventListener('keydown', e => { if(e.key==='Escape' && el('guideModal').style.display==='flex') closeGuideModal(); });
+
+  // ---------------- boot ----------------
+  loadUserPresets();
+  applyPanelState();
+  async function boot(){
+    const { data: { user } } = await sb.auth.getUser();
+    if(user) setupRealtime(user.id);
+    await loadAll();
+    if(index.length === 0){
+      await createNote('STACKER 사용법');
+      const w = index.find(m => m.id === currentId);
+      w.content = GUIDE_MD;
+      localStorage.setItem('stk-guide-v2','1'); // new user already has the guide as a card
       editorBox.value = w.content;
       currentManualTags = [];
       renderTagChips();
@@ -5508,6 +5545,7 @@ STACKER는 생각을 **쌓아 올리는(stack)** 개인 작업 공간입니다.
     renderTagRow();
     renderCardList();
     if(!currentId) openDashboard();
+    maybeShowGuideOnce();
   }
 
   // resume existing session on page load

@@ -1,4 +1,6 @@
-# STACKER 변경 기록
+# GRAPHIDEA 변경 기록
+
+> 프로젝트명: **GRAPHIDEA** (부제 "Idea Connect"). 이전 명칭 STACKER에서 리브랜딩(2026-07-26).
 
 > 단일 파일 앱(`index.html`). 순수 HTML/CSS/JS + Supabase(Auth/Postgres/Realtime) + Vercel 자동 배포.
 > GitHub: SpecialBee/NoteApp · 배포: https://note-app-gamma-wheat.vercel.app
@@ -38,7 +40,8 @@
 - **좌측 사이드바 접기 기능 제거**(문제 잦아 항상 표시). 우측 패널만 토글 — 토글 버튼을 패널 **왼쪽 경계 세로 중앙 탭**으로 이동. 패널 폭 CSS 변수는 `:root`로 이동(고정 탭이 리사이즈 추적).
 - 검색: 캔버스/테이블은 JSON 원문 대신 **실제 텍스트만 인덱싱**(`noteSearchText`, 캐시).
 - 사이드바 카드 목록 **스크롤 수정**(`.card-tab { flex-shrink:0 }`, `.cardlist { min-height:0 }`), 태그줄 높이 제한.
-- 브랜드: `Stacker`→**STACKER**, `note stack`→**idea stack**.
+- 브랜드: `Stacker`→`STACKER`→**GRAPHIDEA**, 부제 `note stack`→`idea stack`→**Idea Connect**.
+  (표시 텍스트만 변경 — GitHub 저장소명/배포 URL/Supabase 프로젝트/localStorage 키는 그대로.)
 - 온보딩 사용법 전면 재작성 + **1회 안내 모달**(`?` 버튼으로 재열람, `localStorage: stk-guide-v2`).
 - 대시보드 월별 활동 **날짜 시간대 버그 수정**: UTC 대신 `localDateKey()`로 로컬 날짜 기준 집계.
 

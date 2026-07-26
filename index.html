@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>Stacker</title>
+<title>GRAPHIDEA</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" type="image/png" href="icon.png">
 <link rel="apple-touch-icon" href="icon.png">
@@ -127,7 +127,7 @@
   .brand{ padding:12px 14px 10px 14px; display:flex; flex-direction:column; gap:4px; border-bottom:1px solid var(--border-soft); overflow:hidden; }
   .brand .mark{ font-weight:800; font-size:17px; letter-spacing:0.2px; color:var(--ink); cursor:pointer; flex-shrink:0; }
   .brand .mark:hover{ color:var(--accent); }
-  .brand .sub{ font-size:10px; color:var(--ink-faint); letter-spacing:1.2px; text-transform:uppercase; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+  .brand .sub{ font-size:10px; color:var(--ink-faint); letter-spacing:1px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
   .brand-actions{ display:flex; gap:2px; }
   .logout{ font-family:var(--sans); font-size:11px; font-weight:500; color:var(--ink-faint); cursor:pointer; background:none; border:none; padding:5px 7px; border-radius:6px; display:block; width:100%; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .logout:hover{ color:var(--ink); background:var(--border-soft); }
@@ -709,8 +709,8 @@
 
 <div class="loginwrap" id="loginWrap">
   <div class="loginbox">
-    <h1>Stacker</h1>
-    <div class="tag">idea stack · sign in</div>
+    <h1>GRAPHIDEA</h1>
+    <div class="tag">Idea Connect · sign in</div>
     <label>이메일</label>
     <input id="authEmail" type="email" placeholder="you@example.com" autocomplete="username">
     <label id="authPassLabel">비밀번호</label>
@@ -724,8 +724,8 @@
 
 <div class="loginwrap" id="recoveryWrap" style="display:none;">
   <div class="loginbox">
-    <h1>Stacker</h1>
-    <div class="tag">idea stack · new password</div>
+    <h1>GRAPHIDEA</h1>
+    <div class="tag">Idea Connect · new password</div>
     <label>새 비밀번호</label>
     <input id="recoveryPass" type="password" placeholder="********" autocomplete="new-password">
     <button id="recoveryBtn">비밀번호 변경</button>
@@ -736,8 +736,8 @@
 <div class="app" id="app">
   <div class="sidebar" id="sidebar">
     <div class="brand">
-      <span class="mark">STACKER</span>
-      <span class="sub">idea stack</span>
+      <span class="mark">GRAPHIDEA</span>
+      <span class="sub">Idea Connect</span>
       <div class="brand-actions">
         <button class="logout" id="dashboardBtn" style="font-weight:700;">대시보드</button>
         <button class="logout" id="guideBtn" title="사용법 보기">?</button>
@@ -756,7 +756,7 @@
       </div>
     </div>
     <div id="trashActionRow" style="display:none; gap:6px; flex-direction:column;">
-      <button class="newbtn" id="backFromTrashBtn" style="background:var(--bg-card);color:var(--ink);border:1px solid var(--border);">← Stacker로 돌아가기</button>
+      <button class="newbtn" id="backFromTrashBtn" style="background:var(--bg-card);color:var(--ink);border:1px solid var(--border);">← GRAPHIDEA로 돌아가기</button>
       <button class="newbtn" id="emptyTrashBtn" style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;">🗑 휴지통 전체 비우기</button>
     </div>
     <div class="sortrow" id="sortRow">
@@ -804,7 +804,7 @@
         <div class="graph-header-right">
           <label class="graph-toggle"><input type="checkbox" id="showIsolatedToggle"> 고립 카드 표시</label>
           <button id="resetGraphViewBtn">보기 초기화</button>
-          <button id="closeGraphBtn">← Stacker로 돌아가기</button>
+          <button id="closeGraphBtn">← GRAPHIDEA로 돌아가기</button>
         </div>
       </div>
       <div class="graph-legend" id="graphLegend"></div>
@@ -1018,7 +1018,7 @@
 <div id="guideModal" class="guide-modal">
   <div class="guide-modal-box">
     <div class="guide-modal-head">
-      <span class="guide-modal-title">📖 STACKER 사용법</span>
+      <span class="guide-modal-title">📖 GRAPHIDEA 사용법</span>
       <button class="guide-modal-close" id="guideModalClose" title="닫기">✕</button>
     </div>
     <div class="guide-modal-body preview" id="guideModalBody"></div>
@@ -5439,16 +5439,16 @@
     dashCalM++; if(dashCalM>11){ dashCalM=0; dashCalY++; } renderDashCalendar();
   });
 
-  // Stacker logo → exit trash if needed, then dashboard
+  // GRAPHIDEA logo → exit trash if needed, then dashboard
   document.querySelector('.brand .mark').addEventListener('click',()=>{
     if(showingTrash) exitTrashView();
     openDashboard();
   });
 
   // ---------------- usage guide (shared by onboarding card + one-time modal) ----------------
-  const GUIDE_MD = `# STACKER에 오신 것을 환영합니다
+  const GUIDE_MD = `# GRAPHIDEA에 오신 것을 환영합니다
 
-STACKER는 생각을 **쌓아 올리는(stack)** 개인 작업 공간입니다.
+GRAPHIDEA는 흩어진 생각을 **연결해 하나의 그래프로 잇는** 개인 작업 공간입니다.
 옵시디언처럼 [[마크다운]]과 카드 연결을, 노션처럼 속성·데이터베이스를,
 피그잼처럼 시각적 캔버스를 한 곳에서 씁니다. 로그인만 하면 모든 기기가 자동 동기화돼요.
 
@@ -5511,7 +5511,7 @@ STACKER는 생각을 **쌓아 올리는(stack)** 개인 작업 공간입니다.
 - 사이드바 상단 🌙/☀️ 로 다크 모드 전환.
 - 상단 **대시보드**에서 활동·연속 기록·최근 카드를 확인해요.
 
-이 카드는 자유롭게 고치거나 지워도 됩니다. 즐겁게 쌓아보세요! 🧱`;
+이 카드는 자유롭게 고치거나 지워도 됩니다. 즐겁게 연결해보세요! 🕸️`;
 
   function openGuideModal(){
     el('guideModalBody').innerHTML = renderMarkdown(GUIDE_MD);
@@ -5519,8 +5519,8 @@ STACKER는 생각을 **쌓아 올리는(stack)** 개인 작업 공간입니다.
   }
   function closeGuideModal(){ el('guideModal').style.display = 'none'; }
   function maybeShowGuideOnce(){
-    if(localStorage.getItem('stk-guide-v2')) return;
-    localStorage.setItem('stk-guide-v2','1');
+    if(localStorage.getItem('stk-guide-v3')) return;
+    localStorage.setItem('stk-guide-v3','1');
     openGuideModal();
   }
   el('guideBtn').addEventListener('click', openGuideModal);
@@ -5536,10 +5536,10 @@ STACKER는 생각을 **쌓아 올리는(stack)** 개인 작업 공간입니다.
     if(user) setupRealtime(user.id);
     await loadAll();
     if(index.length === 0){
-      await createNote('STACKER 사용법');
+      await createNote('GRAPHIDEA 사용법');
       const w = index.find(m => m.id === currentId);
       w.content = GUIDE_MD;
-      localStorage.setItem('stk-guide-v2','1'); // new user already has the guide as a card
+      localStorage.setItem('stk-guide-v3','1'); // new user already has the guide as a card
       editorBox.value = w.content;
       currentManualTags = [];
       renderTagChips();

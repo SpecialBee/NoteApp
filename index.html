@@ -1674,6 +1674,7 @@
   async function openNote(id){
     if(currentId && currentId !== id) await flushSave();
     if(tevCurrentNoteId) tevFlushSave();
+    if(cevCurrentNoteId) cevFlushSave();
     currentId = id;
     const note = index.find(m => m.id === id);
     if(!note){ showToast('카드를 찾을 수 없습니다'); return; }
@@ -4310,6 +4311,8 @@
   }
 
   function exitCanvasEditor(){
+    cevFlushSave();
+    cevCurrentNoteId=null;
     hideCevCtxBar();
     currentId=null;
     showView('empty');

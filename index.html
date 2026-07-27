@@ -308,7 +308,9 @@
   .graph-legend .legend-dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
   .graph-canvas{ flex:1; width:100%; height:100%; min-height:0; cursor:grab; }
   .graph-canvas.panning{ cursor:grabbing; }
-  .graph-canvas .gnode circle{ cursor:pointer; transition:opacity .15s ease; }
+  .graph-canvas.grabbing, .graph-canvas.grabbing .gnode{ cursor:grabbing; }
+  .graph-canvas .gnode{ cursor:grab; }
+  .graph-canvas .gnode circle{ transition:opacity .15s ease; }
   .graph-canvas .gnode text{ font-family:var(--sans); font-size:11px; fill:var(--ink-soft); pointer-events:none; opacity:0.9; transition:opacity .12s ease; }
   .graph-canvas .gnode:hover text{ opacity:1; font-weight:600; fill:var(--ink); }
   .graph-canvas .gnode.dim circle{ opacity:0.15; }
@@ -657,6 +659,9 @@
   #dashGraphSvg .gnode.stale circle { opacity:0.3; }
   #dashGraphSvg .gnode text { font-size:9.5px; }
   #dashGraphSvg .gnode.stale text { opacity:0.45; }
+  #dashGraphSvg { cursor:default; }
+  #dashGraphSvg .gnode { cursor:grab; }
+  #dashGraphSvg.grabbing, #dashGraphSvg.grabbing .gnode { cursor:grabbing; }
   .dash-hero-more { position:absolute; top:10px; right:10px; font-size:10.5px; color:var(--ink-faint); background:color-mix(in srgb, var(--bg-card) 82%, transparent); padding:3px 9px; border-radius:8px; pointer-events:none; }
   .dash-hero-markerhint { position:absolute; left:12px; bottom:10px; display:flex; gap:12px; font-size:10.5px; color:var(--ink-faint); pointer-events:none; background:color-mix(in srgb, var(--bg-card) 82%, transparent); padding:3px 9px; border-radius:8px; }
   .dash-hero-markerhint .mk { display:inline-flex; align-items:center; gap:4px; }
@@ -2210,6 +2215,8 @@
   let showIsolatedNodes = localStorage.getItem('cardCatalogShowIsolated') === '1';
   let graphView = { scale: 1, tx: 0, ty: 0 };
   let graphAdjacency = {};
+  let globalGraphPos = {};   // current node positions {id:{x,y}} — updated live by node dragging
+  let graphNodeMoved = false; // true right after a node drag, so the click handler won't also open it
 
   function isGraphOpen(){ return globalGraphView.style.display === 'flex'; }
 
@@ -2333,8 +2340,18 @@
     }
 
     const cachedPositions = loadGraphPositions();
-    const pos = computeForceLayout(nodes, edges, width, height, nodes.length > 150 ? 120 : 250, cachedPositions);
+    // if every current node already has a saved position, use them as-is so a user's
+    // hand-arranged layout persists; only re-run the force layout when new nodes appeared
+    const allCached = nodes.every(n => cachedPositions[n.id]);
+    let pos;
+    if(allCached){
+      pos = {};
+      nodes.forEach(n => { pos[n.id] = { x: cachedPositions[n.id].x, y: cachedPositions[n.id].y }; });
+    } else {
+      pos = computeForceLayout(nodes, edges, width, height, nodes.length > 150 ? 120 : 250, cachedPositions);
+    }
     saveGraphPositions(pos);
+    globalGraphPos = pos;
 
     graphAdjacency = {};
     nodes.forEach(n => { graphAdjacency[n.id] = new Set(); });
@@ -2397,7 +2414,7 @@
   };
 
   globalGraphSvg.addEventListener('click', (e) => {
-    if(graphPanMoved) return;
+    if(graphPanMoved || graphNodeMoved) return;
     const g = e.target.closest('.gnode');
     if(!g) return;
     closeGlobalGraph();
@@ -2444,6 +2461,40 @@
     if(!graphPanning) return;
     graphPanning = false;
     globalGraphSvg.classList.remove('panning');
+  });
+
+  // drag a node to arrange the graph; positions persist to localStorage
+  let gNodeDrag = null;
+  function graphClientToLocal(clientX, clientY){
+    const vp = document.getElementById('graphViewport'); if(!vp) return null;
+    const ctm = vp.getScreenCTM(); if(!ctm) return null;
+    const pt = globalGraphSvg.createSVGPoint(); pt.x = clientX; pt.y = clientY;
+    const p = pt.matrixTransform(ctm.inverse());
+    return { x:p.x, y:p.y };
+  }
+  globalGraphSvg.addEventListener('mousedown', (e) => {
+    const g = e.target.closest('.gnode'); if(!g) return;
+    gNodeDrag = { id:g.dataset.id, el:g, moved:false };
+    globalGraphSvg.classList.add('grabbing');
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', (e) => {
+    if(!gNodeDrag) return;
+    const p = graphClientToLocal(e.clientX, e.clientY); if(!p) return;
+    gNodeDrag.moved = true; graphNodeMoved = true;
+    globalGraphPos[gNodeDrag.id] = { x:p.x, y:p.y };
+    gNodeDrag.el.setAttribute('transform', `translate(${p.x},${p.y})`);
+    globalGraphSvg.querySelectorAll('line').forEach(ln => {
+      if(ln.dataset.a === gNodeDrag.id){ ln.setAttribute('x1', p.x); ln.setAttribute('y1', p.y); }
+      if(ln.dataset.b === gNodeDrag.id){ ln.setAttribute('x2', p.x); ln.setAttribute('y2', p.y); }
+    });
+  });
+  window.addEventListener('mouseup', () => {
+    if(!gNodeDrag) return;
+    globalGraphSvg.classList.remove('grabbing');
+    if(gNodeDrag.moved) saveGraphPositions(globalGraphPos);
+    gNodeDrag = null;
+    setTimeout(() => { graphNodeMoved = false; }, 0); // reset after the click event fires
   });
 
   // zoom (wheel, centered on cursor)
@@ -2545,6 +2596,16 @@
       .subscribe();
   }
 
+  // true when two note snapshots carry the same user-visible data (ignores updated_at),
+  // i.e. the incoming realtime row is just an echo of a write we already have locally
+  function sameNoteSig(a, b){
+    return a.title===b.title && a.content===b.content && a.pinned===b.pinned
+      && (!!a.deletedAt)===(!!b.deletedAt)
+      && JSON.stringify(a.tags||[])===JSON.stringify(b.tags||[])
+      && JSON.stringify(a.links||[])===JSON.stringify(b.links||[])
+      && JSON.stringify(a.properties||[])===JSON.stringify(b.properties||[]);
+  }
+
   function handleRemoteChange(payload){
     if(payload.eventType === 'DELETE'){
       const id = payload.old.id;
@@ -2560,10 +2621,20 @@
     }
     const row = rowToNote(payload.new);
     const isTrashed = !!row.deletedAt;
+    // detect echoes of our OWN save (realtime bounces our writes back): if the incoming
+    // row matches what we already have locally, it's not a real remote change — apply it
+    // silently so it doesn't toast on every keystroke or disturb the open editor.
+    const prevLocal = index.find(m => m.id === row.id) || trashIndex.find(m => m.id === row.id);
+    const isEcho = prevLocal && sameNoteSig(prevLocal, row);
     index = index.filter(m => m.id !== row.id);
     trashIndex = trashIndex.filter(m => m.id !== row.id);
     if(isTrashed){ if(showingTrash) { trashIndex.unshift(row); trashCount.textContent = trashIndex.length; } }
     else index.push(row);
+
+    if(isEcho){
+      computeAllTags(); renderTagRow(); renderCardList();
+      return;
+    }
 
     if(row.id === currentId){
       if(tevCurrentNoteId === row.id){
@@ -4908,8 +4979,13 @@
   }
 
   // ===== Hero connection graph (live Obsidian-style force simulation) =====
-  let dashSim = null;
-  function stopDashSim(){ if(dashSim){ cancelAnimationFrame(dashSim.raf); dashSim=null; } }
+  let dashSim = null; // persists after settle so drag can reheat it
+  function stopDashSim(){ if(dashSim){ cancelAnimationFrame(dashSim.raf); dashSim.running=false; } }
+  function dashReheat(){
+    if(!dashSim) return;
+    dashSim.alpha=Math.max(dashSim.alpha, 0.5);
+    if(!dashSim.running){ dashSim.running=true; dashSim.frame=0; dashSim.raf=requestAnimationFrame(dashSim.step); }
+  }
 
   function renderDashGraph(){
     stopDashSim();
@@ -5018,6 +5094,7 @@
       });
       // center gravity + integrate + damping + clamp in-bounds
       for(const n of nodes){
+        if(n.fixed){ n.vx=0; n.vy=0; continue; } // node held by drag; others react around it
         n.vx+=(cx-n.x)*GRAV*alpha; n.vy+=(cy-n.y)*GRAV*alpha;
         n.vx*=DAMP; n.vy*=DAMP;
         if(n.vx>VMAX)n.vx=VMAX; else if(n.vx<-VMAX)n.vx=-VMAX;
@@ -5039,7 +5116,7 @@
       if(dashSim.alpha<ALPHA_MIN || dashSim.frame>500){ stopDashSim(); return; }
       dashSim.raf=requestAnimationFrame(step);
     }
-    dashSim={ raf:0, frame:0, alpha:1 };
+    dashSim={ raf:0, frame:0, alpha:1, running:true, nodes, W, H, step };
     dashSim.raf=requestAnimationFrame(step);
 
     // tag legend reflects ALL active notes, not just the shown subset
@@ -5059,10 +5136,40 @@
     }
   }
 
-  el('dashGraphSvg').addEventListener('click', (e) => {
-    const g = e.target.closest('.gnode');
-    if(!g) return;
-    openNote(g.dataset.id);
+  // drag a hero node (physics reacts); a no-move press opens the note
+  let heroDrag=null;
+  function heroClientToSvg(clientX, clientY){
+    const svg=el('dashGraphSvg'); const ctm=svg.getScreenCTM(); if(!ctm) return null;
+    const pt=svg.createSVGPoint(); pt.x=clientX; pt.y=clientY;
+    const p=pt.matrixTransform(ctm.inverse());
+    return { x:p.x, y:p.y };
+  }
+  el('dashGraphSvg').addEventListener('mousedown', (e) => {
+    if(!dashSim) return;
+    const p=heroClientToSvg(e.clientX, e.clientY); if(!p) return;
+    // pick the nearest node within a forgiving radius (labels leave gaps, dots are tiny)
+    let best=null, bestD=Infinity;
+    dashSim.nodes.forEach(n=>{ const dx=n.x-p.x, dy=n.y-p.y, d=dx*dx+dy*dy; if(d<bestD){ bestD=d; best=n; } });
+    if(!best || bestD > 20*20) return; // pressed empty space
+    heroDrag={ node:best, moved:false, id:best.src.id };
+    best.fixed=true;
+    el('dashGraphSvg').classList.add('grabbing');
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', (e) => {
+    if(!heroDrag) return;
+    const p=heroClientToSvg(e.clientX, e.clientY); if(!p) return;
+    heroDrag.node.x=p.x; heroDrag.node.y=p.y; heroDrag.node.vx=0; heroDrag.node.vy=0;
+    heroDrag.moved=true;
+    dashReheat();
+  });
+  window.addEventListener('mouseup', () => {
+    if(!heroDrag) return;
+    heroDrag.node.fixed=false;
+    dashReheat();
+    el('dashGraphSvg').classList.remove('grabbing');
+    const d=heroDrag; heroDrag=null;
+    if(!d.moved) openNote(d.id); // treated as a click
   });
   el('dashHeroOpenBtn').addEventListener('click', () => openGlobalGraph());
 

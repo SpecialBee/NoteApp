@@ -465,7 +465,7 @@
   .dbrow { padding:10px 14px 2px 14px; flex-shrink:0; }
   .dbbtn { width:100%; font-family:var(--sans); font-size:12.5px; font-weight:700; color:var(--ink-soft); background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; text-align:left; transition:background .12s, color .12s, border-color .12s; }
   .dbbtn:hover { color:#7c3aed; border-color:#c4b5fd; background:#f5f3ff; }
-  .cov-view-title { font-size:14px; font-weight:700; color:var(--ink); }
+  .dbview-title { font-size:14px; font-weight:700; color:var(--ink); }
   .guide-modal { display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.42); align-items:center; justify-content:center; padding:24px; }
   .guide-modal-box { background:var(--bg-card); border:1px solid var(--border); border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,0.28); width:min(720px,100%); max-height:88vh; display:flex; flex-direction:column; overflow:hidden; }
   .guide-modal-head { display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-bottom:1px solid var(--border-soft); flex-shrink:0; }
@@ -473,13 +473,13 @@
   .guide-modal-close { font-family:var(--sans); font-size:15px; background:none; border:none; color:var(--ink-faint); cursor:pointer; padding:4px 8px; border-radius:6px; }
   .guide-modal-close:hover { color:var(--ink); background:var(--bg-panel); }
   .guide-modal-body { overflow-y:auto; padding:8px 24px 24px 24px; }
-  .cov-tag-label { font-size:12px; color:var(--ink-soft); font-weight:600; }
-  .cov-tag-select { font-family:var(--sans); font-size:13px; padding:5px 8px; border:1px solid var(--border); border-radius:7px; background:var(--bg-card); color:var(--ink); outline:none; cursor:pointer; }
-  .cov-tag-select:focus { border-color:var(--accent); }
-  .cov-empty { color:var(--ink-faint); font-size:13px; text-align:center; padding:40px 24px; line-height:1.7; }
-  .cov-title-cell { padding:6px 9px; font-size:13px; font-weight:600; color:var(--accent); cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .cov-title-cell:hover { text-decoration:underline; }
-  .cov-table th:first-child, .cov-table td:first-child { position:sticky; left:0; background:var(--bg-panel); z-index:1; }
+  .dbview-tag-label { font-size:12px; color:var(--ink-soft); font-weight:600; }
+  .dbview-tag-select { font-family:var(--sans); font-size:13px; padding:5px 8px; border:1px solid var(--border); border-radius:7px; background:var(--bg-card); color:var(--ink); outline:none; cursor:pointer; }
+  .dbview-tag-select:focus { border-color:var(--accent); }
+  .dbview-empty { color:var(--ink-faint); font-size:13px; text-align:center; padding:40px 24px; line-height:1.7; }
+  .dbview-title-cell { padding:6px 9px; font-size:13px; font-weight:600; color:var(--accent); cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .dbview-title-cell:hover { text-decoration:underline; }
+  .dbview-table th:first-child, .dbview-table td:first-child { position:sticky; left:0; background:var(--bg-panel); z-index:1; }
   .tev-cell-input { width:100%; min-height:32px; padding:5px 8px; border:none; background:none; font-family:var(--sans); font-size:13px; color:var(--ink); outline:none; box-sizing:border-box; }
   .tev-cell-input:focus { background:color-mix(in srgb, var(--accent) 8%, transparent); }
   /* Table editor */
@@ -911,16 +911,16 @@
       <div class="tev-table-wrap" id="tevTableWrap"></div>
     </div>
 
-    <div id="collectionView" style="display:none; flex:1; position:relative; overflow:hidden; background:var(--bg); flex-direction:column;">
+    <div id="databaseView" style="display:none; flex:1; position:relative; overflow:hidden; background:var(--bg); flex-direction:column;">
       <div class="tev-toolbar">
-        <span class="cov-view-title">🗄 데이터베이스</span>
-        <span class="cov-tag-label">태그 필터</span>
-        <select id="covTagSelect" class="cov-tag-select"></select>
+        <span class="dbview-title">🗄 데이터베이스</span>
+        <span class="dbview-tag-label">태그 필터</span>
+        <select id="dbViewTagSelect" class="dbview-tag-select"></select>
         <div style="flex:1"></div>
-        <button class="tev-action" id="covAddBtn">+ 새 항목</button>
-        <button class="tev-action" id="covExitBtn">← GRAPHIDEA로 돌아가기</button>
+        <button class="tev-action" id="dbViewAddBtn">+ 새 항목</button>
+        <button class="tev-action" id="dbViewExitBtn">← GRAPHIDEA로 돌아가기</button>
       </div>
-      <div class="tev-table-wrap" id="covWrap"></div>
+      <div class="tev-table-wrap" id="dbViewWrap"></div>
     </div>
 
     <div id="cardSheet" class="cardsheet" style="display:none;">
@@ -2158,10 +2158,10 @@
     dashboard:    { show:'dashboardView',    disp:'flex',  rightpane:false, toolbar:false, dash:true  },
     canvasEditor: { show:'canvasEditorView', disp:'flex',  rightpane:true,  toolbar:false },
     tableEditor:  { show:'tableEditorView',  disp:'flex',  rightpane:true,  toolbar:false },
-    collection:   { show:'collectionView',   disp:'flex',  rightpane:false, toolbar:false },
+    database:     { show:'databaseView',    disp:'flex',  rightpane:false, toolbar:false },
     trash:        { show:'emptyMain',        disp:'flex',  rightpane:false, toolbar:false, trash:true },
   };
-  const MAINPANE_IDS = ['emptyMain','cardSheet','globalGraphView','dashboardView','canvasEditorView','tableEditorView','collectionView'];
+  const MAINPANE_IDS = ['emptyMain','cardSheet','globalGraphView','dashboardView','canvasEditorView','tableEditorView','databaseView'];
   let currentView = 'empty';
 
   function showView(name){
@@ -3477,39 +3477,39 @@
   // ============================================================
   // Database (global Notion-style view over notes + properties) — single window
   // ============================================================
-  let covConfig={filterTag:null};
+  let dbViewConfig={filterTag:null};
 
-  function loadCollectionConfig(){ try{ const o=JSON.parse(localStorage.getItem('stk-db')||'{}'); covConfig={filterTag:o.filterTag||null}; }catch{ covConfig={filterTag:null}; } }
-  function covSaveConfig(){ localStorage.setItem('stk-db', JSON.stringify(covConfig)); }
-  function collectionMembers(){
-    const t=covConfig.filterTag;
+  function loadDbViewConfig(){ try{ const o=JSON.parse(localStorage.getItem('stk-db')||'{}'); dbViewConfig={filterTag:o.filterTag||null}; }catch{ dbViewConfig={filterTag:null}; } }
+  function saveDbViewConfig(){ localStorage.setItem('stk-db', JSON.stringify(dbViewConfig)); }
+  function dbViewMembers(){
+    const t=dbViewConfig.filterTag;
     if(!t) return [];
     return index.filter(n=>!n.deletedAt && !isCanvasNote(n) && !isTableNote(n) && (n.tags||[]).includes(t));
   }
   function openDatabaseView(){
     currentId=null;
-    loadCollectionConfig();
-    showView('collection');
-    renderCollection();
+    loadDbViewConfig();
+    showView('database');
+    renderDatabaseView();
     renderCardList();
   }
-  function exitCollection(){
+  function exitDatabaseView(){
     showView('empty'); renderCardList();
   }
 
-  function renderCollection(){
+  function renderDatabaseView(){
     // tag selector
-    const sel=el('covTagSelect');
+    const sel=el('dbViewTagSelect');
     sel.innerHTML='';
     const blank=document.createElement('option'); blank.value=''; blank.textContent='(태그 선택)'; sel.appendChild(blank);
-    allTags.forEach(t=>{ const o=document.createElement('option'); o.value=t; o.textContent='#'+t; if(t===covConfig.filterTag) o.selected=true; sel.appendChild(o); });
+    allTags.forEach(t=>{ const o=document.createElement('option'); o.value=t; o.textContent='#'+t; if(t===dbViewConfig.filterTag) o.selected=true; sel.appendChild(o); });
 
-    const wrap=el('covWrap'); wrap.innerHTML='';
-    if(!covConfig.filterTag){
-      wrap.innerHTML='<div class="cov-empty">위에서 태그를 선택하면, 그 태그가 달린 카드들이 속성과 함께 표로 모입니다.</div>';
+    const wrap=el('dbViewWrap'); wrap.innerHTML='';
+    if(!dbViewConfig.filterTag){
+      wrap.innerHTML='<div class="dbview-empty">위에서 태그를 선택하면, 그 태그가 달린 카드들이 속성과 함께 표로 모입니다.</div>';
       return;
     }
-    const members=collectionMembers();
+    const members=dbViewMembers();
 
     // derive columns (distinct property names) + per-column type/options
     const colNames=[]; const colMeta={};
@@ -3520,11 +3520,11 @@
     }));
 
     if(!members.length){
-      wrap.innerHTML=`<div class="cov-empty">#${escapeHtml(covConfig.filterTag)} 태그가 달린 카드가 없습니다. 오른쪽 위 "+ 새 항목"으로 추가하세요.</div>`;
+      wrap.innerHTML=`<div class="dbview-empty">#${escapeHtml(dbViewConfig.filterTag)} 태그가 달린 카드가 없습니다. 오른쪽 위 "+ 새 항목"으로 추가하세요.</div>`;
       return;
     }
 
-    const table=document.createElement('table'); table.className='tev-table cov-table';
+    const table=document.createElement('table'); table.className='tev-table dbview-table';
     // header
     const thead=document.createElement('thead'); const hr=document.createElement('tr');
     const thTitle=document.createElement('th'); thTitle.innerHTML='<div class="tev-th-inner"><span class="tev-th-name">제목</span></div>'; hr.appendChild(thTitle);
@@ -3542,7 +3542,7 @@
       const tr=document.createElement('tr');
       // title cell (click opens note)
       const tdT=document.createElement('td');
-      const titleDiv=document.createElement('div'); titleDiv.className='cov-title-cell';
+      const titleDiv=document.createElement('div'); titleDiv.className='dbview-title-cell';
       titleDiv.textContent=note.title||'제목 없음';
       titleDiv.title='클릭해서 카드 열기';
       titleDiv.addEventListener('click',()=>openNote(note.id));
@@ -3550,7 +3550,7 @@
       // property cells
       colNames.forEach(name=>{
         const td=document.createElement('td');
-        td.appendChild(covPropCell(note, name, colMeta[name]));
+        td.appendChild(dbViewPropCell(note, name, colMeta[name]));
         tr.appendChild(td);
       });
       tbody.appendChild(tr);
@@ -3560,7 +3560,7 @@
   }
 
   // one editable property cell; writes back to the note (creates the prop if missing)
-  function covPropCell(note, name, meta){
+  function dbViewPropCell(note, name, meta){
     let prop=(note.properties||[]).find(p=>p.id!=='__color' && p.name===name);
     const type=prop ? prop.type : (meta ? meta.type : 'text');
     const commit=(v)=>{
@@ -4675,14 +4675,14 @@
   el('newCanvasItem').addEventListener('click',()=>{ el('newBtnMenu').style.display='none'; createCanvasNote(); });
   el('newTableItem').addEventListener('click',()=>{ el('newBtnMenu').style.display='none'; createTableNote(); });
   el('databaseBtn').addEventListener('click',()=>openDatabaseView());
-  el('covExitBtn').addEventListener('click',()=>exitCollection());
-  el('covTagSelect').addEventListener('change',()=>{
-    covConfig.filterTag = el('covTagSelect').value || null;
-    covSaveConfig(); renderCollection();
+  el('dbViewExitBtn').addEventListener('click',()=>exitDatabaseView());
+  el('dbViewTagSelect').addEventListener('change',()=>{
+    dbViewConfig.filterTag = el('dbViewTagSelect').value || null;
+    saveDbViewConfig(); renderDatabaseView();
   });
-  el('covAddBtn').addEventListener('click',async()=>{
-    if(!covConfig.filterTag){ showToast('먼저 태그를 선택하세요'); return; }
-    const created=await insertNote({title:'새 항목',content:'',tags:[covConfig.filterTag],links:[],pinned:false,properties:[]});
+  el('dbViewAddBtn').addEventListener('click',async()=>{
+    if(!dbViewConfig.filterTag){ showToast('먼저 태그를 선택하세요'); return; }
+    const created=await insertNote({title:'새 항목',content:'',tags:[dbViewConfig.filterTag],links:[],pinned:false,properties:[]});
     if(!created) return;
     index.unshift(created); computeAllTags(); renderTagRow(); renderCardList();
     openNote(created.id);

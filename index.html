@@ -569,10 +569,10 @@
   .hm-col { display:flex; flex-direction:column; gap:3px; }
   .hm-cell { width:11px; height:11px; border-radius:2px; background:var(--border); flex-shrink:0; }
   .hm-cell[data-intensity="0"] { background:var(--border); }
-  .hm-cell[data-intensity="1"] { background:#c6e48b; }
-  .hm-cell[data-intensity="2"] { background:#7bc96f; }
-  .hm-cell[data-intensity="3"] { background:#239a3b; }
-  .hm-cell[data-intensity="4"] { background:#196127; }
+  .hm-cell[data-intensity="1"] { background:#F0D3C4; }
+  .hm-cell[data-intensity="2"] { background:#E3A985; }
+  .hm-cell[data-intensity="3"] { background:#D97757; }
+  .hm-cell[data-intensity="4"] { background:#B0522F; }
   .dash-hm-legend { display:flex; align-items:center; gap:4px; margin-top:8px; font-size:10px; color:var(--ink-soft); }
   .dash-today-card-inner { background:var(--bg); border:1px solid var(--border-soft); border-radius:10px; padding:14px; cursor:pointer; transition:box-shadow .15s; }
   .dash-today-card-inner:hover { box-shadow:0 2px 12px rgba(0,0,0,.08); }
@@ -594,10 +594,10 @@
   .dash-canvas-name { font-size:13px; font-weight:500; color:var(--ink); }
   .dash-canvas-meta { font-size:11px; color:var(--ink-faint); margin-left:auto; }
 
-  [data-theme="dark"] .hm-cell[data-intensity="1"] { background:#0e4429; }
-  [data-theme="dark"] .hm-cell[data-intensity="2"] { background:#006d32; }
-  [data-theme="dark"] .hm-cell[data-intensity="3"] { background:#26a641; }
-  [data-theme="dark"] .hm-cell[data-intensity="4"] { background:#39d353; }
+  [data-theme="dark"] .hm-cell[data-intensity="1"] { background:#4A342A; }
+  [data-theme="dark"] .hm-cell[data-intensity="2"] { background:#6E4230; }
+  [data-theme="dark"] .hm-cell[data-intensity="3"] { background:#9E5439; }
+  [data-theme="dark"] .hm-cell[data-intensity="4"] { background:#C86A47; }
 
   /* ===== Checklist ===== */
   .dash-checklist-wrap { margin-top:12px; max-width:360px; }
@@ -626,19 +626,19 @@
   .dash-cal-hd:first-child { color:#c0392b; }
   .dash-cal-hd:last-child { color:#2980b9; }
   .dash-cal-cell { border-radius:5px; padding:3px 2px; min-height:34px; display:flex; flex-direction:column; align-items:center; background:var(--border-soft); }
-  .dash-cal-cell[data-intensity="1"] { background:#c6e48b; }
-  .dash-cal-cell[data-intensity="2"] { background:#7bc96f; }
-  .dash-cal-cell[data-intensity="3"] { background:#239a3b; }
-  .dash-cal-cell[data-intensity="4"] { background:#196127; }
+  .dash-cal-cell[data-intensity="1"] { background:#F0D3C4; }
+  .dash-cal-cell[data-intensity="2"] { background:#E3A985; }
+  .dash-cal-cell[data-intensity="3"] { background:#D97757; }
+  .dash-cal-cell[data-intensity="4"] { background:#B0522F; }
   .dash-cal-cell.today { outline:2px solid var(--accent); outline-offset:-2px; }
   .dash-cal-num { font-size:11px; font-weight:600; color:var(--ink); }
   .dash-cal-cnt { font-size:9px; color:var(--ink-soft); }
   .dash-cal-cell[data-intensity="3"] .dash-cal-num,.dash-cal-cell[data-intensity="4"] .dash-cal-num { color:#fff; }
   .dash-cal-cell[data-intensity="3"] .dash-cal-cnt,.dash-cal-cell[data-intensity="4"] .dash-cal-cnt { color:rgba(255,255,255,.75); }
-  [data-theme="dark"] .dash-cal-cell[data-intensity="1"] { background:#0e4429; }
-  [data-theme="dark"] .dash-cal-cell[data-intensity="2"] { background:#006d32; }
-  [data-theme="dark"] .dash-cal-cell[data-intensity="3"] { background:#26a641; }
-  [data-theme="dark"] .dash-cal-cell[data-intensity="4"] { background:#39d353; }
+  [data-theme="dark"] .dash-cal-cell[data-intensity="1"] { background:#4A342A; }
+  [data-theme="dark"] .dash-cal-cell[data-intensity="2"] { background:#6E4230; }
+  [data-theme="dark"] .dash-cal-cell[data-intensity="3"] { background:#9E5439; }
+  [data-theme="dark"] .dash-cal-cell[data-intensity="4"] { background:#C86A47; }
 
   /* ===== Hero graph ===== */
   .dash-hero { display:flex; gap:0; background:var(--bg-card); border:1px solid var(--border-soft); border-radius:14px; height:280px; }
@@ -810,6 +810,19 @@
         <div class="dash-recent-row" id="dashRecentRow"></div>
       </div>
 
+      <!-- 콘텐츠 발견 (캔버스 · 오늘의 한 장) -->
+      <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:20px;">
+        <div class="dash-section">
+          <div class="dash-section-title">캔버스 보드</div>
+          <div id="dashCanvasList"></div>
+        </div>
+        <div class="dash-section">
+          <div class="dash-section-title">오늘의 한 장 ✨</div>
+          <div id="dashTodayCard"></div>
+        </div>
+      </div>
+
+      <!-- 활동 기록 (시간축) — 하단 보조 영역 -->
       <div class="dash-section">
         <div class="dash-section-title">활동 기록 <span class="dash-streak" id="dashStreak"></span></div>
         <div class="dash-heatmap-wrap">
@@ -833,16 +846,6 @@
           <button class="dash-cal-nav" id="dashCalNext">›</button>
         </div>
         <div id="dashCalendar"></div>
-      </div>
-      <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:20px;">
-        <div class="dash-section">
-          <div class="dash-section-title">캔버스 보드</div>
-          <div id="dashCanvasList"></div>
-        </div>
-        <div class="dash-section">
-          <div class="dash-section-title">오늘의 한 장 ✨</div>
-          <div id="dashTodayCard"></div>
-        </div>
       </div>
     </div>
 

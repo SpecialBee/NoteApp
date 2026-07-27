@@ -655,6 +655,9 @@
   @keyframes dashNodePulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.4); } }
   #dashGraphSvg .gnode.recent circle { transform-box:fill-box; transform-origin:center; animation:dashNodePulse 2.2s ease-in-out infinite; }
   #dashGraphSvg .gnode.stale circle { opacity:0.3; }
+  #dashGraphSvg .gnode text { font-size:9.5px; }
+  #dashGraphSvg .gnode.stale text { opacity:0.45; }
+  .dash-hero-more { position:absolute; top:10px; right:10px; font-size:10.5px; color:var(--ink-faint); background:color-mix(in srgb, var(--bg-card) 82%, transparent); padding:3px 9px; border-radius:8px; pointer-events:none; }
   .dash-hero-markerhint { position:absolute; left:12px; bottom:10px; display:flex; gap:12px; font-size:10.5px; color:var(--ink-faint); pointer-events:none; background:color-mix(in srgb, var(--bg-card) 82%, transparent); padding:3px 9px; border-radius:8px; }
   .dash-hero-markerhint .mk { display:inline-flex; align-items:center; gap:4px; }
   /* legend dots show the STATE cue (motion/fade/ring), not a color — nodes keep their tag color */
@@ -788,6 +791,7 @@
         <div class="dash-hero-graph-wrap">
           <svg id="dashGraphSvg" class="graph-canvas"></svg>
           <div class="dash-hero-empty" id="dashHeroEmpty">아직 연결된 카드가 없어요. <code>[[카드 제목]]</code>으로 카드를 이어보세요.</div>
+          <div class="dash-hero-more" id="dashHeroMore" style="display:none;"></div>
           <div class="dash-hero-markerhint" id="dashHeroMarkerHint">
             <span class="mk"><span class="mk-dot recent"></span>최근 수정</span>
             <span class="mk"><span class="mk-dot stale"></span>2주+ 미수정</span>
@@ -4911,17 +4915,18 @@
     const width=Math.max(200,Math.round(rect.width));
     const height=Math.max(160,Math.round(rect.height));
 
-    const edgeSet=new Set(); const edges=[];
+    // edges + degree over ALL active notes (stat counts reflect true totals)
+    const edgeSet=new Set(); const edges=[]; const degree={};
+    active.forEach(m=>{ degree[m.id]=0; });
     active.forEach(m=>{
       (m.links||[]).forEach(t=>{
         const target=active.find(x=>x.title.toLowerCase()===t.toLowerCase());
         if(target && target.id!==m.id){
           const key=[m.id,target.id].sort().join('|');
-          if(!edgeSet.has(key)){ edgeSet.add(key); edges.push([m.id,target.id]); }
+          if(!edgeSet.has(key)){ edgeSet.add(key); edges.push([m.id,target.id]); degree[m.id]++; degree[target.id]++; }
         }
       });
     });
-    const nodes=active.map(m=>({id:m.id,title:m.title}));
 
     el('dashHeroCount').textContent=active.length;
     el('dashHeroLinks').textContent=edges.length;
@@ -4929,50 +4934,80 @@
     svg.setAttribute('viewBox',`0 0 ${width} ${height}`);
     const emptyEl=el('dashHeroEmpty');
     const legendEl=el('dashGraphLegend');
-
     const hintEl=el('dashHeroMarkerHint');
-    if(!nodes.length){
+    const moreEl=el('dashHeroMore');
+
+    if(!active.length){
       svg.innerHTML='';
       emptyEl.style.display='flex';
       legendEl.style.display='none';
       if(hintEl) hintEl.style.display='none';
+      if(moreEl) moreEl.style.display='none';
       return;
     }
     emptyEl.style.display='none';
     if(hintEl) hintEl.style.display='flex';
 
-    const pos=computeForceLayout(nodes, edges, width, height, nodes.length>150?60:130);
+    // the hero is a preview: cap to the most-connected nodes so labels stay readable
+    const CAP=16;
+    let shown=active.slice().sort((a,b)=>(degree[b.id]-degree[a.id]) || (b.updated-a.updated));
+    const hiddenCount=Math.max(0, shown.length-CAP);
+    shown=shown.slice(0,CAP);
+    const shownIds=new Set(shown.map(m=>m.id));
+    const shownEdges=edges.filter(([a,b])=>shownIds.has(a)&&shownIds.has(b));
+    const layoutNodes=shown.map(m=>({id:m.id,title:m.title}));
+    if(moreEl){
+      if(hiddenCount>0){ moreEl.style.display='block'; moreEl.textContent=`외 ${hiddenCount}개 — 전체 그래프에서 보기`; }
+      else moreEl.style.display='none';
+    }
+
+    const rawPos=computeForceLayout(layoutNodes, shownEdges, width, height, layoutNodes.length>150?60:130);
+
+    // fit the whole cluster into an inset rect so nodes/labels never clip
+    // (bottom margin is larger to leave room for the labels under each node)
+    const pos={}; const MX=22, MTOP=16, MBOT=26;
+    let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+    layoutNodes.forEach(n=>{ const p=rawPos[n.id]; if(!p) return; minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);minY=Math.min(minY,p.y);maxY=Math.max(maxY,p.y); });
+    const bw=Math.max(1,maxX-minX), bh=Math.max(1,maxY-minY);
+    const scale=Math.min((width-MX*2)/bw, (height-MTOP-MBOT)/bh, 1.3);
+    const ox=MX+((width-MX*2)-bw*scale)/2 - minX*scale;
+    const oy=MTOP+((height-MTOP-MBOT)-bh*scale)/2 - minY*scale;
+    layoutNodes.forEach(n=>{ const p=rawPos[n.id]; if(p) pos[n.id]={x:p.x*scale+ox, y:p.y*scale+oy}; });
 
     const now=Date.now(), DAY=86400000;
     let inner='<g>';
-    edges.forEach(([a,b])=>{
+    shownEdges.forEach(([a,b])=>{
       if(pos[a] && pos[b]) inner+=`<line x1="${pos[a].x}" y1="${pos[a].y}" x2="${pos[b].x}" y2="${pos[b].y}"></line>`;
     });
-    const legendTags=new Set(); let hasUntagged=false;
-    nodes.forEach(n=>{
-      const p=pos[n.id];
-      const src=active.find(m=>m.id===n.id);
-      const tag=src && src.tags && src.tags[0];
-      if(tag) legendTags.add(tag); else hasUntagged=true;
+    shown.forEach(src=>{
+      const p=pos[src.id]; if(!p) return;
+      const tag=src.tags && src.tags[0];
       const fill=colorForTag(tag);
-      const ageDays=src ? (now-src.updated)/DAY : 0;
+      const ageDays=(now-src.updated)/DAY;
       let cls='gnode';
       if(ageDays < 2) cls+=' recent';
       else if(ageDays >= 14) cls+=' stale';
-      const ring=src && src.pinned ? ` stroke="var(--warn)" stroke-width="2.5"` : '';
-      inner+=`<g class="${cls}" data-id="${n.id}" transform="translate(${p.x},${p.y})"><title>${escapeHtml(n.title||'제목 없음')}</title><circle r="5" fill="${fill}"${ring}></circle></g>`;
+      const ring=src.pinned ? ` stroke="var(--warn)" stroke-width="2.5"` : '';
+      const full=src.title||'제목 없음';
+      const label=escapeHtml(full.length>9 ? full.slice(0,9)+'…' : full);
+      let anchor='middle', lx=0;
+      if(p.x<48){ anchor='start'; lx=-5; } else if(p.x>width-48){ anchor='end'; lx=5; }
+      inner+=`<g class="${cls}" data-id="${src.id}" transform="translate(${p.x},${p.y})"><title>${escapeHtml(full)}</title><circle r="5" fill="${fill}"${ring}></circle><text x="${lx}" y="17" text-anchor="${anchor}">${label}</text></g>`;
     });
     inner+='</g>';
     svg.innerHTML=inner;
 
+    // tag legend reflects ALL active notes, not just the shown subset
+    const legendTags=new Set(); let hasUntagged=false;
+    active.forEach(m=>{ const t=m.tags && m.tags[0]; if(t) legendTags.add(t); else hasUntagged=true; });
     if(legendTags.size===0 && !hasUntagged){
       legendEl.style.display='none';
     }else{
       legendEl.style.display='flex';
       const sortedTags=Array.from(legendTags).sort();
-      const shown=sortedTags.slice(0,4);
-      let legendHtml=shown.map(t=>`<span class="legend-item"><span class="legend-dot" style="background:${colorForTag(t)}"></span>#${escapeHtml(t)}</span>`).join('');
-      const extra=sortedTags.length-shown.length+(hasUntagged?1:0);
+      const shownTags=sortedTags.slice(0,4);
+      let legendHtml=shownTags.map(t=>`<span class="legend-item"><span class="legend-dot" style="background:${colorForTag(t)}"></span>#${escapeHtml(t)}</span>`).join('');
+      const extra=sortedTags.length-shownTags.length+(hasUntagged?1:0);
       if(sortedTags.length<=4 && hasUntagged) legendHtml+=`<span class="legend-item"><span class="legend-dot" style="background:var(--ink-faint)"></span>태그 없음</span>`;
       else if(extra>0) legendHtml+=`<span class="legend-item">+${extra}개</span>`;
       legendEl.innerHTML=legendHtml;

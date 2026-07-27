@@ -4907,13 +4907,14 @@
     calEl.innerHTML=html;
   }
 
-  // ===== Hero connection graph (mini preview of the global graph) =====
+  // ===== Hero connection graph (live Obsidian-style force simulation) =====
+  let dashSim = null;
+  function stopDashSim(){ if(dashSim){ cancelAnimationFrame(dashSim.raf); dashSim=null; } }
+
   function renderDashGraph(){
+    stopDashSim();
     const svg=el('dashGraphSvg'); if(!svg) return;
     const active=index.filter(n=>!n.deletedAt);
-    const rect=svg.getBoundingClientRect();
-    const width=Math.max(200,Math.round(rect.width));
-    const height=Math.max(160,Math.round(rect.height));
 
     // edges + degree over ALL active notes (stat counts reflect true totals)
     const edgeSet=new Set(); const edges=[]; const degree={};
@@ -4931,16 +4932,14 @@
     el('dashHeroCount').textContent=active.length;
     el('dashHeroLinks').textContent=edges.length;
 
-    svg.setAttribute('viewBox',`0 0 ${width} ${height}`);
-    const emptyEl=el('dashHeroEmpty');
-    const legendEl=el('dashGraphLegend');
-    const hintEl=el('dashHeroMarkerHint');
-    const moreEl=el('dashHeroMore');
+    const emptyEl=el('dashHeroEmpty'), legendEl=el('dashGraphLegend'), hintEl=el('dashHeroMarkerHint'), moreEl=el('dashHeroMore');
+    const rect=svg.getBoundingClientRect();
+    const W=Math.max(200,Math.round(rect.width)), H=Math.max(160,Math.round(rect.height));
+    svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
 
     if(!active.length){
       svg.innerHTML='';
-      emptyEl.style.display='flex';
-      legendEl.style.display='none';
+      emptyEl.style.display='flex'; legendEl.style.display='none';
       if(hintEl) hintEl.style.display='none';
       if(moreEl) moreEl.style.display='none';
       return;
@@ -4948,54 +4947,100 @@
     emptyEl.style.display='none';
     if(hintEl) hintEl.style.display='flex';
 
-    // the hero is a preview: cap to the most-connected nodes so labels stay readable
+    // preview cap: most-connected nodes first, so labels stay readable
     const CAP=16;
-    let shown=active.slice().sort((a,b)=>(degree[b.id]-degree[a.id]) || (b.updated-a.updated));
-    const hiddenCount=Math.max(0, shown.length-CAP);
-    shown=shown.slice(0,CAP);
-    const shownIds=new Set(shown.map(m=>m.id));
-    const shownEdges=edges.filter(([a,b])=>shownIds.has(a)&&shownIds.has(b));
-    const layoutNodes=shown.map(m=>({id:m.id,title:m.title}));
+    let shownArr=active.slice().sort((a,b)=>(degree[b.id]-degree[a.id]) || (b.updated-a.updated));
+    const hiddenCount=Math.max(0, shownArr.length-CAP);
+    shownArr=shownArr.slice(0,CAP);
     if(moreEl){
       if(hiddenCount>0){ moreEl.style.display='block'; moreEl.textContent=`외 ${hiddenCount}개 — 전체 그래프에서 보기`; }
       else moreEl.style.display='none';
     }
 
-    const rawPos=computeForceLayout(layoutNodes, shownEdges, width, height, layoutNodes.length>150?60:130);
-
-    // fit the whole cluster into an inset rect so nodes/labels never clip
-    // (bottom margin is larger to leave room for the labels under each node)
-    const pos={}; const MX=22, MTOP=16, MBOT=26;
-    let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
-    layoutNodes.forEach(n=>{ const p=rawPos[n.id]; if(!p) return; minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);minY=Math.min(minY,p.y);maxY=Math.max(maxY,p.y); });
-    const bw=Math.max(1,maxX-minX), bh=Math.max(1,maxY-minY);
-    const scale=Math.min((width-MX*2)/bw, (height-MTOP-MBOT)/bh, 1.3);
-    const ox=MX+((width-MX*2)-bw*scale)/2 - minX*scale;
-    const oy=MTOP+((height-MTOP-MBOT)-bh*scale)/2 - minY*scale;
-    layoutNodes.forEach(n=>{ const p=rawPos[n.id]; if(p) pos[n.id]={x:p.x*scale+ox, y:p.y*scale+oy}; });
-
+    // sim nodes seeded on a ring near center; link pairs by array index
     const now=Date.now(), DAY=86400000;
-    let inner='<g>';
-    shownEdges.forEach(([a,b])=>{
-      if(pos[a] && pos[b]) inner+=`<line x1="${pos[a].x}" y1="${pos[a].y}" x2="${pos[b].x}" y2="${pos[b].y}"></line>`;
+    const idxOf={}; shownArr.forEach((m,i)=>idxOf[m.id]=i);
+    const R0=Math.min(W,H)*0.3;
+    const nodes=shownArr.map((m,i)=>{
+      const a=2*Math.PI*i/shownArr.length;
+      return { src:m, x:W/2+Math.cos(a)*R0*(0.6+0.4*Math.random()), y:H/2+Math.sin(a)*R0*(0.6+0.4*Math.random()), vx:0, vy:0 };
     });
-    shown.forEach(src=>{
-      const p=pos[src.id]; if(!p) return;
+    const links=[];
+    edges.forEach(([a,b])=>{ if(idxOf[a]!=null && idxOf[b]!=null) links.push([idxOf[a],idxOf[b]]); });
+
+    // build SVG elements once; the sim updates them in place each frame
+    let inner='<g id="dashGraphLines">';
+    links.forEach(()=>{ inner+='<line></line>'; });
+    inner+='</g><g id="dashGraphNodes">';
+    nodes.forEach(n=>{
+      const src=n.src;
       const tag=src.tags && src.tags[0];
       const fill=colorForTag(tag);
       const ageDays=(now-src.updated)/DAY;
-      let cls='gnode';
-      if(ageDays < 2) cls+=' recent';
-      else if(ageDays >= 14) cls+=' stale';
+      let cls='gnode'; if(ageDays<2) cls+=' recent'; else if(ageDays>=14) cls+=' stale';
       const ring=src.pinned ? ` stroke="var(--warn)" stroke-width="2.5"` : '';
       const full=src.title||'제목 없음';
       const label=escapeHtml(full.length>9 ? full.slice(0,9)+'…' : full);
-      let anchor='middle', lx=0;
-      if(p.x<48){ anchor='start'; lx=-5; } else if(p.x>width-48){ anchor='end'; lx=5; }
-      inner+=`<g class="${cls}" data-id="${src.id}" transform="translate(${p.x},${p.y})"><title>${escapeHtml(full)}</title><circle r="5" fill="${fill}"${ring}></circle><text x="${lx}" y="17" text-anchor="${anchor}">${label}</text></g>`;
+      inner+=`<g class="${cls}" data-id="${src.id}"><title>${escapeHtml(full)}</title><circle r="5" fill="${fill}"${ring}></circle><text y="17" text-anchor="middle">${label}</text></g>`;
     });
     inner+='</g>';
     svg.innerHTML=inner;
+    const lineEls=[...svg.querySelectorAll('#dashGraphLines line')];
+    const nodeEls=[...svg.querySelectorAll('#dashGraphNodes .gnode')];
+    const textEls=nodeEls.map(g=>g.querySelector('text'));
+
+    // physics constants scaled to the current container size (responsive)
+    const k=Math.sqrt((W*H)/Math.max(nodes.length,1))*0.55; // ideal node spacing
+    const MX=24, MTOP=16, MBOT=26;                            // in-bounds margins (labels sit in MBOT band)
+    const cx=W/2, cy=(MTOP+(H-MBOT))/2;
+    const REP=0.9, SPR=0.02, GRAV=0.012, DAMP=0.86, VMAX=28;
+    const ALPHA_DECAY=0.975, ALPHA_MIN=0.02; // simulated-annealing cooldown -> guaranteed settle
+
+    function step(){
+      if(currentView!=='dashboard'){ stopDashSim(); return; }
+      const alpha=dashSim.alpha; // forces cool toward 0, so motion smoothly stops
+      // repulsion (O(n^2); n<=16)
+      for(let i=0;i<nodes.length;i++){
+        for(let j=i+1;j<nodes.length;j++){
+          let dx=nodes[i].x-nodes[j].x, dy=nodes[i].y-nodes[j].y;
+          let d2=dx*dx+dy*dy; if(d2<1) d2=1;
+          const d=Math.sqrt(d2), f=REP*(k*k)/d2*alpha, ux=dx/d, uy=dy/d;
+          nodes[i].vx+=ux*f; nodes[i].vy+=uy*f;
+          nodes[j].vx-=ux*f; nodes[j].vy-=uy*f;
+        }
+      }
+      // link springs (pull toward ideal length k)
+      links.forEach(([a,b])=>{
+        let dx=nodes[b].x-nodes[a].x, dy=nodes[b].y-nodes[a].y;
+        const d=Math.sqrt(dx*dx+dy*dy)||0.01, f=SPR*(d-k)*alpha, ux=dx/d, uy=dy/d;
+        nodes[a].vx+=ux*f; nodes[a].vy+=uy*f;
+        nodes[b].vx-=ux*f; nodes[b].vy-=uy*f;
+      });
+      // center gravity + integrate + damping + clamp in-bounds
+      for(const n of nodes){
+        n.vx+=(cx-n.x)*GRAV*alpha; n.vy+=(cy-n.y)*GRAV*alpha;
+        n.vx*=DAMP; n.vy*=DAMP;
+        if(n.vx>VMAX)n.vx=VMAX; else if(n.vx<-VMAX)n.vx=-VMAX;
+        if(n.vy>VMAX)n.vy=VMAX; else if(n.vy<-VMAX)n.vy=-VMAX;
+        n.x+=n.vx; n.y+=n.vy;
+        if(n.x<MX){n.x=MX;n.vx*=-0.3;} else if(n.x>W-MX){n.x=W-MX;n.vx*=-0.3;}
+        if(n.y<MTOP){n.y=MTOP;n.vy*=-0.3;} else if(n.y>H-MBOT){n.y=H-MBOT;n.vy*=-0.3;}
+      }
+      // render (update transforms in place; label anchor flips near the edges)
+      nodeEls.forEach((g,i)=>{ g.setAttribute('transform',`translate(${nodes[i].x.toFixed(1)},${nodes[i].y.toFixed(1)})`); });
+      textEls.forEach((t,i)=>{ if(!t) return; const x=nodes[i].x;
+        if(x<52){ t.setAttribute('text-anchor','start'); t.setAttribute('x','-5'); }
+        else if(x>W-52){ t.setAttribute('text-anchor','end'); t.setAttribute('x','5'); }
+        else { t.setAttribute('text-anchor','middle'); t.setAttribute('x','0'); } });
+      lineEls.forEach((ln,i)=>{ const [a,b]=links[i]; ln.setAttribute('x1',nodes[a].x.toFixed(1)); ln.setAttribute('y1',nodes[a].y.toFixed(1)); ln.setAttribute('x2',nodes[b].x.toFixed(1)); ln.setAttribute('y2',nodes[b].y.toFixed(1)); });
+
+      dashSim.frame++;
+      dashSim.alpha*=ALPHA_DECAY;
+      if(dashSim.alpha<ALPHA_MIN || dashSim.frame>500){ stopDashSim(); return; }
+      dashSim.raf=requestAnimationFrame(step);
+    }
+    dashSim={ raf:0, frame:0, alpha:1 };
+    dashSim.raf=requestAnimationFrame(step);
 
     // tag legend reflects ALL active notes, not just the shown subset
     const legendTags=new Set(); let hasUntagged=false;
@@ -5020,6 +5065,18 @@
     openNote(g.dataset.id);
   });
   el('dashHeroOpenBtn').addEventListener('click', () => openGlobalGraph());
+
+  // re-run the hero simulation when its container changes size (window/panel resize)
+  if(window.ResizeObserver){
+    let rzT=null;
+    const ro=new ResizeObserver(()=>{
+      if(currentView!=='dashboard') return;
+      clearTimeout(rzT);
+      rzT=setTimeout(()=>{ if(currentView==='dashboard') renderDashGraph(); }, 180);
+    });
+    const wrap=document.querySelector('.dash-hero-graph-wrap');
+    if(wrap) ro.observe(wrap);
+  }
 
   el('dashboardBtn').addEventListener('click',()=>openDashboard());
 

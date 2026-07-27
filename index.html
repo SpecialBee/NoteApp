@@ -654,10 +654,10 @@
   .dash-stale-age { font-size:11px; color:var(--ink-faint); flex-shrink:0; }
 
   /* ===== Hero graph ===== */
-  .dash-hero { display:flex; gap:0; background:var(--bg-card); border:1px solid var(--border-soft); border-radius:14px; min-height:220px; overflow:hidden; }
-  .dash-hero-graph-wrap { flex:1; position:relative; min-width:0; }
+  .dash-hero { display:flex; gap:0; background:var(--bg-card); border:1px solid var(--border-soft); border-radius:14px; height:280px; }
+  .dash-hero-graph-wrap { flex:1; position:relative; min-width:0; border-radius:14px 0 0 14px; overflow:hidden; }
   .dash-hero-empty { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; padding:24px; font-size:13px; color:var(--ink-faint); line-height:1.7; }
-  .dash-hero-side { width:150px; flex-shrink:0; display:flex; flex-direction:column; gap:14px; padding:18px; border-left:1px solid var(--border-soft); }
+  .dash-hero-side { width:150px; flex-shrink:0; display:flex; flex-direction:column; gap:14px; padding:18px; border-left:1px solid var(--border-soft); box-sizing:border-box; overflow-y:auto; }
   .dash-hero-stat { display:flex; flex-direction:column; }
   .dash-hero-stat b { font-size:24px; font-weight:800; color:var(--ink); line-height:1.1; }
   .dash-hero-stat span { font-size:11px; color:var(--ink-soft); }
@@ -5002,8 +5002,12 @@
       legendEl.style.display='none';
     }else{
       legendEl.style.display='flex';
-      let legendHtml=Array.from(legendTags).sort().map(t=>`<span class="legend-item"><span class="legend-dot" style="background:${colorForTag(t)}"></span>#${escapeHtml(t)}</span>`).join('');
-      if(hasUntagged) legendHtml+=`<span class="legend-item"><span class="legend-dot" style="background:var(--ink-faint)"></span>태그 없음</span>`;
+      const sortedTags=Array.from(legendTags).sort();
+      const shown=sortedTags.slice(0,4);
+      let legendHtml=shown.map(t=>`<span class="legend-item"><span class="legend-dot" style="background:${colorForTag(t)}"></span>#${escapeHtml(t)}</span>`).join('');
+      const extra=sortedTags.length-shown.length+(hasUntagged?1:0);
+      if(sortedTags.length<=4 && hasUntagged) legendHtml+=`<span class="legend-item"><span class="legend-dot" style="background:var(--ink-faint)"></span>태그 없음</span>`;
+      else if(extra>0) legendHtml+=`<span class="legend-item">+${extra}개</span>`;
       legendEl.innerHTML=legendHtml;
     }
   }

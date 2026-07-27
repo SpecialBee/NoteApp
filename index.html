@@ -580,13 +580,12 @@
   .dash-today-card-preview { font-size:12px; color:var(--ink-soft); line-height:1.5; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
   .dash-empty { font-size:13px; color:var(--ink-soft); text-align:center; padding:20px 0; }
 
-  /* Recent / Pinned rows */
-  .dash-recent-row, .dash-pinned-row { display:flex; gap:10px; overflow-x:auto; padding-bottom:4px; }
+  /* Recent cards row */
+  .dash-recent-row { display:flex; gap:10px; overflow-x:auto; padding-bottom:4px; }
   .dash-mini-card { flex:0 0 160px; background:var(--bg); border:1px solid var(--border-soft); border-radius:10px; padding:10px 12px; cursor:pointer; transition:box-shadow .15s; }
   .dash-mini-card:hover { box-shadow:0 2px 10px rgba(0,0,0,.1); }
   .dash-mini-card-title { font-size:12.5px; font-weight:700; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:4px; }
   .dash-mini-card-meta { font-size:10.5px; color:var(--ink-faint); }
-  .dash-mini-card-badge { display:inline-block; font-size:9px; font-weight:700; color:var(--accent); background:var(--accent-soft); border-radius:3px; padding:1px 4px; margin-left:4px; }
 
   /* Canvas list */
   .dash-canvas-item { display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--border-soft); cursor:pointer; }
@@ -641,18 +640,6 @@
   [data-theme="dark"] .dash-cal-cell[data-intensity="3"] { background:#26a641; }
   [data-theme="dark"] .dash-cal-cell[data-intensity="4"] { background:#39d353; }
 
-  /* ===== Staleness ===== */
-  .dash-stale-item { display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--border-soft); cursor:pointer; }
-  .dash-stale-item:last-child { border-bottom:none; }
-  .dash-stale-item:hover .dash-stale-ttl { color:var(--accent); }
-  .dash-stale-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
-  .stale-ok { background:#6B8F52; }
-  .stale-y  { background:#C79A3A; }
-  .stale-o  { background:#D97757; }
-  .stale-r  { background:#B3483A; }
-  .dash-stale-ttl { flex:1; font-size:12.5px; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .dash-stale-age { font-size:11px; color:var(--ink-faint); flex-shrink:0; }
-
   /* ===== Hero graph ===== */
   .dash-hero { display:flex; gap:0; background:var(--bg-card); border:1px solid var(--border-soft); border-radius:14px; height:280px; }
   .dash-hero-graph-wrap { flex:1; position:relative; min-width:0; border-radius:14px 0 0 14px; overflow:hidden; }
@@ -664,6 +651,16 @@
   .dash-hero-side .graph-legend { flex-direction:column; align-items:flex-start; gap:6px; padding:0; border:none; }
   .dash-hero-open { margin-top:auto; background:none; border:1px solid var(--border); color:var(--ink-soft); border-radius:8px; padding:7px 10px; font-family:var(--sans); font-size:11.5px; cursor:pointer; text-align:left; transition:color .12s,border-color .12s; }
   .dash-hero-open:hover { color:var(--accent); border-color:var(--accent); }
+  /* node state markers (hero graph only) */
+  @keyframes dashNodePulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.5); } }
+  #dashGraphSvg .gnode.recent circle { transform-box:fill-box; transform-origin:center; animation:dashNodePulse 2.2s ease-in-out infinite; }
+  #dashGraphSvg .gnode.stale circle { opacity:0.3; }
+  .dash-hero-markerhint { position:absolute; left:12px; bottom:10px; display:flex; gap:12px; font-size:10.5px; color:var(--ink-faint); pointer-events:none; background:color-mix(in srgb, var(--bg-card) 82%, transparent); padding:3px 9px; border-radius:8px; }
+  .dash-hero-markerhint .mk { display:inline-flex; align-items:center; gap:4px; }
+  .dash-hero-markerhint .mk-dot { width:8px; height:8px; border-radius:50%; background:var(--ink-faint); flex-shrink:0; }
+  .dash-hero-markerhint .mk-dot.recent { background:var(--accent); }
+  .dash-hero-markerhint .mk-dot.stale { opacity:0.3; }
+  .dash-hero-markerhint .mk-dot.pinned { background:var(--ink-soft); box-shadow:0 0 0 2px var(--warn); }
 </style>
 </head>
 <body>
@@ -790,6 +787,11 @@
         <div class="dash-hero-graph-wrap">
           <svg id="dashGraphSvg" class="graph-canvas"></svg>
           <div class="dash-hero-empty" id="dashHeroEmpty">아직 연결된 카드가 없어요. <code>[[카드 제목]]</code>으로 카드를 이어보세요.</div>
+          <div class="dash-hero-markerhint" id="dashHeroMarkerHint">
+            <span class="mk"><span class="mk-dot recent"></span>최근 수정</span>
+            <span class="mk"><span class="mk-dot stale"></span>2주+ 미수정</span>
+            <span class="mk"><span class="mk-dot pinned"></span>고정</span>
+          </div>
         </div>
         <div class="dash-hero-side">
           <div class="dash-hero-stat"><b id="dashHeroCount">0</b><span>노트</span></div>
@@ -805,12 +807,6 @@
       <div class="dash-section" id="dashRecentSection">
         <div class="dash-section-title">최근 카드</div>
         <div class="dash-recent-row" id="dashRecentRow"></div>
-      </div>
-
-      <!-- 고정된 카드 (있을 때만 표시) -->
-      <div class="dash-section" id="dashPinnedSection" style="display:none;">
-        <div class="dash-section-title">고정된 카드 📌</div>
-        <div class="dash-pinned-row" id="dashPinnedRow"></div>
       </div>
 
       <div class="dash-section">
@@ -845,10 +841,6 @@
         <div class="dash-section">
           <div class="dash-section-title">오늘의 한 장 ✨</div>
           <div id="dashTodayCard"></div>
-        </div>
-        <div class="dash-section">
-          <div class="dash-section-title">아이디어 숙성도</div>
-          <div id="dashStaleness"></div>
         </div>
       </div>
     </div>
@@ -4795,27 +4787,8 @@
     }).join(''):'<div class="dash-empty">카드가 없습니다</div>';
     rrow.querySelectorAll('.dash-mini-card').forEach(c=>c.addEventListener('click',()=>openNote(c.dataset.id)));
 
-    // 고정된 카드
-    const pinned=active.filter(n=>n.pinned);
-    const pSection=el('dashPinnedSection'), prow=el('dashPinnedRow');
-    if(pinned.length){
-      pSection.style.display='block';
-      prow.innerHTML=pinned.map(n=>{
-        const color=noteColor(n);
-        const badge=isCanvasNote(n)?'<span class="dash-mini-card-badge">canvas</span>':'';
-        return `<div class="dash-mini-card" data-id="${n.id}" style="${color?'border-left:3px solid '+color:''}">
-          <div class="dash-mini-card-title">${escapeHtml(n.title||'제목 없음')}${badge}</div>
-          <div class="dash-mini-card-meta">${formatDate(n.updated)}</div>
-        </div>`;
-      }).join('');
-      prow.querySelectorAll('.dash-mini-card').forEach(c=>c.addEventListener('click',()=>openNote(c.dataset.id)));
-    } else {
-      pSection.style.display='none';
-    }
-
     renderDashHeatmap();
     renderDashCalendar();
-    renderDashStaleness();
     renderDashCL();
 
     // 캔버스 보드 목록
@@ -4926,24 +4899,6 @@
     calEl.innerHTML=html;
   }
 
-  // ===== Staleness =====
-  function renderDashStaleness(){
-    const cont=el('dashStaleness'); if(!cont) return;
-    const now=Date.now(), DAY=86400000;
-    const stale=index
-      .filter(n=>!n.deletedAt&&!isCanvasNote(n)&&!isTableNote(n)&&n.content&&n.content.trim())
-      .map(n=>({...n,age:Math.floor((now-n.updated)/DAY)}))
-      .filter(n=>n.age>=14)
-      .sort((a,b)=>b.age-a.age)
-      .slice(0,8);
-    if(!stale.length){ cont.innerHTML='<div class="dash-empty">모든 카드가 최근에 수정됐어요 ✓</div>'; return; }
-    cont.innerHTML=stale.map(n=>{
-      const cls=n.age>=90?'stale-r':n.age>=60?'stale-o':n.age>=30?'stale-y':'stale-ok';
-      return `<div class="dash-stale-item" data-id="${n.id}"><span class="dash-stale-dot ${cls}"></span><span class="dash-stale-ttl">${escapeHtml(n.title||'제목 없음')}</span><span class="dash-stale-age">${n.age}일 전</span></div>`;
-    }).join('');
-    cont.querySelectorAll('.dash-stale-item').forEach(c=>c.addEventListener('click',()=>openNote(c.dataset.id)));
-  }
-
   // ===== Hero connection graph (mini preview of the global graph) =====
   function renderDashGraph(){
     const svg=el('dashGraphSvg'); if(!svg) return;
@@ -4971,16 +4926,20 @@
     const emptyEl=el('dashHeroEmpty');
     const legendEl=el('dashGraphLegend');
 
+    const hintEl=el('dashHeroMarkerHint');
     if(!nodes.length){
       svg.innerHTML='';
       emptyEl.style.display='flex';
       legendEl.style.display='none';
+      if(hintEl) hintEl.style.display='none';
       return;
     }
     emptyEl.style.display='none';
+    if(hintEl) hintEl.style.display='flex';
 
     const pos=computeForceLayout(nodes, edges, width, height, nodes.length>150?60:130);
 
+    const now=Date.now(), DAY=86400000;
     let inner='<g>';
     edges.forEach(([a,b])=>{
       if(pos[a] && pos[b]) inner+=`<line x1="${pos[a].x}" y1="${pos[a].y}" x2="${pos[b].x}" y2="${pos[b].y}"></line>`;
@@ -4992,8 +4951,12 @@
       const tag=src && src.tags && src.tags[0];
       if(tag) legendTags.add(tag); else hasUntagged=true;
       const fill=colorForTag(tag);
-      const ring=src && src.pinned ? ` stroke="var(--ink)" stroke-width="2"` : '';
-      inner+=`<g class="gnode" data-id="${n.id}" transform="translate(${p.x},${p.y})"><title>${escapeHtml(n.title||'제목 없음')}</title><circle r="5" fill="${fill}"${ring}></circle></g>`;
+      const ageDays=src ? (now-src.updated)/DAY : 0;
+      let cls='gnode';
+      if(ageDays < 2) cls+=' recent';
+      else if(ageDays >= 14) cls+=' stale';
+      const ring=src && src.pinned ? ` stroke="var(--warn)" stroke-width="2.5"` : '';
+      inner+=`<g class="${cls}" data-id="${n.id}" transform="translate(${p.x},${p.y})"><title>${escapeHtml(n.title||'제목 없음')}</title><circle r="5" fill="${fill}"${ring}></circle></g>`;
     });
     inner+='</g>';
     svg.innerHTML=inner;

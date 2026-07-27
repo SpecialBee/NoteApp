@@ -1,4 +1,4 @@
--- Stacker note table
+-- GRAPHIDEA note table
 create table if not exists notes (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
@@ -48,44 +48,6 @@ alter table notes add column if not exists deleted_at timestamptz;
 
 -- properties: ordered array of { id, name, type, value, options? }
 alter table notes add column if not exists properties jsonb not null default '[]';
-
--- canvas position for infinite-board view
-alter table notes add column if not exists canvas_x float8;
-alter table notes add column if not exists canvas_y float8;
-
--- canvas card accent color
-alter table notes add column if not exists canvas_color text;
-
--- canvas section containers (labeled grouping boxes)
-create table if not exists canvas_sections (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
-  label text not null default '섹션',
-  x float8 not null default 0,
-  y float8 not null default 0,
-  w float8 not null default 320,
-  h float8 not null default 220,
-  color text not null default '#82C4F8',
-  created_at timestamptz not null default now()
-);
-
-alter table canvas_sections enable row level security;
-
-drop policy if exists "select own sections" on canvas_sections;
-create policy "select own sections" on canvas_sections
-  for select using (auth.uid() = user_id);
-
-drop policy if exists "insert own sections" on canvas_sections;
-create policy "insert own sections" on canvas_sections
-  for insert with check (auth.uid() = user_id);
-
-drop policy if exists "update own sections" on canvas_sections;
-create policy "update own sections" on canvas_sections
-  for update using (auth.uid() = user_id);
-
-drop policy if exists "delete own sections" on canvas_sections;
-create policy "delete own sections" on canvas_sections
-  for delete using (auth.uid() = user_id);
 
 -- enable realtime so open tabs/devices see each other's changes live
 do $$

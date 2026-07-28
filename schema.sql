@@ -56,3 +56,30 @@ begin
 exception
   when duplicate_object then null;
 end $$;
+
+-- dashboard "할 일" checklist widget (previously localStorage-only; now synced per user)
+create table if not exists checklist_items (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  text text not null default '',
+  done boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+alter table checklist_items enable row level security;
+
+drop policy if exists "select own checklist items" on checklist_items;
+create policy "select own checklist items" on checklist_items
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "insert own checklist items" on checklist_items;
+create policy "insert own checklist items" on checklist_items
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "update own checklist items" on checklist_items;
+create policy "update own checklist items" on checklist_items
+  for update using (auth.uid() = user_id);
+
+drop policy if exists "delete own checklist items" on checklist_items;
+create policy "delete own checklist items" on checklist_items
+  for delete using (auth.uid() = user_id);

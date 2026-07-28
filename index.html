@@ -5101,17 +5101,32 @@
     }
   }
 
-  // ===== Checklist =====
+  // ===== Checklist (synced via Supabase; dashCL is an in-memory cache, loaded once at boot) =====
   let dashCL = [];
-  function dashClLoad(){ try{ dashCL=JSON.parse(localStorage.getItem('stacker-cl')||'[]'); }catch(e){ dashCL=[]; } }
-  function dashClSave(){ localStorage.setItem('stacker-cl',JSON.stringify(dashCL)); }
-  function dashClAdd(text){
+  async function loadChecklist(){
+    const { data, error } = await sb.from('checklist_items').select('*').order('created_at', { ascending:false });
+    if(error){ showToast('할 일 불러오기 실패: ' + error.message); dashCL = []; return; }
+    dashCL = data.map(r => ({ id:r.id, text:r.text, done:r.done }));
+    if(!dashCL.length){
+      // one-time migration: carry over any pre-existing local-only checklist into the cloud
+      let local = [];
+      try{ local = JSON.parse(localStorage.getItem('stacker-cl') || '[]'); }catch(e){ local = []; }
+      if(local.length){
+        const rows = local.map(item => ({ text:item.text, done:!!item.done }));
+        const { data: inserted, error: insErr } = await sb.from('checklist_items').insert(rows).select();
+        if(!insErr && inserted) dashCL = inserted.map(r => ({ id:r.id, text:r.text, done:r.done }));
+        localStorage.removeItem('stacker-cl');
+      }
+    }
+  }
+  async function dashClAdd(text){
     const t=text.trim(); if(!t) return;
-    dashCL.unshift({id:Date.now().toString(36)+Math.random().toString(36).slice(2),text:t,done:false});
-    dashClSave(); renderDashCL();
+    const { data, error } = await sb.from('checklist_items').insert({ text:t, done:false }).select().single();
+    if(error){ showToast('추가 실패: ' + error.message); return; }
+    dashCL.unshift({ id:data.id, text:data.text, done:data.done });
+    renderDashCL();
   }
   function renderDashCL(){
-    dashClLoad();
     const listEl=el('dashClList'); if(!listEl) return;
     listEl.innerHTML='';
     if(!dashCL.length){ listEl.innerHTML='<div class="dash-cl-empty">할 일이 없어요. 추가해보세요 ✓</div>'; return; }
@@ -5124,8 +5139,18 @@
       const span=document.createElement('span'); span.className='dash-cl-text'; span.textContent=item.text;
       lbl.appendChild(cb); lbl.appendChild(span);
       const del=document.createElement('button'); del.className='dash-cl-del'; del.textContent='×'; del.title='삭제';
-      cb.addEventListener('change',()=>{ const ci=dashCL.find(x=>x.id===item.id); if(ci) ci.done=cb.checked; dashClSave(); renderDashCL(); });
-      del.addEventListener('click',()=>{ dashCL=dashCL.filter(x=>x.id!==item.id); dashClSave(); renderDashCL(); });
+      cb.addEventListener('change', async ()=>{
+        const ci=dashCL.find(x=>x.id===item.id); if(ci) ci.done=cb.checked;
+        renderDashCL();
+        const { error } = await sb.from('checklist_items').update({ done:cb.checked }).eq('id', item.id);
+        if(error) showToast('저장 실패: ' + error.message);
+      });
+      del.addEventListener('click', async ()=>{
+        dashCL=dashCL.filter(x=>x.id!==item.id);
+        renderDashCL();
+        const { error } = await sb.from('checklist_items').delete().eq('id', item.id);
+        if(error) showToast('삭제 실패: ' + error.message);
+      });
       row.appendChild(lbl); row.appendChild(del);
       listEl.appendChild(row);
     });
@@ -5474,6 +5499,7 @@ GRAPHIDEA는 흩어진 생각을 **연결해 하나의 그래프로 잇는** 개
     const { data: { user } } = await sb.auth.getUser();
     if(user) setupRealtime(user.id);
     await loadAll();
+    await loadChecklist();
     if(index.length === 0){
       await createNote('GRAPHIDEA 사용법');
       const w = index.find(m => m.id === currentId);

@@ -288,11 +288,14 @@
   .rp-tag-add-input{ width:74px; min-width:0; border:none; outline:none; background:none; font-size:11px; color:var(--ink); font-family:var(--sans); padding:3px 2px; }
   .rp-tag-add-input::placeholder{ color:var(--ink-faint); }
   .rp-tag-add-input:focus{ width:110px; }
-  .graphmini{ width:100%; height:150px; }
+  .graphmini{ width:100%; height:150px; touch-action:none; }
   .graphmini circle{ fill:var(--accent); }
   .graphmini circle.self{ fill:var(--ink); }
   .graphmini line{ stroke:var(--border); stroke-width:1; }
   .graphmini text{ font-family:var(--sans); font-size:9px; fill:var(--ink-faint); }
+  .graphmini .gnode{ cursor:grab; }
+  .graphmini .gnode.self{ cursor:default; }
+  .graphmini.grabbing, .graphmini.grabbing .gnode{ cursor:grabbing; }
   .toast{ position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:var(--toast-bg); color:var(--toast-ink); font-size:12.5px; font-weight:500; padding:9px 16px; border-radius:20px; opacity:0; pointer-events:none; transition:opacity .25s ease, transform .25s ease; z-index:50; display:flex; align-items:center; gap:12px; }
   .toast-action{ background:none; border:none; color:var(--accent); font-family:var(--sans); font-size:12px; font-weight:700; cursor:pointer; text-decoration:underline; padding:0; pointer-events:auto; }
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(-4px); }
@@ -1940,6 +1943,7 @@
   }
 
   function clearRightPane(){
+    stopMiniSim();
     backlinkList.className = 'rp-empty';
     backlinkList.textContent = '카드를 선택하면 표시됩니다.';
     tagList.innerHTML = '<span class="rp-empty">카드를 선택하면 표시됩니다.</span>';
@@ -2023,7 +2027,19 @@
     renderPropertiesPane(note);
   }
 
+  // mini graph: live force simulation (Obsidian-style), same cooldown pattern as the
+  // global graph / dashboard hero graph — the current note stays pinned at center,
+  // neighbors settle around it and can be dragged
+  let miniSim = null;
+  function stopMiniSim(){ if(miniSim){ cancelAnimationFrame(miniSim.raf); miniSim.running = false; } }
+  function reheatMiniSim(){
+    if(!miniSim) return;
+    miniSim.alpha = Math.max(miniSim.alpha, 0.5);
+    if(!miniSim.running){ miniSim.running = true; miniSim.frame = 0; miniSim.raf = requestAnimationFrame(miniSim.step); }
+  }
+
   function drawGraph(note){
+    stopMiniSim();
     const w = 240, h = 150, cx = w/2, cy = h/2;
     const outLinks = (note.links||[]).map(t => index.find(m => m.title.toLowerCase() === t.toLowerCase())).filter(Boolean);
     const inLinks = index.filter(m => m.id !== note.id && (m.links||[]).some(l => l.toLowerCase() === (note.title||'').toLowerCase()));
@@ -2031,22 +2047,121 @@
     outLinks.forEach(n => { if(!neighbors.find(x=>x.id===n.id)) neighbors.push(n); });
     inLinks.forEach(n => { if(!neighbors.find(x=>x.id===n.id)) neighbors.push(n); });
     const N = neighbors.length;
-    let svg = '';
-    const pts = neighbors.map((n,i) => {
-      const angle = (Math.PI*2*i/Math.max(N,1)) - Math.PI/2;
-      const r = 55;
-      return { x: cx + r*Math.cos(angle), y: cy + r*Math.sin(angle), n };
+
+    if(N === 0){
+      graphMini.innerHTML = `<circle class="self" cx="${cx}" cy="${cy}" r="7"></circle>`
+        + `<text x="${cx}" y="${cy-11}" text-anchor="middle" fill="var(--ink)">${escapeHtml((note.title||'').slice(0,14))}</text>`
+        + `<text x="${cx}" y="${cy+26}" text-anchor="middle" style="fill:var(--ink-faint);">연결된 카드 없음</text>`;
+      return;
+    }
+
+    const nodes = [{ self:true, id:note.id, title:note.title, x:cx, y:cy, vx:0, vy:0, fixed:true }];
+    neighbors.forEach((n,i) => {
+      const angle = (Math.PI*2*i/N) - Math.PI/2, r = 55;
+      nodes.push({ self:false, id:n.id, title:n.title, x:cx+r*Math.cos(angle), y:cy+r*Math.sin(angle), vx:0, vy:0, fixed:false });
     });
-    pts.forEach(p => { svg += `<line x1="${cx}" y1="${cy}" x2="${p.x}" y2="${p.y}"></line>`; });
-    svg += `<circle class="self" cx="${cx}" cy="${cy}" r="7"></circle>`;
-    svg += `<text x="${cx}" y="${cy-11}" text-anchor="middle" fill="var(--ink)">${escapeHtml((note.title||'').slice(0,14))}</text>`;
-    pts.forEach(p => {
-      svg += `<circle cx="${p.x}" cy="${p.y}" r="5"></circle>`;
-      svg += `<text x="${p.x}" y="${p.y + 14}" text-anchor="middle">${escapeHtml((p.n.title||'').slice(0,10))}</text>`;
+    const links = neighbors.map((_,i) => [0, i+1]);
+
+    let inner = '<g id="graphMiniLines">';
+    links.forEach(() => { inner += '<line></line>'; });
+    inner += '</g><g id="graphMiniNodes">';
+    nodes.forEach((n,i) => {
+      if(n.self){
+        inner += `<g class="gnode self" data-i="${i}"><circle class="self" r="7"></circle><text y="-11" text-anchor="middle" fill="var(--ink)">${escapeHtml((n.title||'').slice(0,14))}</text></g>`;
+      }else{
+        inner += `<g class="gnode" data-i="${i}" data-id="${n.id}"><circle r="5"></circle><text y="14" text-anchor="middle">${escapeHtml((n.title||'').slice(0,10))}</text></g>`;
+      }
     });
-    if(N === 0) svg += `<text x="${cx}" y="${cy+26}" text-anchor="middle" style="fill:var(--ink-faint);">연결된 카드 없음</text>`;
-    graphMini.innerHTML = svg;
+    inner += '</g>';
+    graphMini.innerHTML = inner;
+
+    const lineEls = [...graphMini.querySelectorAll('#graphMiniLines line')];
+    const nodeEls = [...graphMini.querySelectorAll('#graphMiniNodes .gnode')];
+
+    const k = 50, MX = 14, MY = 18;
+    const REP = 0.9, SPR = 0.03, DAMP = 0.86, VMAX = 20;
+    const ALPHA_DECAY = 0.97, ALPHA_MIN = 0.02;
+
+    function step(){
+      if(currentId !== note.id || el('rightpane').style.display === 'none'){ stopMiniSim(); return; }
+      const alpha = miniSim.alpha;
+      for(let i=0;i<nodes.length;i++){
+        for(let j=i+1;j<nodes.length;j++){
+          let dx=nodes[i].x-nodes[j].x, dy=nodes[i].y-nodes[j].y;
+          let d2=dx*dx+dy*dy; if(d2<1) d2=1;
+          const d=Math.sqrt(d2), f=REP*(k*k)/d2*alpha, ux=dx/d, uy=dy/d;
+          if(!nodes[i].fixed){ nodes[i].vx+=ux*f; nodes[i].vy+=uy*f; }
+          if(!nodes[j].fixed){ nodes[j].vx-=ux*f; nodes[j].vy-=uy*f; }
+        }
+      }
+      links.forEach(([a,b]) => {
+        let dx=nodes[b].x-nodes[a].x, dy=nodes[b].y-nodes[a].y;
+        const d=Math.sqrt(dx*dx+dy*dy)||0.01, f=SPR*(d-k)*alpha, ux=dx/d, uy=dy/d;
+        if(!nodes[a].fixed){ nodes[a].vx+=ux*f; nodes[a].vy+=uy*f; }
+        if(!nodes[b].fixed){ nodes[b].vx-=ux*f; nodes[b].vy-=uy*f; }
+      });
+      for(const n of nodes){
+        if(n.fixed){ n.vx=0; n.vy=0; continue; }
+        n.vx*=DAMP; n.vy*=DAMP;
+        if(n.vx>VMAX)n.vx=VMAX; else if(n.vx<-VMAX)n.vx=-VMAX;
+        if(n.vy>VMAX)n.vy=VMAX; else if(n.vy<-VMAX)n.vy=-VMAX;
+        n.x+=n.vx; n.y+=n.vy;
+        if(n.x<MX){n.x=MX;n.vx*=-0.3;} else if(n.x>w-MX){n.x=w-MX;n.vx*=-0.3;}
+        if(n.y<MY){n.y=MY;n.vy*=-0.3;} else if(n.y>h-MY){n.y=h-MY;n.vy*=-0.3;}
+      }
+      nodeEls.forEach((g,i) => { g.setAttribute('transform', `translate(${nodes[i].x.toFixed(1)},${nodes[i].y.toFixed(1)})`); });
+      lineEls.forEach((ln,i) => { const [a,b]=links[i]; ln.setAttribute('x1',nodes[a].x.toFixed(1)); ln.setAttribute('y1',nodes[a].y.toFixed(1)); ln.setAttribute('x2',nodes[b].x.toFixed(1)); ln.setAttribute('y2',nodes[b].y.toFixed(1)); });
+
+      miniSim.frame++;
+      miniSim.alpha *= ALPHA_DECAY;
+      if(miniSim.alpha < ALPHA_MIN || miniSim.frame > 400){ stopMiniSim(); return; }
+      miniSim.raf = requestAnimationFrame(step);
+    }
+    miniSim = { raf:0, frame:0, alpha:1, running:true, nodes, step };
+    miniSim.raf = requestAnimationFrame(step);
   }
+
+  // drag a mini-graph neighbor node (physics reacts); the self node stays pinned at center
+  let miniDrag = null;
+  function miniClientToSvg(clientX, clientY){
+    const ctm = graphMini.getScreenCTM(); if(!ctm) return null;
+    const pt = graphMini.createSVGPoint(); pt.x = clientX; pt.y = clientY;
+    const p = pt.matrixTransform(ctm.inverse());
+    return { x:p.x, y:p.y };
+  }
+  function miniDragStart(clientX, clientY, target){
+    const g = target.closest('.gnode'); if(!g || g.classList.contains('self') || !miniSim) return;
+    const node = miniSim.nodes.find(n => n.id === g.dataset.id); if(!node) return;
+    miniDrag = { node };
+    node.fixed = true;
+    graphMini.classList.add('grabbing');
+    reheatMiniSim();
+  }
+  function miniDragMove(clientX, clientY){
+    if(!miniDrag) return;
+    const p = miniClientToSvg(clientX, clientY); if(!p) return;
+    miniDrag.node.x = p.x; miniDrag.node.y = p.y; miniDrag.node.vx = 0; miniDrag.node.vy = 0;
+  }
+  function miniDragEnd(){
+    if(!miniDrag) return;
+    miniDrag.node.fixed = false;
+    graphMini.classList.remove('grabbing');
+    miniDrag = null;
+  }
+  graphMini.addEventListener('mousedown', e => miniDragStart(e.clientX, e.clientY, e.target));
+  document.addEventListener('mousemove', e => miniDragMove(e.clientX, e.clientY));
+  document.addEventListener('mouseup', miniDragEnd);
+  graphMini.addEventListener('touchstart', e => {
+    if(e.touches.length !== 1) return;
+    miniDragStart(e.touches[0].clientX, e.touches[0].clientY, e.target);
+    if(miniDrag) e.preventDefault();
+  }, { passive:false });
+  graphMini.addEventListener('touchmove', e => {
+    if(!miniDrag || e.touches.length !== 1) return;
+    miniDragMove(e.touches[0].clientX, e.touches[0].clientY);
+    e.preventDefault();
+  }, { passive:false });
+  graphMini.addEventListener('touchend', miniDragEnd);
 
   async function createNote(initialTitle){
     const draft = { title: initialTitle || '', content:'', tags:[], links:[], pinned:false };

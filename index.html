@@ -232,9 +232,11 @@
   }
   .preview h1,.preview h2,.preview h3,.preview h4{ font-weight:800; color:var(--ink); margin:26px 0 12px 0; }
   .preview h1{ font-size:26px; } .preview h2{ font-size:22px; } .preview h3{ font-size:18px; } .preview h4{ font-size:15.5px; }
-  .preview p{ margin:0 0 16px 0; } .preview ul{ margin:0 0 16px 22px; padding:0; } .preview li{ margin-bottom:6px; }
+  .preview p{ margin:0 0 16px 0; } .preview ul,.preview ol{ margin:0 0 16px 22px; padding:0; } .preview li{ margin-bottom:6px; }
+  .preview ul ul, .preview ul ol, .preview ol ul, .preview ol ol{ margin:6px 0 0 22px; }
   .preview strong{ color:var(--ink); font-weight:700; }
   .preview del{ color:var(--ink-faint); }
+  .preview mark{ background:var(--accent-soft); color:var(--ink); padding:0 2px; border-radius:3px; }
   .preview blockquote{ margin:0 0 16px 0; padding:2px 16px; border-left:3px solid var(--accent); color:var(--ink-soft); font-style:italic; }
   .preview code{ background:var(--border-soft); padding:2px 6px; border-radius:5px; font-family:var(--mono); font-size:14px; }
   .preview pre{ background:var(--code-bg); color:var(--code-ink); padding:14px 16px; border-radius:8px; overflow-x:auto; margin:0 0 16px 0; }
@@ -973,11 +975,17 @@
         <button class="fmtbtn" id="fmtBold" title="굵게"><b>B</b></button>
         <button class="fmtbtn" id="fmtItalic" title="기울임"><i>I</i></button>
         <button class="fmtbtn" id="fmtStrike" title="취소선"><s>S</s></button>
+        <button class="fmtbtn" id="fmtHighlight" title="하이라이트"><mark style="background:none;color:inherit;">H</mark></button>
         <span class="fmtsep"></span>
         <button class="fmtbtn" id="fmtQuote" title="인용">"</button>
         <button class="fmtbtn" id="fmtLink" title="링크">🔗</button>
         <button class="fmtbtn" id="fmtCode" title="코드">&lt;/&gt;</button>
         <button class="fmtbtn" id="fmtTable" title="표">▦</button>
+        <span class="fmtsep"></span>
+        <button class="fmtbtn" id="fmtBulletList" title="글머리 기호 목록">•</button>
+        <button class="fmtbtn" id="fmtOrderedList" title="번호 매기기 목록">1.</button>
+        <button class="fmtbtn" id="fmtOutdent" title="내어쓰기">←</button>
+        <button class="fmtbtn" id="fmtIndent" title="들여쓰기">→</button>
         <span class="fmtsep"></span>
         <button class="fmtbtn" id="fmtTask" title="할 일 목록">☑</button>
         <button class="fmtbtn" id="fmtCallout" title="콜아웃">💡</button>
@@ -1326,6 +1334,41 @@
     if(affected.length) showToast(`연결된 카드 ${affected.length}개의 링크를 갱신했습니다`);
   }
 
+  // parses a block of consecutive "- " / "1. " list lines (indent = nesting depth, 2 spaces per level)
+  // into a tree, then renders properly nested <ul>/<ol> html (sub-lists live inside their parent <li>)
+  function buildListHtml(block){
+    const lines = block.replace(/\n$/, '').split('\n');
+    const items = lines.map(line => {
+      const m = line.match(/^([ \t]*)(-|\d+\.)[ \t]+(.*)$/);
+      const depth = Math.floor(m[1].replace(/\t/g, '  ').length / 2);
+      return { depth, ordered: m[2] !== '-', text: m[3] };
+    });
+
+    const root = [];
+    const stack = [{ depth: -1, list: root }];
+    items.forEach(item => {
+      while(stack.length && stack[stack.length - 1].depth >= item.depth) stack.pop();
+      const node = { ordered: item.ordered, text: item.text, children: [] };
+      stack[stack.length - 1].list.push(node);
+      stack.push({ depth: item.depth, list: node.children });
+    });
+
+    function renderList(nodes){
+      let html = '', i = 0;
+      while(i < nodes.length){
+        const ordered = nodes[i].ordered;
+        let run = '';
+        while(i < nodes.length && nodes[i].ordered === ordered){
+          run += '<li>' + nodes[i].text + renderList(nodes[i].children) + '</li>';
+          i++;
+        }
+        html += (ordered ? '<ol>' : '<ul>') + run + (ordered ? '</ol>' : '</ul>');
+      }
+      return html;
+    }
+    return renderList(root);
+  }
+
   function renderMarkdown(content){
     let s = escapeHtml(content || '');
     let taskCounter = 0;
@@ -1349,6 +1392,7 @@
     s = s.replace(/^# (.*)$/gm, '<h1>$1</h1>');
 
     s = s.replace(/~~([^~]+)~~/g, '<del>$1</del>');
+    s = s.replace(/==([^=\n]+)==/g, '<mark>$1</mark>');
     s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     s = s.replace(/\*([^*]+)\*/g, '<em>$1</em>');
     s = s.replace(/`([^`\n]+)`/g, '<code>$1</code>');
@@ -1375,10 +1419,7 @@
       return '<ul class="tasklist">' + items + '</ul>\n';
     });
 
-    s = s.replace(/(?:^- .*(?:\n|$))+/gm, block => {
-      const items = block.trim().split('\n').map(l => '<li>' + l.replace(/^- /, '') + '</li>').join('');
-      return '<ul>' + items + '</ul>\n';
-    });
+    s = s.replace(/(?:^[ \t]*(?:-|\d+\.)[ \t]+.*(?:\n|$))+/gm, block => buildListHtml(block) + '\n');
 
     s = s.replace(/(?:^\|.*\|[ \t]*\n?)+/gm, block => {
       const lines = block.trim().split('\n');
@@ -1397,7 +1438,7 @@
     s = s.split('\n').map(line => {
       const t = line.trim();
       if(!t) return '';
-      if(/^<(h1|h2|h3|h4|ul|li|blockquote|pre|table|div|hr)/.test(t)) return t;
+      if(/^<(h1|h2|h3|h4|ul|ol|li|blockquote|pre|table|div|hr)/.test(t)) return t;
       return '<p>' + t + '</p>';
     }).join('\n');
     return s || '<p style="color:var(--ink-faint);font-style:italic;">내용 없음</p>';
@@ -1434,6 +1475,59 @@
     ta.focus();
     ta.selectionStart = ta.selectionEnd = Math.max(lineStart, newPos);
     ta.dispatchEvent(new Event('input'));
+  }
+
+  // runs fn(lines[]) over every line touched by the current selection (or just the
+  // cursor's line if nothing is selected) and writes the rejoined result back
+  function applyToSelectedLines(fn){
+    const ta = editorBox;
+    const start = ta.selectionStart, end = ta.selectionEnd;
+    const value = ta.value;
+    const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+    let lineEnd = value.indexOf('\n', Math.max(end - 1, lineStart));
+    if(lineEnd === -1) lineEnd = value.length;
+    const block = value.slice(lineStart, lineEnd);
+    const newBlock = fn(block.split('\n')).join('\n');
+    ta.value = value.slice(0, lineStart) + newBlock + value.slice(lineEnd);
+    ta.focus();
+    ta.selectionStart = lineStart;
+    ta.selectionEnd = lineStart + newBlock.length;
+    ta.dispatchEvent(new Event('input'));
+  }
+
+  function indentSelection(){
+    applyToSelectedLines(lines => lines.map(l => l.trim() === '' ? l : '  ' + l));
+  }
+  function outdentSelection(){
+    applyToSelectedLines(lines => lines.map(l => l.replace(/^(\t| {1,2})/, '')));
+  }
+
+  function toggleBulletList(){
+    applyToSelectedLines(lines => {
+      const targets = lines.filter(l => l.trim() !== '');
+      const allOn = targets.length > 0 && targets.every(l => /^\s*-\s/.test(l));
+      return lines.map(l => {
+        if(l.trim() === '') return l;
+        const indent = l.match(/^\s*/)[0];
+        const rest = l.slice(indent.length);
+        if(allOn) return indent + rest.replace(/^-\s/, '');
+        return indent + '- ' + rest.replace(/^-\s/, '');
+      });
+    });
+  }
+
+  function toggleOrderedList(){
+    applyToSelectedLines(lines => {
+      const targets = lines.filter(l => l.trim() !== '');
+      const allOn = targets.length > 0 && targets.every(l => /^\s*\d+\.\s/.test(l));
+      let n = 1;
+      return lines.map(l => {
+        if(l.trim() === '') return l;
+        const indent = l.match(/^\s*/)[0];
+        const rest = l.slice(indent.length).replace(/^\d+\.\s/, '');
+        return allOn ? (indent + rest) : (indent + (n++) + '. ' + rest);
+      });
+    });
   }
 
   function toggleHeading(level){
@@ -1553,9 +1647,14 @@
   el('fmtBold').onclick = () => wrapSelection('**');
   el('fmtItalic').onclick = () => wrapSelection('*');
   el('fmtStrike').onclick = () => wrapSelection('~~');
+  el('fmtHighlight').onclick = () => wrapSelection('==');
   el('fmtQuote').onclick = () => insertLinePrefix('> ');
   el('fmtLink').onclick = () => insertLink();
   el('fmtCode').onclick = () => insertCode();
+  el('fmtBulletList').onclick = () => toggleBulletList();
+  el('fmtOrderedList').onclick = () => toggleOrderedList();
+  el('fmtIndent').onclick = () => indentSelection();
+  el('fmtOutdent').onclick = () => outdentSelection();
   el('fmtTask').onclick = () => insertLinePrefix('- [ ] ');
   el('fmtCallout').onclick = () => insertCallout();
   el('fmtHr').onclick = () => { const ta=editorBox; const s=ta.selectionStart; const ins='\n\n---\n\n'; ta.value=ta.value.slice(0,s)+ins+ta.value.slice(ta.selectionEnd); ta.selectionStart=ta.selectionEnd=s+ins.length; ta.focus(); ta.dispatchEvent(new Event('input')); };

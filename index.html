@@ -2215,10 +2215,22 @@
   let showIsolatedNodes = localStorage.getItem('cardCatalogShowIsolated') === '1';
   let graphView = { scale: 1, tx: 0, ty: 0 };
   let graphAdjacency = {};
-  let globalGraphPos = {};   // current node positions {id:{x,y}} — updated live by node dragging
   let graphNodeMoved = false; // true right after a node drag, so the click handler won't also open it
+  let globalSim = null; // live force simulation state (Obsidian-style), persists after settle so drag can reheat it
 
   function isGraphOpen(){ return globalGraphView.style.display === 'flex'; }
+  function stopGlobalSim(){ if(globalSim){ cancelAnimationFrame(globalSim.raf); globalSim.running=false; } }
+  function globalReheat(){
+    if(!globalSim) return;
+    globalSim.alpha = Math.max(globalSim.alpha, 0.5);
+    if(!globalSim.running){ globalSim.running=true; globalSim.frame=0; globalSim.raf=requestAnimationFrame(globalSim.step); }
+  }
+  function saveGlobalPositions(){
+    if(!globalSim) return;
+    const pos = {};
+    globalSim.nodes.forEach(n => { pos[n.id] = { x:n.x, y:n.y }; });
+    saveGraphPositions(pos);
+  }
 
   function colorForTag(tag){
     if(!tag) return 'var(--ink-faint)';
@@ -2247,69 +2259,11 @@
     localStorage.setItem('cardCatalogGraphPositions', JSON.stringify(compact));
   }
 
-  function computeForceLayout(nodes, edges, width, height, iterations, seed){
-    const k = Math.sqrt((width * height) / Math.max(nodes.length, 1)) * 0.9;
-    const pos = {};
-    nodes.forEach((n, i) => {
-      if(seed && seed[n.id]){
-        pos[n.id] = { x: seed[n.id].x, y: seed[n.id].y };
-      }else{
-        const angle = (2 * Math.PI * i) / nodes.length;
-        pos[n.id] = { x: width/2 + Math.cos(angle) * Math.min(width,height)/3, y: height/2 + Math.sin(angle) * Math.min(width,height)/3 };
-      }
-    });
-    let temp = width / 10;
-    for(let iter = 0; iter < iterations; iter++){
-      const disp = {};
-      nodes.forEach(n => disp[n.id] = { x:0, y:0 });
-      for(let i = 0; i < nodes.length; i++){
-        for(let j = i + 1; j < nodes.length; j++){
-          const a = nodes[i], b = nodes[j];
-          let dx = pos[a.id].x - pos[b.id].x, dy = pos[a.id].y - pos[b.id].y;
-          let dist = Math.sqrt(dx*dx + dy*dy) || 0.01;
-          const force = (k*k) / dist;
-          dx = dx/dist*force; dy = dy/dist*force;
-          disp[a.id].x += dx; disp[a.id].y += dy;
-          disp[b.id].x -= dx; disp[b.id].y -= dy;
-        }
-      }
-      edges.forEach(([a,b]) => {
-        let dx = pos[a].x - pos[b].x, dy = pos[a].y - pos[b].y;
-        let dist = Math.sqrt(dx*dx + dy*dy) || 0.01;
-        const force = (dist*dist) / k;
-        dx = dx/dist*force; dy = dy/dist*force;
-        disp[a].x -= dx; disp[a].y -= dy;
-        disp[b].x += dx; disp[b].y += dy;
-      });
-      nodes.forEach(n => {
-        const dx = disp[n.id].x, dy = disp[n.id].y;
-        const dist = Math.sqrt(dx*dx + dy*dy) || 0.01;
-        pos[n.id].x += (dx/dist) * Math.min(dist, temp);
-        pos[n.id].y += (dy/dist) * Math.min(dist, temp);
-        pos[n.id].x = Math.min(width - 20, Math.max(20, pos[n.id].x));
-        pos[n.id].y = Math.min(height - 20, Math.max(20, pos[n.id].y));
-      });
-      temp *= 0.97;
-    }
-    // re-center the whole cluster so small/off-center components don't drift into a corner
-    if(nodes.length){
-      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-      nodes.forEach(n => {
-        const p = pos[n.id];
-        minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
-        minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
-      });
-      const offsetX = width/2 - (minX + maxX)/2;
-      const offsetY = height/2 - (minY + maxY)/2;
-      nodes.forEach(n => { pos[n.id].x += offsetX; pos[n.id].y += offsetY; });
-    }
-    return pos;
-  }
-
   function renderGlobalGraph(){
+    stopGlobalSim();
     const rect = globalGraphSvg.getBoundingClientRect();
-    const width = Math.max(400, Math.round(rect.width));
-    const height = Math.max(300, Math.round(rect.height));
+    const W = Math.max(400, Math.round(rect.width));
+    const H = Math.max(300, Math.round(rect.height));
 
     const edgeSet = new Set();
     const edges = [];
@@ -2328,56 +2282,59 @@
       });
     });
 
-    const nodes = (showIsolatedNodes ? index : index.filter(m => degree[m.id] > 0)).map(m => ({ id: m.id, title: m.title }));
+    const shownNotes = showIsolatedNodes ? index : index.filter(m => degree[m.id] > 0);
 
-    globalGraphSvg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    globalGraphSvg.setAttribute('viewBox', `0 0 ${W} ${H}`);
     resetGraphView();
 
-    if(!nodes.length){
-      globalGraphSvg.innerHTML = `<text x="${width/2}" y="${height/2}" text-anchor="middle" fill="var(--ink-faint)" font-family="Inter,sans-serif" font-size="13">연결된 카드가 없습니다${showIsolatedNodes ? '' : '. "고립 카드 표시"를 켜보세요'}</text>`;
+    if(!shownNotes.length){
+      globalGraphSvg.innerHTML = `<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="var(--ink-faint)" font-family="Inter,sans-serif" font-size="13">연결된 카드가 없습니다${showIsolatedNodes ? '' : '. "고립 카드 표시"를 켜보세요'}</text>`;
       el('graphLegend').style.display = 'none';
       return;
     }
 
-    const cachedPositions = loadGraphPositions();
-    // if every current node already has a saved position, use them as-is so a user's
-    // hand-arranged layout persists; only re-run the force layout when new nodes appeared
-    const allCached = nodes.every(n => cachedPositions[n.id]);
-    let pos;
-    if(allCached){
-      pos = {};
-      nodes.forEach(n => { pos[n.id] = { x: cachedPositions[n.id].x, y: cachedPositions[n.id].y }; });
-    } else {
-      pos = computeForceLayout(nodes, edges, width, height, nodes.length > 150 ? 120 : 250, cachedPositions);
-    }
-    saveGraphPositions(pos);
-    globalGraphPos = pos;
-
     graphAdjacency = {};
-    nodes.forEach(n => { graphAdjacency[n.id] = new Set(); });
+    shownNotes.forEach(m => { graphAdjacency[m.id] = new Set(); });
     edges.forEach(([a,b]) => { if(graphAdjacency[a] && graphAdjacency[b]){ graphAdjacency[a].add(b); graphAdjacency[b].add(a); } });
 
-    let inner = '<g id="graphViewport">';
-    edges.forEach(([a,b]) => {
-      if(pos[a] && pos[b]) inner += `<line data-a="${a}" data-b="${b}" x1="${pos[a].x}" y1="${pos[a].y}" x2="${pos[b].x}" y2="${pos[b].y}"></line>`;
+    // seed from the user's saved layout (Obsidian-style: reopening relaxes it, doesn't reshuffle it);
+    // new nodes join on a ring near center and the simulation pulls them into place
+    const cachedPositions = loadGraphPositions();
+    const idxOf = {}; shownNotes.forEach((m,i) => idxOf[m.id]=i);
+    const R0 = Math.min(W,H) * 0.32;
+    const nodes = shownNotes.map((m,i) => {
+      const deg = degree[m.id] || 0;
+      const r = Math.min(15, 5 + deg * 1.6);
+      const cached = cachedPositions[m.id];
+      let x, y;
+      if(cached){ x = cached.x; y = cached.y; }
+      else{
+        const a = 2 * Math.PI * i / shownNotes.length;
+        x = W/2 + Math.cos(a) * R0 * (0.6 + 0.4*Math.random());
+        y = H/2 + Math.sin(a) * R0 * (0.6 + 0.4*Math.random());
+      }
+      return { src:m, id:m.id, r, x, y, vx:0, vy:0, fixed:false };
     });
+    const links = [];
+    edges.forEach(([a,b]) => { if(idxOf[a]!=null && idxOf[b]!=null) links.push([idxOf[a], idxOf[b]]); });
+
+    let inner = '<g id="graphViewport"><g id="globalGraphLines">';
+    links.forEach(() => { inner += '<line></line>'; });
+    inner += '</g><g id="globalGraphNodes">';
     const legendTags = new Set();
     let hasUntagged = false;
     nodes.forEach(n => {
-      const p = pos[n.id];
-      const src = index.find(m => m.id === n.id);
-      const deg = degree[n.id] || 0;
-      const r = Math.min(15, 5 + deg * 1.6);
-      const tag = src && src.tags && src.tags[0];
+      const src = n.src;
+      const tag = src.tags && src.tags[0];
       if(tag) legendTags.add(tag); else hasUntagged = true;
       const fill = colorForTag(tag);
-      const ring = src && src.pinned ? ` stroke="var(--ink)" stroke-width="2"` : '';
-      inner += `<g class="gnode" data-id="${n.id}" transform="translate(${p.x},${p.y})">`;
-      inner += `<circle r="${r}" fill="${fill}"${ring}></circle>`;
-      inner += `<text y="${-(r+7)}" text-anchor="middle">${escapeHtml((n.title||'').slice(0,18))}</text>`;
+      const ring = src.pinned ? ` stroke="var(--ink)" stroke-width="2"` : '';
+      inner += `<g class="gnode" data-id="${n.id}">`;
+      inner += `<circle r="${n.r}" fill="${fill}"${ring}></circle>`;
+      inner += `<text y="${-(n.r+7)}" text-anchor="middle">${escapeHtml((src.title||'').slice(0,18))}</text>`;
       inner += `</g>`;
     });
-    inner += '</g>';
+    inner += '</g></g>';
     globalGraphSvg.innerHTML = inner;
 
     const legendEl = el('graphLegend');
@@ -2389,6 +2346,55 @@
       if(hasUntagged) legendHtml += `<span class="legend-item"><span class="legend-dot" style="background:var(--ink-faint)"></span>태그 없음</span>`;
       legendEl.innerHTML = legendHtml;
     }
+
+    const lineEls = [...globalGraphSvg.querySelectorAll('#globalGraphLines line')];
+    const nodeEls = [...globalGraphSvg.querySelectorAll('#globalGraphNodes .gnode')];
+
+    // live force simulation — same alpha-cooldown model as the dashboard hero graph
+    const k = Math.sqrt((W*H) / Math.max(nodes.length, 1)) * 0.55;
+    const cx = W/2, cy = H/2;
+    const REP=0.9, SPR=0.02, GRAV=0.012, DAMP=0.86, VMAX=28;
+    const ALPHA_DECAY=0.975, ALPHA_MIN=0.02;
+
+    function step(){
+      if(!isGraphOpen()){ stopGlobalSim(); return; }
+      const alpha = globalSim.alpha;
+      for(let i=0;i<nodes.length;i++){
+        for(let j=i+1;j<nodes.length;j++){
+          let dx=nodes[i].x-nodes[j].x, dy=nodes[i].y-nodes[j].y;
+          let d2=dx*dx+dy*dy; if(d2<1) d2=1;
+          const d=Math.sqrt(d2), f=REP*(k*k)/d2*alpha, ux=dx/d, uy=dy/d;
+          nodes[i].vx+=ux*f; nodes[i].vy+=uy*f;
+          nodes[j].vx-=ux*f; nodes[j].vy-=uy*f;
+        }
+      }
+      links.forEach(([a,b]) => {
+        let dx=nodes[b].x-nodes[a].x, dy=nodes[b].y-nodes[a].y;
+        const d=Math.sqrt(dx*dx+dy*dy)||0.01, f=SPR*(d-k)*alpha, ux=dx/d, uy=dy/d;
+        nodes[a].vx+=ux*f; nodes[a].vy+=uy*f;
+        nodes[b].vx-=ux*f; nodes[b].vy-=uy*f;
+      });
+      for(const n of nodes){
+        if(n.fixed){ n.vx=0; n.vy=0; continue; } // node held by drag; others react around it
+        n.vx+=(cx-n.x)*GRAV*alpha; n.vy+=(cy-n.y)*GRAV*alpha;
+        n.vx*=DAMP; n.vy*=DAMP;
+        if(n.vx>VMAX)n.vx=VMAX; else if(n.vx<-VMAX)n.vx=-VMAX;
+        if(n.vy>VMAX)n.vy=VMAX; else if(n.vy<-VMAX)n.vy=-VMAX;
+        n.x+=n.vx; n.y+=n.vy;
+        const mx=n.r+16, my=n.r+22;
+        if(n.x<mx){n.x=mx;n.vx*=-0.3;} else if(n.x>W-mx){n.x=W-mx;n.vx*=-0.3;}
+        if(n.y<my){n.y=my;n.vy*=-0.3;} else if(n.y>H-16){n.y=H-16;n.vy*=-0.3;}
+      }
+      nodeEls.forEach((g,i) => { g.setAttribute('transform', `translate(${nodes[i].x.toFixed(1)},${nodes[i].y.toFixed(1)})`); });
+      lineEls.forEach((ln,i) => { const [a,b]=links[i]; ln.setAttribute('x1',nodes[a].x.toFixed(1)); ln.setAttribute('y1',nodes[a].y.toFixed(1)); ln.setAttribute('x2',nodes[b].x.toFixed(1)); ln.setAttribute('y2',nodes[b].y.toFixed(1)); });
+
+      globalSim.frame++;
+      globalSim.alpha *= ALPHA_DECAY;
+      if(globalSim.alpha < ALPHA_MIN || globalSim.frame > 500){ stopGlobalSim(); saveGlobalPositions(); return; }
+      globalSim.raf = requestAnimationFrame(step);
+    }
+    globalSim = { raf:0, frame:0, alpha:1, running:true, nodes, W, H, step };
+    globalSim.raf = requestAnimationFrame(step);
   }
 
   function openGlobalGraph(){
@@ -2400,6 +2406,7 @@
     renderGlobalGraph();
   }
   function closeGlobalGraph(){
+    stopGlobalSim();
     showView('empty');
   }
 
@@ -2463,7 +2470,7 @@
     globalGraphSvg.classList.remove('panning');
   });
 
-  // drag a node to arrange the graph; positions persist to localStorage
+  // drag a node to arrange the graph (physics reacts, Obsidian-style); settled position persists to localStorage
   let gNodeDrag = null;
   function graphClientToLocal(clientX, clientY){
     const vp = document.getElementById('graphViewport'); if(!vp) return null;
@@ -2473,8 +2480,10 @@
     return { x:p.x, y:p.y };
   }
   globalGraphSvg.addEventListener('mousedown', (e) => {
-    const g = e.target.closest('.gnode'); if(!g) return;
-    gNodeDrag = { id:g.dataset.id, el:g, moved:false };
+    const g = e.target.closest('.gnode'); if(!g || !globalSim) return;
+    const node = globalSim.nodes.find(n => n.id === g.dataset.id); if(!node) return;
+    gNodeDrag = { node, id: node.id, moved:false };
+    node.fixed = true;
     globalGraphSvg.classList.add('grabbing');
     e.preventDefault();
   });
@@ -2482,17 +2491,14 @@
     if(!gNodeDrag) return;
     const p = graphClientToLocal(e.clientX, e.clientY); if(!p) return;
     gNodeDrag.moved = true; graphNodeMoved = true;
-    globalGraphPos[gNodeDrag.id] = { x:p.x, y:p.y };
-    gNodeDrag.el.setAttribute('transform', `translate(${p.x},${p.y})`);
-    globalGraphSvg.querySelectorAll('line').forEach(ln => {
-      if(ln.dataset.a === gNodeDrag.id){ ln.setAttribute('x1', p.x); ln.setAttribute('y1', p.y); }
-      if(ln.dataset.b === gNodeDrag.id){ ln.setAttribute('x2', p.x); ln.setAttribute('y2', p.y); }
-    });
+    gNodeDrag.node.x = p.x; gNodeDrag.node.y = p.y; gNodeDrag.node.vx = 0; gNodeDrag.node.vy = 0;
+    globalReheat();
   });
   window.addEventListener('mouseup', () => {
     if(!gNodeDrag) return;
     globalGraphSvg.classList.remove('grabbing');
-    if(gNodeDrag.moved) saveGraphPositions(globalGraphPos);
+    gNodeDrag.node.fixed = false;
+    if(gNodeDrag.moved){ globalReheat(); saveGlobalPositions(); }
     gNodeDrag = null;
     setTimeout(() => { graphNodeMoved = false; }, 0); // reset after the click event fires
   });
@@ -2512,6 +2518,17 @@
     graphView.scale = newScale;
     applyGraphTransform();
   }, { passive: false });
+
+  // re-run the simulation when the graph panel changes size (window/sidebar resize)
+  if(window.ResizeObserver){
+    let graphRzT = null;
+    const graphRo = new ResizeObserver(() => {
+      if(!isGraphOpen()) return;
+      clearTimeout(graphRzT);
+      graphRzT = setTimeout(() => { if(isGraphOpen()) renderGlobalGraph(); }, 180);
+    });
+    graphRo.observe(globalGraphView);
+  }
 
   window.addEventListener('keydown', (e) => {
     const mod = e.ctrlKey || e.metaKey;

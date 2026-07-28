@@ -142,6 +142,7 @@
   .sortrow{ display:flex; gap:4px; padding:0 14px 10px 14px; flex-wrap:wrap; }
   .sortbtn{ font-family:var(--sans); font-size:11px; font-weight:500; color:var(--ink-faint); background:none; border:1px solid var(--border); padding:4px 9px; border-radius:12px; cursor:pointer; }
   .sortbtn.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
+  .sortbtn.density-btn{ margin-left:auto; padding:4px 8px; }
   .tagrow{ display:flex; flex-wrap:wrap; gap:6px; padding:0 14px 10px 14px; flex-shrink:0; max-height:22vh; overflow-y:auto; }
   .tagchip{ font-family:var(--sans); font-size:11px; font-weight:500; color:var(--accent-hover); background:var(--accent-soft); border:1px solid transparent; padding:3px 9px; border-radius:12px; cursor:pointer; white-space:nowrap; }
   .tagchip.active{ background:var(--accent); color:#fff; }
@@ -162,6 +163,14 @@
   .card-tab:hover .restorebtn{ opacity:0.85; }
   .card-tab .restorebtn:hover{ opacity:1; text-decoration:underline; }
   @keyframes fanin{ from{ opacity:0; transform: translateY(-4px); } to{ opacity:1; transform: translateY(0); } }
+  .cardlist.compact{ gap:2px; }
+  .cardlist.compact .card-tab{ padding:6px 10px; }
+  .ctab-row{ display:flex; align-items:center; gap:7px; min-width:0; }
+  .ctab-row .card-color-dot{ flex-shrink:0; }
+  .ctab-row .ttl{ flex:1; min-width:0; font-weight:600; font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--ink); }
+  .ctab-row .updated{ flex-shrink:0; font-size:10px; color:var(--ink-faint); }
+  .ctab-row .pinmark{ flex-shrink:0; font-size:11px; color:var(--accent); }
+  .ctab-row .kind-icon{ flex-shrink:0; font-size:11px; }
   .synctag{ font-size:10.5px; color:var(--ink-faint); padding:10px 16px; border-top:1px solid var(--border-soft); display:flex; align-items:center; gap:6px; }
   .synctag .dot{ width:6px; height:6px; border-radius:50%; background:var(--ok); flex-shrink:0; }
   .synctag .dot.saving{ background:var(--accent); animation:pulse 0.9s ease infinite; }
@@ -738,6 +747,7 @@
       <button class="sortbtn" data-sort="updated">최근순</button>
       <button class="sortbtn" data-sort="title">제목순</button>
       <button class="sortbtn" data-sort="created">생성순</button>
+      <button class="sortbtn density-btn" id="cardDensityBtn" title="카드 목록 밀도 전환">☰</button>
     </div>
     <div class="tagrow" id="tagRow"></div>
     <div class="cardlist" id="cardList"></div>
@@ -1039,6 +1049,7 @@
   let realtimeChannel = null;
   let currentManualTags = []; // tag chips for the currently open note
   let sortMode = localStorage.getItem('cardCatalogSortMode') || 'updated'; // 'updated' | 'title' | 'created'
+  let cardDensity = localStorage.getItem('stk-card-density') || 'normal'; // 'normal' | 'compact'
 
   const el = (id) => document.getElementById(id);
   const cardList = el('cardList');
@@ -1653,15 +1664,30 @@
       card.style.animationDelay = (i * 0.02) + 's';
       const cardColor = noteColor(m);
       if(cardColor) card.style.borderLeft = '3px solid ' + cardColor;
-      card.innerHTML = `
-        <button class="delbtn" title="삭제">✕</button>
-        <div class="serial">${serialOf(origIdx)}${m.pinned ? ' <span class="pinmark">★</span>' : ''}${isCanvasNote(m) ? ' <span class="canvas-badge">canvas</span>' : ''}${isTableNote(m) ? ' <span class="table-badge">sheet</span>' : ''}</div>
-        <div class="ttl">${escapeHtml(m.title || '제목 없음')}</div>
-        <div class="meta" style="display:flex;align-items:center;gap:4px;">
-          <span class="card-color-dot" style="background:${cardColor||'transparent'};${cardColor?'':'border-style:dashed;border-color:var(--border);'}" title="카드 색상 변경"></span>
-          <span class="updated">${formatDate(m.updated)}</span>
-        </div>
-      `;
+      const dot = `<span class="card-color-dot" style="background:${cardColor||'transparent'};${cardColor?'':'border-style:dashed;border-color:var(--border);'}" title="카드 색상 변경"></span>`;
+      if(cardDensity === 'compact'){
+        const kindIcon = isCanvasNote(m) ? '<span class="kind-icon">🎨</span>' : isTableNote(m) ? '<span class="kind-icon">📊</span>' : '';
+        card.innerHTML = `
+          <button class="delbtn" title="삭제">✕</button>
+          <div class="ctab-row">
+            ${dot}
+            ${m.pinned ? '<span class="pinmark">★</span>' : ''}
+            ${kindIcon}
+            <span class="ttl">${escapeHtml(m.title || '제목 없음')}</span>
+            <span class="updated">${formatDate(m.updated)}</span>
+          </div>
+        `;
+      } else {
+        card.innerHTML = `
+          <button class="delbtn" title="삭제">✕</button>
+          <div class="serial">${serialOf(origIdx)}${m.pinned ? ' <span class="pinmark">★</span>' : ''}${isCanvasNote(m) ? ' <span class="canvas-badge">canvas</span>' : ''}${isTableNote(m) ? ' <span class="table-badge">sheet</span>' : ''}</div>
+          <div class="ttl">${escapeHtml(m.title || '제목 없음')}</div>
+          <div class="meta" style="display:flex;align-items:center;gap:4px;">
+            ${dot}
+            <span class="updated">${formatDate(m.updated)}</span>
+          </div>
+        `;
+      }
       card.querySelector('.card-color-dot').addEventListener('click', e => { e.stopPropagation(); showCardColorPalette(m, e); });
       card.onclick = (e) => { if(e.target.classList.contains('delbtn')) return; openNote(m.id); };
       card.querySelector('.delbtn').onclick = async (e) => {
@@ -2130,15 +2156,29 @@
   el('emptyTrashBtn').onclick = () => emptyTrash();
 
   // ---------------- sort options ----------------
-  document.querySelectorAll('.sortbtn').forEach(btn => {
+  document.querySelectorAll('.sortbtn:not(.density-btn)').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.sort === sortMode);
     btn.onclick = () => {
       sortMode = btn.dataset.sort;
       localStorage.setItem('cardCatalogSortMode', sortMode);
-      document.querySelectorAll('.sortbtn').forEach(b => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('.sortbtn:not(.density-btn)').forEach(b => b.classList.toggle('active', b === btn));
       renderCardList();
     };
   });
+
+  function applyCardDensity(){
+    cardList.classList.toggle('compact', cardDensity === 'compact');
+    const btn = el('cardDensityBtn');
+    btn.classList.toggle('active', cardDensity === 'compact');
+    btn.title = cardDensity === 'compact' ? '기본 크기로 전환' : '컴팩트 목록으로 전환';
+  }
+  el('cardDensityBtn').onclick = () => {
+    cardDensity = cardDensity === 'compact' ? 'normal' : 'compact';
+    localStorage.setItem('stk-card-density', cardDensity);
+    applyCardDensity();
+    renderCardList();
+  };
+  applyCardDensity();
 
   // ---------------- keyboard navigation ----------------
   function navigateCard(delta){

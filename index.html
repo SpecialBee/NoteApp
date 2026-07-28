@@ -332,7 +332,7 @@
   .graph-legend{ display:none; flex-wrap:wrap; gap:12px; padding:8px 22px; border-bottom:1px solid var(--border-soft); font-size:11.5px; color:var(--ink-soft); flex-shrink:0; }
   .graph-legend .legend-item{ display:inline-flex; align-items:center; gap:5px; }
   .graph-legend .legend-dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
-  .graph-canvas{ flex:1; width:100%; height:100%; min-height:0; cursor:grab; }
+  .graph-canvas{ flex:1; width:100%; height:100%; min-height:0; cursor:grab; touch-action:none; }
   .graph-canvas.panning{ cursor:grabbing; }
   .graph-canvas.grabbing, .graph-canvas.grabbing .gnode{ cursor:grabbing; }
   .graph-canvas .gnode{ cursor:grab; }
@@ -417,7 +417,7 @@
   @media (max-width:640px){ .cev-actions{ flex-wrap:wrap; margin-left:0; } .cev-title-input{ width:100px; } }
   .cev-action { font-family:var(--sans); font-size:12px; font-weight:600; background:var(--bg-card); color:var(--ink-soft); border:1px solid var(--border); border-radius:7px; padding:5px 10px; cursor:pointer; }
   .cev-action:hover { background:var(--accent-soft); color:var(--accent); }
-  .cev-el { position:absolute; cursor:move; user-select:none; box-sizing:border-box; }
+  .cev-el { position:absolute; cursor:move; user-select:none; box-sizing:border-box; touch-action:none; }
   .cev-el.selected { outline:2px solid var(--accent); outline-offset:2px; }
   .cev-el.connect-source { outline:2px dashed var(--accent); outline-offset:2px; }
   .cev-sticky { border-radius:4px; padding:10px; font-family:var(--sans); font-size:13px; line-height:1.5; color:#3D3929; box-shadow:2px 2px 6px rgba(0,0,0,0.12); }
@@ -428,7 +428,7 @@
   .cev-diamond-inner { transform-origin:center; display:flex; align-items:center; justify-content:center; border:2px solid #9CA3AF; background:var(--bg-card); }
   .cev-text-el { background:none; border:none; font-family:var(--sans); font-size:14px; font-weight:600; color:var(--ink); min-width:60px; min-height:28px; outline:none; cursor:text; }
   .cev-shape-label { font-family:var(--sans); font-size:12px; color:var(--ink); text-align:center; padding:4px; outline:none; background:none; border:none; cursor:text; width:100%; }
-  .cev-handle { position:absolute; width:8px; height:8px; background:var(--accent); border:1px solid #fff; border-radius:2px; z-index:20; }
+  .cev-handle { position:absolute; width:8px; height:8px; background:var(--accent); border:1px solid #fff; border-radius:2px; z-index:20; touch-action:none; }
   .cev-handle[data-h="nw"] { top:-5px; left:-5px; cursor:nw-resize; }
   .cev-handle[data-h="n"]  { top:-5px; left:50%; transform:translateX(-50%); cursor:n-resize; }
   .cev-handle[data-h="ne"] { top:-5px; right:-5px; cursor:ne-resize; }
@@ -925,7 +925,7 @@
           <button class="cev-action" id="cevExitBtn">← GRAPHIDEA로 돌아가기</button>
         </div>
       </div>
-      <div id="cevCanvas" style="position:relative; flex:1; overflow:hidden; cursor:default;">
+      <div id="cevCanvas" style="position:relative; flex:1; overflow:hidden; cursor:default; touch-action:none;">
         <div id="cevInner" style="position:absolute; top:0; left:0; transform-origin:0 0; will-change:transform;">
           <svg id="cevSvg" style="position:absolute;top:0;left:0;width:100%;height:100%;overflow:visible;pointer-events:none;"></svg>
           <div id="cevMarqueeBox" style="display:none;position:absolute;border:1.5px solid var(--accent);background:color-mix(in srgb, var(--accent) 12%, transparent);pointer-events:none;z-index:40;"></div>
@@ -2660,6 +2660,81 @@
     applyGraphTransform();
   }, { passive: false });
 
+  // touch: one finger pans or drags a node (mirrors the mouse paths above), two fingers pinch-zoom
+  let graphPinch = null;
+  function graphTouchDist(t1,t2){ const dx=t1.clientX-t2.clientX, dy=t1.clientY-t2.clientY; return Math.sqrt(dx*dx+dy*dy); }
+  function graphTouchMid(t1,t2){ return { x:(t1.clientX+t2.clientX)/2, y:(t1.clientY+t2.clientY)/2 }; }
+  globalGraphSvg.addEventListener('touchstart', (e) => {
+    if(e.touches.length === 2){
+      graphPanning = false; globalGraphSvg.classList.remove('panning');
+      if(gNodeDrag){ gNodeDrag.node.fixed = false; gNodeDrag = null; globalGraphSvg.classList.remove('grabbing'); }
+      const [t1,t2] = e.touches;
+      graphPinch = { startDist: graphTouchDist(t1,t2), startScale: graphView.scale, startTx: graphView.tx, startTy: graphView.ty, mid: graphTouchMid(t1,t2) };
+      e.preventDefault();
+      return;
+    }
+    if(e.touches.length !== 1) return;
+    const t = e.touches[0];
+    const g = t.target && t.target.closest && t.target.closest('.gnode');
+    if(g && globalSim){
+      const node = globalSim.nodes.find(n => n.id === g.dataset.id);
+      if(node){
+        gNodeDrag = { node, id: node.id, moved:false };
+        node.fixed = true;
+        globalGraphSvg.classList.add('grabbing');
+        e.preventDefault();
+        return;
+      }
+    }
+    graphPanning = true; graphPanMoved = false;
+    panStartX = t.clientX; panStartY = t.clientY;
+    panOrigTx = graphView.tx; panOrigTy = graphView.ty;
+    globalGraphSvg.classList.add('panning');
+    e.preventDefault();
+  }, { passive: false });
+  globalGraphSvg.addEventListener('touchmove', (e) => {
+    if(graphPinch && e.touches.length === 2){
+      const [t1,t2] = e.touches;
+      const scale = Math.min(3, Math.max(0.3, graphPinch.startScale * (graphTouchDist(t1,t2) / graphPinch.startDist)));
+      const rect = globalGraphSvg.getBoundingClientRect();
+      const mx = graphPinch.mid.x - rect.left, my = graphPinch.mid.y - rect.top;
+      graphView.tx = mx - (mx - graphPinch.startTx) * (scale / graphPinch.startScale);
+      graphView.ty = my - (my - graphPinch.startTy) * (scale / graphPinch.startScale);
+      graphView.scale = scale;
+      applyGraphTransform();
+      e.preventDefault();
+      return;
+    }
+    if(e.touches.length !== 1) return;
+    const t = e.touches[0];
+    if(gNodeDrag){
+      const p = graphClientToLocal(t.clientX, t.clientY); if(!p) return;
+      gNodeDrag.moved = true; graphNodeMoved = true;
+      gNodeDrag.node.x = p.x; gNodeDrag.node.y = p.y; gNodeDrag.node.vx = 0; gNodeDrag.node.vy = 0;
+      globalReheat();
+      e.preventDefault();
+    } else if(graphPanning){
+      const dx = t.clientX - panStartX, dy = t.clientY - panStartY;
+      if(Math.abs(dx) > 3 || Math.abs(dy) > 3) graphPanMoved = true;
+      graphView.tx = panOrigTx + dx;
+      graphView.ty = panOrigTy + dy;
+      applyGraphTransform();
+      e.preventDefault();
+    }
+  }, { passive: false });
+  globalGraphSvg.addEventListener('touchend', () => {
+    if(graphPinch){ graphPinch = null; return; }
+    if(gNodeDrag){
+      globalGraphSvg.classList.remove('grabbing');
+      gNodeDrag.node.fixed = false;
+      if(gNodeDrag.moved){ globalReheat(); saveGlobalPositions(); }
+      else { const id = gNodeDrag.id; closeGlobalGraph(); openNote(id); } // tap (no movement) opens the note
+      gNodeDrag = null;
+      return;
+    }
+    if(graphPanning){ graphPanning = false; globalGraphSvg.classList.remove('panning'); }
+  }, { passive: true });
+
   // re-run the simulation when the graph panel changes size (window/sidebar resize)
   if(window.ResizeObserver){
     let graphRzT = null;
@@ -4314,10 +4389,18 @@
     const handles=edata.type==='circle'?['n','e','s','w']:['nw','n','ne','e','se','s','sw','w'];
     handles.forEach(h=>{
       const hDiv=document.createElement('div'); hDiv.className='cev-handle'; hDiv.dataset.h=h;
+      const startResize=(clientX,clientY)=>{
+        cevResizing={id:edata.id,handle:h,startMX:clientX,startMY:clientY,origX:edata.x,origY:edata.y,origW:edata.w||((edata.r||60)*2),origH:edata.h||((edata.r||60)*2),origR:edata.r||60};
+      };
       hDiv.addEventListener('mousedown',e=>{
         e.stopPropagation(); e.preventDefault();
-        cevResizing={id:edata.id,handle:h,startMX:e.clientX,startMY:e.clientY,origX:edata.x,origY:edata.y,origW:edata.w||((edata.r||60)*2),origH:edata.h||((edata.r||60)*2),origR:edata.r||60};
+        startResize(e.clientX, e.clientY);
       });
+      hDiv.addEventListener('touchstart',e=>{
+        if(e.touches.length!==1) return;
+        e.stopPropagation(); e.preventDefault();
+        startResize(e.touches[0].clientX, e.touches[0].clientY);
+      }, {passive:false});
       div.appendChild(hDiv);
     });
   }
@@ -4400,6 +4483,16 @@
     }
   }
 
+  // wires both mouse and touch drag-start for one element's div; keeps all 7 render call sites in sync
+  function cevBindElDrag(div, edata, lbl){
+    div.addEventListener('mousedown', e=>cevElMouseDown(e,edata,lbl));
+    div.addEventListener('touchstart', e=>{
+      if(e.touches.length!==1) return;
+      cevElMouseDown(cevSyntheticFromTouch(e,e.touches[0]), edata, lbl);
+      if(cevMoving||cevGroupMove) e.preventDefault();
+    }, {passive:false});
+  }
+
   // elements (non-section) whose center lies within a section's rectangle
   function cevSectionChildren(section){
     const b={ x:section.x, y:section.y, w:section.w||300, h:section.h||200 };
@@ -4438,7 +4531,7 @@
       lbl.addEventListener('blur',()=>{ lbl.contentEditable='false'; lbl.style.pointerEvents='none'; cevSnapshot(); });
       div.addEventListener('dblclick',e=>{ if(edata.locked) return; e.stopPropagation(); lbl.contentEditable='true'; lbl.style.pointerEvents='auto'; lbl.focus(); const r=document.createRange(); r.selectNodeContents(lbl); const s=window.getSelection(); s.removeAllRanges(); s.addRange(r); });
       div.appendChild(lbl);
-      div.addEventListener('mousedown',e=>cevElMouseDown(e,edata,lbl));
+      cevBindElDrag(div, edata, lbl);
       cevAddAnchors(div, edata); inner.appendChild(div); return;
     } else if(edata.type==='circle'){
       const r=edata.r||60;
@@ -4451,7 +4544,7 @@
       lbl.addEventListener('blur',()=>{ lbl.contentEditable='false'; lbl.style.pointerEvents='none'; cevSnapshot(); });
       div.addEventListener('dblclick',e=>{ if(edata.locked) return; e.stopPropagation(); lbl.contentEditable='true'; lbl.style.pointerEvents='auto'; lbl.focus(); const rng=document.createRange(); rng.selectNodeContents(lbl); const s=window.getSelection(); s.removeAllRanges(); s.addRange(rng); });
       div.appendChild(lbl);
-      div.addEventListener('mousedown',e=>cevElMouseDown(e,edata,lbl));
+      cevBindElDrag(div, edata, lbl);
       cevAddAnchors(div, edata); inner.appendChild(div); return;
     } else if(edata.type==='diamond'){
       const w=edata.w||100,h=edata.h||100;
@@ -4466,7 +4559,7 @@
       lbl.addEventListener('blur',()=>{ lbl.contentEditable='false'; lbl.style.pointerEvents='none'; cevSnapshot(); });
       div.addEventListener('dblclick',e=>{ if(edata.locked) return; e.stopPropagation(); lbl.contentEditable='true'; lbl.style.pointerEvents='auto'; lbl.focus(); });
       inner_d.appendChild(lbl); div.appendChild(inner_d);
-      div.addEventListener('mousedown',e=>cevElMouseDown(e,edata,lbl));
+      cevBindElDrag(div, edata, lbl);
       cevAddAnchors(div, edata); inner.appendChild(div); return;
     } else if(edata.type==='text'){
       div.style.cssText=`left:${edata.x}px;top:${edata.y}px;min-width:60px;min-height:24px;`;
@@ -4475,7 +4568,7 @@
       div.addEventListener('input',()=>{ edata.text=div.textContent; cevSaveDebounced(); });
       div.addEventListener('blur',()=>{ div.contentEditable='false'; cevSnapshot(); });
       div.addEventListener('dblclick',e=>{ if(edata.locked) return; e.stopPropagation(); div.contentEditable='true'; div.focus(); });
-      div.addEventListener('mousedown',e=>cevElMouseDown(e,edata,null));
+      cevBindElDrag(div, edata, null);
       cevAddAnchors(div, edata); inner.appendChild(div); return;
     } else if(edata.type==='card'){
       const w=edata.w||200, h=edata.h||88;
@@ -4490,7 +4583,7 @@
       const mEl=document.createElement('div'); mEl.className='cev-card-meta'; mEl.textContent = note ? kind : (edata.noteId?'연결 끊김':'더블클릭해 카드 지정');
       div.appendChild(tEl); div.appendChild(mEl);
       div.addEventListener('dblclick',e=>{ if(edata.locked) return; e.stopPropagation(); if(edata.noteId && note) cevOpenLinkedCard(edata); else cevOpenCardPicker(edata); });
-      div.addEventListener('mousedown',e=>cevElMouseDown(e,edata,null));
+      cevBindElDrag(div, edata, null);
       cevAddAnchors(div, edata); inner.appendChild(div); return;
     } else if(edata.type==='section'){
       const w=edata.w||300, h=edata.h||200;
@@ -4504,13 +4597,13 @@
       lbl.addEventListener('dblclick',e=>{ if(edata.locked) return; e.stopPropagation(); lbl.contentEditable='true'; lbl.style.cursor='text'; lbl.focus(); const r=document.createRange(); r.selectNodeContents(lbl); const s=window.getSelection(); s.removeAllRanges(); s.addRange(r); });
       lbl.addEventListener('blur',()=>{ lbl.contentEditable='false'; lbl.style.cursor=''; edata.label=lbl.textContent.trim()||'섹션'; lbl.textContent=edata.label; cevCommit(); });
       lbl.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); lbl.blur(); } e.stopPropagation(); });
-      div.addEventListener('mousedown',e=>cevElMouseDown(e,edata,lbl));
+      cevBindElDrag(div, edata, lbl);
       inner.insertBefore(div, inner.firstChild);
       return;
     }
 
     // fallback (sticky handled above without early return)
-    div.addEventListener('mousedown',e=>cevElMouseDown(e,edata,null));
+    cevBindElDrag(div, edata, null);
     cevAddAnchors(div, edata);
     inner.appendChild(div);
   }
@@ -4665,7 +4758,8 @@
     }
   });
 
-  el('cevCanvas').addEventListener('mousedown',e=>{
+  // named (not inline) so the touch listeners below can call the exact same logic with a synthetic event
+  function cevCanvasPointerDown(e){
     // fresh interaction on the canvas surface: clear the drag flag so a leftover
     // 'true' from a previous element move can't suppress the next shape-creation click
     cevDragMoved=false;
@@ -4693,7 +4787,8 @@
         e.preventDefault();
       }
     }
-  });
+  }
+  el('cevCanvas').addEventListener('mousedown', cevCanvasPointerDown);
 
   el('cevCanvas').addEventListener('wheel',e=>{
     e.preventDefault();
@@ -4703,7 +4798,52 @@
     cevApplyTransform();
   },{passive:false});
 
-  document.addEventListener('mousemove',e=>{
+  // touch: one finger reuses the exact mouse logic above via a synthetic event (marquee/create-drag/
+  // element move/resize all "just work"); two fingers pinch-zoom + pan, tracked independently
+  function cevSyntheticFromTouch(nativeEvent, t){
+    return { clientX:t.clientX, clientY:t.clientY, target:nativeEvent.target, button:0, shiftKey:false, preventDefault(){}, stopPropagation(){} };
+  }
+  let cevPinch=null;
+  function cevTouchDist(t1,t2){ const dx=t1.clientX-t2.clientX, dy=t1.clientY-t2.clientY; return Math.sqrt(dx*dx+dy*dy); }
+  function cevTouchMid(t1,t2){ return { x:(t1.clientX+t2.clientX)/2, y:(t1.clientY+t2.clientY)/2 }; }
+  el('cevCanvas').addEventListener('touchstart', e=>{
+    if(e.touches.length===2){
+      cevMarquee=null; cevCreating=null;
+      const box=el('cevMarqueeBox'); if(box) box.style.display='none';
+      const [t1,t2]=e.touches;
+      cevPinch={ startDist:cevTouchDist(t1,t2), startZoom:cevZoom, startPanX:cevPanE.x, startPanY:cevPanE.y, mid:cevTouchMid(t1,t2) };
+      e.preventDefault();
+      return;
+    }
+    if(e.touches.length!==1) return;
+    cevCanvasPointerDown(cevSyntheticFromTouch(e, e.touches[0]));
+    if(cevMarquee||cevCreating||cevSpacePanning) e.preventDefault();
+  }, {passive:false});
+  document.addEventListener('touchmove', e=>{
+    if(cevPinch && e.touches.length===2){
+      const [t1,t2]=e.touches;
+      const newZoom=Math.min(4, Math.max(0.15, cevPinch.startZoom*(cevTouchDist(t1,t2)/cevPinch.startDist)));
+      const rect2=el('cevCanvas').getBoundingClientRect();
+      const mx=cevPinch.mid.x-rect2.left, my=cevPinch.mid.y-rect2.top;
+      cevPanE.x=mx-(mx-cevPinch.startPanX)*(newZoom/cevPinch.startZoom);
+      cevPanE.y=my-(my-cevPinch.startPanY)*(newZoom/cevPinch.startZoom);
+      cevZoom=newZoom;
+      cevApplyTransform();
+      e.preventDefault();
+      return;
+    }
+    if(e.touches.length!==1) return;
+    if(!cevMarquee && !cevCreating && !cevGroupMove && !cevMoving && !cevResizing && !cevSpacePanning && !cevConnDrawing) return;
+    cevDocPointerMove(cevSyntheticFromTouch(e, e.touches[0]));
+    e.preventDefault();
+  }, {passive:false});
+  document.addEventListener('touchend', e=>{
+    if(cevPinch){ cevPinch=null; return; }
+    const t=e.changedTouches[0]; if(!t) return;
+    cevDocPointerUp(cevSyntheticFromTouch(e, t));
+  }, {passive:true});
+
+  function cevDocPointerMove(e){
     if(cevSpacePanning&&cevSpacePanStart){
       cevPanE.x=cevSpacePanStart.px+(e.clientX-cevSpacePanStart.mx);
       cevPanE.y=cevSpacePanStart.py+(e.clientY-cevSpacePanStart.my);
@@ -4799,9 +4939,10 @@
       cevPanE.x=cevPanStartE.px+(e.clientX-cevPanStartE.mx); cevPanE.y=cevPanStartE.py+(e.clientY-cevPanStartE.my);
       cevApplyTransform();
     }
-  });
+  }
+  document.addEventListener('mousemove', cevDocPointerMove);
 
-  document.addEventListener('mouseup',e=>{
+  function cevDocPointerUp(e){
     if(cevConnDrawing){
       const tgt=document.elementFromPoint(e.clientX,e.clientY);
       const tgtEl=tgt&&tgt.closest('[data-elid]');
@@ -4852,7 +4993,8 @@
       }
     }
     cevMoving=null; cevResizing=null; cevPanningE=false; cevPanStartE=null;
-  });
+  }
+  document.addEventListener('mouseup', cevDocPointerUp);
 
   el('cevDeleteBtn').addEventListener('click',()=>{
     if(cevSelectedIds.size){ cevDeleteSelection(); }
@@ -5429,6 +5571,35 @@
     const d=heroDrag; heroDrag=null;
     if(!d.moved) openNote(d.id); // treated as a click
   });
+  el('dashGraphSvg').addEventListener('touchstart', (e) => {
+    if(!dashSim || e.touches.length!==1) return;
+    const t=e.touches[0];
+    const p=heroClientToSvg(t.clientX, t.clientY); if(!p) return;
+    let best=null, bestD=Infinity;
+    dashSim.nodes.forEach(n=>{ const dx=n.x-p.x, dy=n.y-p.y, d=dx*dx+dy*dy; if(d<bestD){ bestD=d; best=n; } });
+    if(!best || bestD > 20*20) return;
+    heroDrag={ node:best, moved:false, id:best.src.id };
+    best.fixed=true;
+    el('dashGraphSvg').classList.add('grabbing');
+    e.preventDefault();
+  }, { passive:false });
+  el('dashGraphSvg').addEventListener('touchmove', (e) => {
+    if(!heroDrag || e.touches.length!==1) return;
+    const t=e.touches[0];
+    const p=heroClientToSvg(t.clientX, t.clientY); if(!p) return;
+    heroDrag.node.x=p.x; heroDrag.node.y=p.y; heroDrag.node.vx=0; heroDrag.node.vy=0;
+    heroDrag.moved=true;
+    dashReheat();
+    e.preventDefault();
+  }, { passive:false });
+  el('dashGraphSvg').addEventListener('touchend', () => {
+    if(!heroDrag) return;
+    heroDrag.node.fixed=false;
+    dashReheat();
+    el('dashGraphSvg').classList.remove('grabbing');
+    const d=heroDrag; heroDrag=null;
+    if(!d.moved) openNote(d.id);
+  }, { passive:true });
   el('dashHeroOpenBtn').addEventListener('click', () => openGlobalGraph());
 
   // re-run the hero simulation when its container changes size (window/panel resize)

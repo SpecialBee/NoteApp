@@ -1451,10 +1451,14 @@
     const ta = editorBox;
     const start = ta.selectionStart, end = ta.selectionEnd;
     const sel = ta.value.slice(start, end);
-    ta.value = ta.value.slice(0, start) + before + sel + after + ta.value.slice(end);
+    // keep leading whitespace (e.g. from indent) outside the wrap, so a line's
+    // indentation stays literal leading spaces instead of ending up inside the tag
+    const lead = sel.match(/^[ \t]*/)[0];
+    const core = sel.slice(lead.length);
+    ta.value = ta.value.slice(0, start) + lead + before + core + after + ta.value.slice(end);
     ta.focus();
-    ta.selectionStart = start + before.length;
-    ta.selectionEnd = start + before.length + sel.length;
+    ta.selectionStart = start + lead.length + before.length;
+    ta.selectionEnd = start + lead.length + before.length + core.length;
     ta.dispatchEvent(new Event('input'));
   }
 

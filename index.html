@@ -2609,8 +2609,11 @@
   function depthOf(id){
     let hash = 0;
     for(let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
-    // avalanche mix so similarly-suffixed ids (e.g. sequential ids) still spread across depth buckets
+    // avalanche mix so similarly-suffixed ids (e.g. sequential ids) still spread across depth buckets.
+    // XOR returns a signed int32, so the final XOR can flip the sign bit back on - force unsigned
+    // before the modulo, or a negative hash silently makes depthBucket() return undefined.
     hash ^= hash >>> 16; hash = Math.imul(hash, 0x45d9f3b) >>> 0; hash ^= hash >>> 16;
+    hash = hash >>> 0;
     return (hash % 1000) / 1000;
   }
   const DEPTH_BUCKETS = [
@@ -2619,7 +2622,7 @@
     { min:0.15, blurId:'gd2', scale:0.85, opacity:0.6  },
     { min:0,    blurId:'gd3', scale:0.72, opacity:0.42 },
   ];
-  function depthBucket(z){ return DEPTH_BUCKETS.find(b => z >= b.min); }
+  function depthBucket(z){ return DEPTH_BUCKETS.find(b => z >= b.min) || DEPTH_BUCKETS[DEPTH_BUCKETS.length-1]; }
 
   function applyGraphTransform(){
     const g = document.getElementById('graphViewport');

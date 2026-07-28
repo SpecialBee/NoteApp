@@ -1439,7 +1439,8 @@
       const t = line.trim();
       if(!t) return '';
       if(/^<(h1|h2|h3|h4|ul|ol|li|blockquote|pre|table|div|hr)/.test(t)) return t;
-      return '<p>' + t + '</p>';
+      const depth = Math.floor(line.match(/^[ \t]*/)[0].replace(/\t/g, '  ').length / 2);
+      return depth > 0 ? `<p style="margin-left:${depth * 22}px">${t}</p>` : '<p>' + t + '</p>';
     }).join('\n');
     return s || '<p style="color:var(--ink-faint);font-style:italic;">내용 없음</p>';
   }

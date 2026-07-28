@@ -808,6 +808,7 @@
         <span>전역 연결 그래프</span>
         <div class="graph-header-right">
           <label class="graph-toggle"><input type="checkbox" id="showIsolatedToggle"> 고립 카드 표시</label>
+          <label class="graph-toggle"><input type="checkbox" id="depth3dToggle"> 입체 효과</label>
           <button id="resetGraphViewBtn">보기 초기화</button>
           <button id="closeGraphBtn">← GRAPHIDEA로 돌아가기</button>
         </div>
@@ -2602,6 +2603,24 @@
     return TAG_PALETTE[hash % TAG_PALETTE.length];
   }
 
+  // fake-3D depth: each note gets a stable pseudo-random depth (0=far, 1=near) from
+  // its id, so the "layer" a note sits on doesn't shuffle every time the graph redraws
+  let depth3dEnabled = localStorage.getItem('cardCatalogDepth3d') !== '0'; // prototype: on by default, toggle off to compare
+  function depthOf(id){
+    let hash = 0;
+    for(let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+    // avalanche mix so similarly-suffixed ids (e.g. sequential ids) still spread across depth buckets
+    hash ^= hash >>> 16; hash = Math.imul(hash, 0x45d9f3b) >>> 0; hash ^= hash >>> 16;
+    return (hash % 1000) / 1000;
+  }
+  const DEPTH_BUCKETS = [
+    { min:0.70, blurId:'',    scale:1.15, opacity:1    },
+    { min:0.40, blurId:'gd1', scale:1.0,  opacity:0.82 },
+    { min:0.15, blurId:'gd2', scale:0.85, opacity:0.6  },
+    { min:0,    blurId:'gd3', scale:0.72, opacity:0.42 },
+  ];
+  function depthBucket(z){ return DEPTH_BUCKETS.find(b => z >= b.min); }
+
   function applyGraphTransform(){
     const g = document.getElementById('graphViewport');
     if(g) g.setAttribute('transform', `translate(${graphView.tx},${graphView.ty}) scale(${graphView.scale})`);
@@ -2676,23 +2695,32 @@
         x = W/2 + Math.cos(a) * R0 * (0.6 + 0.4*Math.random());
         y = H/2 + Math.sin(a) * R0 * (0.6 + 0.4*Math.random());
       }
-      return { src:m, id:m.id, r, x, y, vx:0, vy:0, fixed:false };
+      const z = depthOf(m.id), depth = depthBucket(z);
+      return { src:m, id:m.id, r, x, y, vx:0, vy:0, fixed:false, z, depthScale:depth.scale, depthOpacity:depth.opacity, blurId:depth.blurId };
     });
     const links = [];
     edges.forEach(([a,b]) => { if(idxOf[a]!=null && idxOf[b]!=null) links.push([idxOf[a], idxOf[b]]); });
 
-    let inner = '<g id="graphViewport"><g id="globalGraphLines">';
+    let inner = '<defs>'
+      + '<filter id="gd1" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="0.4"/></filter>'
+      + '<filter id="gd2" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="0.9"/></filter>'
+      + '<filter id="gd3" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="1.5"/></filter>'
+      + '</defs>';
+    inner += '<g id="graphViewport"><g id="globalGraphLines">';
     links.forEach(() => { inner += '<line></line>'; });
     inner += '</g><g id="globalGraphNodes">';
     const legendTags = new Set();
     let hasUntagged = false;
-    nodes.forEach(n => {
+    // farther nodes paint first (drawn behind), nearer nodes paint last (drawn on top)
+    const paintOrder = depth3dEnabled ? nodes.slice().sort((a,b) => a.z - b.z) : nodes;
+    paintOrder.forEach(n => {
       const src = n.src;
       const tag = src.tags && src.tags[0];
       if(tag) legendTags.add(tag); else hasUntagged = true;
       const fill = colorForTag(tag);
       const ring = src.pinned ? ` stroke="var(--ink)" stroke-width="2"` : '';
-      inner += `<g class="gnode" data-id="${n.id}">`;
+      const depthAttrs = depth3dEnabled ? ` opacity="${n.depthOpacity}"${n.blurId ? ` filter="url(#${n.blurId})"` : ''}` : '';
+      inner += `<g class="gnode" data-id="${n.id}"${depthAttrs}>`;
       inner += `<circle r="${n.r}" fill="${fill}"${ring}></circle>`;
       inner += `<text y="${-(n.r+7)}" text-anchor="middle">${escapeHtml((src.title||'').slice(0,18))}</text>`;
       inner += `</g>`;
@@ -2711,7 +2739,8 @@
     }
 
     const lineEls = [...globalGraphSvg.querySelectorAll('#globalGraphLines line')];
-    const nodeEls = [...globalGraphSvg.querySelectorAll('#globalGraphNodes .gnode')];
+    // looked up by id (not DOM order) since depth mode paints far-to-near, not nodes[] order
+    const nodeEls = nodes.map(n => globalGraphSvg.querySelector(`.gnode[data-id="${n.id}"]`));
 
     // live force simulation — same alpha-cooldown model as the dashboard hero graph
     const k = Math.sqrt((W*H) / Math.max(nodes.length, 1)) * 0.55;
@@ -2748,7 +2777,11 @@
         if(n.x<mx){n.x=mx;n.vx*=-0.3;} else if(n.x>W-mx){n.x=W-mx;n.vx*=-0.3;}
         if(n.y<my){n.y=my;n.vy*=-0.3;} else if(n.y>H-16){n.y=H-16;n.vy*=-0.3;}
       }
-      nodeEls.forEach((g,i) => { g.setAttribute('transform', `translate(${nodes[i].x.toFixed(1)},${nodes[i].y.toFixed(1)})`); });
+      nodeEls.forEach((g,i) => {
+        const n = nodes[i];
+        const scalePart = depth3dEnabled ? ` scale(${n.depthScale})` : '';
+        g.setAttribute('transform', `translate(${n.x.toFixed(1)},${n.y.toFixed(1)})${scalePart}`);
+      });
       lineEls.forEach((ln,i) => { const [a,b]=links[i]; ln.setAttribute('x1',nodes[a].x.toFixed(1)); ln.setAttribute('y1',nodes[a].y.toFixed(1)); ln.setAttribute('x2',nodes[b].x.toFixed(1)); ln.setAttribute('y2',nodes[b].y.toFixed(1)); });
 
       globalSim.frame++;
@@ -2780,6 +2813,12 @@
   el('showIsolatedToggle').onchange = (e) => {
     showIsolatedNodes = e.target.checked;
     localStorage.setItem('cardCatalogShowIsolated', showIsolatedNodes ? '1' : '0');
+    renderGlobalGraph();
+  };
+  el('depth3dToggle').checked = depth3dEnabled;
+  el('depth3dToggle').onchange = (e) => {
+    depth3dEnabled = e.target.checked;
+    localStorage.setItem('cardCatalogDepth3d', depth3dEnabled ? '1' : '0');
     renderGlobalGraph();
   };
 

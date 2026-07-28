@@ -259,7 +259,13 @@
   .backlink-item{ font-size:12.5px; color:var(--accent-hover); padding:6px 0; cursor:pointer; border-bottom:1px solid var(--border-soft); }
   .backlink-item:hover{ color:var(--accent); }
   .rp-empty{ font-size:11.5px; color:var(--ink-faint); font-style:italic; }
-  .tag-list{ display:flex; flex-wrap:wrap; gap:6px; }
+  .tag-list{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+  .tag-list .tagchip{ display:inline-flex; align-items:center; gap:5px; }
+  .tag-list .tagchip .x{ cursor:pointer; opacity:0.55; font-size:10px; line-height:1; }
+  .tag-list .tagchip .x:hover{ opacity:1; }
+  .rp-tag-add-input{ width:74px; min-width:0; border:none; outline:none; background:none; font-size:11px; color:var(--ink); font-family:var(--sans); padding:3px 2px; }
+  .rp-tag-add-input::placeholder{ color:var(--ink-faint); }
+  .rp-tag-add-input:focus{ width:110px; }
   .graphmini{ width:100%; height:150px; }
   .graphmini circle{ fill:var(--accent); }
   .graphmini circle.self{ fill:var(--ink); }
@@ -720,7 +726,9 @@
         <button class="newbtn-item" id="newNoteItem">📄 노트 카드</button>
         <button class="newbtn-item" id="newCanvasItem">🎨 캔버스 카드</button>
         <button class="newbtn-item" id="newTableItem">📊 시트 카드</button>
+        <button class="newbtn-item" id="importMdItem">📥 마크다운(.md) 불러오기</button>
       </div>
+      <input type="file" id="importMdFile" accept=".md,text/markdown" multiple style="display:none">
     </div>
     <div id="trashActionRow" style="display:none; gap:6px; flex-direction:column;">
       <button class="newbtn" id="backFromTrashBtn" style="background:var(--bg-card);color:var(--ink);border:1px solid var(--border);">← GRAPHIDEA로 돌아가기</button>
@@ -1783,6 +1791,35 @@
     el('propSection').style.display = 'none';
   }
 
+  // writes a note's tag list from the right panel, regardless of which editor (if any) is open.
+  // normal notes route through the top tag-chip UI's own save path so the two stay in sync;
+  // canvas/table notes have no other tag UI, so flush their pending edits first and write directly
+  // (avoids pushing a stale note.content while a debounced cev/tev save is still pending).
+  async function rpSetNoteTags(note, newTags){
+    if(!isCanvasNote(note) && !isTableNote(note)){
+      currentManualTags = newTags;
+      note.tags = newTags;
+      renderTagChips();
+      queueSave();
+      renderRightPane(note);
+      return;
+    }
+    if(tevCurrentNoteId === note.id) tevFlushSave();
+    if(cevCurrentNoteId === note.id) cevFlushSave();
+    note.tags = newTags;
+    await updateNote(note);
+    computeAllTags(); renderTagRow(); renderCardList();
+    renderRightPane(note);
+  }
+  function rpAddTag(note, raw){
+    const t = raw.trim().replace(/^#/, '');
+    if(!t || (note.tags||[]).includes(t)) return;
+    rpSetNoteTags(note, [...(note.tags||[]), t]);
+  }
+  function rpRemoveTag(note, t){
+    rpSetNoteTags(note, (note.tags||[]).filter(x => x !== t));
+  }
+
   function renderRightPane(note){
     const back = index.filter(m => m.id !== note.id && (m.links||[]).some(l => l.toLowerCase() === (note.title||'').toLowerCase()));
     backlinkList.innerHTML = '';
@@ -1800,17 +1837,31 @@
       });
     }
     tagList.innerHTML = '';
-    if(!note.tags || note.tags.length === 0){
-      tagList.innerHTML = '<span class="rp-empty">태그 없음</span>';
-    }else{
-      note.tags.forEach(t => {
-        const chip = document.createElement('span');
-        chip.className = 'tagchip';
-        chip.textContent = '#' + t;
-        chip.onclick = () => { activeTagFilter = t; renderTagRow(); renderCardList(); };
-        tagList.appendChild(chip);
-      });
-    }
+    (note.tags||[]).forEach(t => {
+      const chip = document.createElement('span');
+      chip.className = 'tagchip';
+      const label = document.createElement('span');
+      label.textContent = '#' + t;
+      label.onclick = () => { activeTagFilter = t; renderTagRow(); renderCardList(); };
+      const x = document.createElement('span');
+      x.className = 'x'; x.textContent = '✕'; x.title = '태그 제거';
+      x.onclick = (e) => { e.stopPropagation(); rpRemoveTag(note, t); };
+      chip.appendChild(label); chip.appendChild(x);
+      tagList.appendChild(chip);
+    });
+    const addInput = document.createElement('input');
+    addInput.className = 'rp-tag-add-input';
+    addInput.placeholder = '+ 태그 추가';
+    addInput.autocomplete = 'off';
+    addInput.addEventListener('keydown', e => {
+      if(e.key === 'Enter' || e.key === ','){
+        e.preventDefault();
+        const v = addInput.value;
+        addInput.value = '';
+        if(v.trim()) rpAddTag(note, v);
+      }
+    });
+    tagList.appendChild(addInput);
     drawGraph(note);
     el('propSection').style.display = 'block';
     renderPropertiesPane(note);
@@ -3032,7 +3083,25 @@
   let cevGroupMove = null;        // { startMX,startMY, origins:[{id,x,y}] } during multi-drag
   let cevHistory = [];
   let cevHistoryIdx = -1;
+  let cevCreating = null;         // { tool, x0, y0, el } while dragging out a new shape's size
   const CEV_GRID = 24;
+  const CEV_CREATE_DRAG_TYPES = new Set(['sticky','rect','circle','diamond','section']); // shapes drawable by drag; text/card stay click-to-place
+
+  // a click (or the start point of a create-drag) becomes a shape at its default size;
+  // create-drag then grows/shrinks it from there (see cevCreating handling below)
+  function cevMakeShapeAt(tool, x, y){
+    if(tool==='sticky') return {id:cevGenId('s'),type:'sticky',x:x-100,y:y-80,w:200,h:160,color:'#FFE066',text:''};
+    if(tool==='rect') return {id:cevGenId('r'),type:'rect',x:x-90,y:y-50,w:180,h:100,color:'#E8E8E8',text:''};
+    if(tool==='circle') return {id:cevGenId('c'),type:'circle',x:x,y:y,r:60,color:'#E8E8E8',text:''};
+    if(tool==='diamond') return {id:cevGenId('d'),type:'diamond',x:x-50,y:y-50,w:100,h:100,color:'#E8E8E8',text:''};
+    if(tool==='text') return {id:cevGenId('t'),type:'text',x:x,y:y,w:120,h:30,color:'',text:'텍스트'};
+    if(tool==='section'){
+      const colorIdx=cevElements.filter(e=>e.type==='section').length % SEC_COLORS.length;
+      return {id:cevGenId('sec'),type:'section',x:x-150,y:y-100,w:300,h:200,label:'섹션',color:SEC_COLORS[colorIdx]};
+    }
+    if(tool==='card') return {id:cevGenId('card'),type:'card',x:x-100,y:y-44,w:200,h:88,color:undefined,noteId:null};
+    return null;
+  }
 
   function cevGenId(prefix){ return prefix + (++cevIdCounter) + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
   function isCanvasNote(note){ return (note.content||'').trimStart().startsWith('```canvas'); }
@@ -3194,6 +3263,8 @@
       typeBadge.addEventListener('click', e => {
         e.stopPropagation();
         const oldType = col.type;
+        const hasData = data.rows.some(row => { const v = row.cells[col.id]; return v !== '' && v != null && v !== false; });
+        if(hasData && !confirm('열 타입을 바꾸면 기존 값 일부가 변환되거나 사라질 수 있습니다. 계속할까요?')) return;
         col.type = TEV_TYPES[(TEV_TYPES.indexOf(col.type)+1) % TEV_TYPES.length];
         if(col.type==='checkbox'){
           data.rows.forEach(row => { row.cells[col.id] = !!row.cells[col.id] && row.cells[col.id]!=='false'; });
@@ -3215,10 +3286,7 @@
       delBtn.title = '열 삭제';
       delBtn.addEventListener('click', e => {
         e.stopPropagation();
-        data.columns = data.columns.filter(c => c.id !== col.id);
-        data.rows.forEach(row => { delete row.cells[col.id]; });
-        if(tevSortCol===col.id) tevSortCol = null;
-        tevSaveDebounced(); renderTableEditor();
+        tevDeleteColumn(col.id);
       });
 
       inner.appendChild(sortBtn);
@@ -3267,10 +3335,7 @@
       rowDelBtn.className = 'tev-row-del';
       rowDelBtn.textContent = '×';
       rowDelBtn.title = '행 삭제';
-      rowDelBtn.addEventListener('click', () => {
-        data.rows = data.rows.filter(r => r.id !== row.id);
-        tevSaveDebounced(); renderTableEditor();
-      });
+      rowDelBtn.addEventListener('click', () => tevDeleteRow(row.id));
       tdDel.appendChild(rowDelBtn);
       tr.appendChild(tdDel);
 
@@ -3418,12 +3483,14 @@
     tevSaveDebounced(); renderTableEditor();
   }
   function tevDeleteColumn(colId){
+    if(!confirm('이 열을 삭제할까요? 열의 모든 값이 함께 삭제되며 되돌릴 수 없습니다.')) return;
     tevData.columns = tevData.columns.filter(c => c.id !== colId);
     tevData.rows.forEach(row => { delete row.cells[colId]; });
     if(tevSortCol===colId) tevSortCol = null;
     tevSaveDebounced(); renderTableEditor();
   }
   function tevDeleteRow(rowId){
+    if(!confirm('이 행을 삭제할까요? 되돌릴 수 없습니다.')) return;
     tevData.rows = tevData.rows.filter(r => r.id !== rowId);
     tevSaveDebounced(); renderTableEditor();
   }
@@ -4276,6 +4343,7 @@
       div.classList.add('cev-rect'); div.style.background=edata.color||'var(--bg-card)'; div.style.borderColor=cevShadeColor(edata.color||'#E0E0E0',-40);
       const lbl=document.createElement('div'); lbl.className='cev-shape-label'; lbl.contentEditable='false'; lbl.style.pointerEvents='none'; lbl.textContent=edata.text||'';
       cevApplyTextStyle(lbl, edata);
+      if(!edata.textColor) lbl.style.color = edata.color ? '#3D3929' : ''; // fixed pastel fill needs fixed dark text, even in dark mode
       lbl.addEventListener('input',()=>{ edata.text=lbl.textContent; cevSaveDebounced(); });
       lbl.addEventListener('blur',()=>{ lbl.contentEditable='false'; lbl.style.pointerEvents='none'; cevSnapshot(); });
       div.addEventListener('dblclick',e=>{ if(edata.locked) return; e.stopPropagation(); lbl.contentEditable='true'; lbl.style.pointerEvents='auto'; lbl.focus(); const r=document.createRange(); r.selectNodeContents(lbl); const s=window.getSelection(); s.removeAllRanges(); s.addRange(r); });
@@ -4288,6 +4356,7 @@
       div.classList.add('cev-circle'); div.style.background=edata.color||'var(--bg-card)'; div.style.borderColor=cevShadeColor(edata.color||'#E0E0E0',-40);
       const lbl=document.createElement('div'); lbl.className='cev-shape-label'; lbl.contentEditable='false'; lbl.style.pointerEvents='none'; lbl.textContent=edata.text||'';
       cevApplyTextStyle(lbl, edata);
+      if(!edata.textColor) lbl.style.color = edata.color ? '#3D3929' : '';
       lbl.addEventListener('input',()=>{ edata.text=lbl.textContent; cevSaveDebounced(); });
       lbl.addEventListener('blur',()=>{ lbl.contentEditable='false'; lbl.style.pointerEvents='none'; cevSnapshot(); });
       div.addEventListener('dblclick',e=>{ if(edata.locked) return; e.stopPropagation(); lbl.contentEditable='true'; lbl.style.pointerEvents='auto'; lbl.focus(); const rng=document.createRange(); rng.selectNodeContents(lbl); const s=window.getSelection(); s.removeAllRanges(); s.addRange(rng); });
@@ -4302,6 +4371,7 @@
       inner_d.style.cssText=`width:${w*0.707}px;height:${h*0.707}px;transform:rotate(45deg);background:${edata.color||'var(--bg-card)'};border-color:${cevShadeColor(edata.color||'#E0E0E0',-40)};`;
       const lbl=document.createElement('div'); lbl.className='cev-shape-label'; lbl.style.transform='rotate(-45deg)'; lbl.contentEditable='false'; lbl.style.pointerEvents='none'; lbl.textContent=edata.text||'';
       cevApplyTextStyle(lbl, edata);
+      if(!edata.textColor) lbl.style.color = edata.color ? '#3D3929' : '';
       lbl.addEventListener('input',()=>{ edata.text=lbl.textContent; cevSaveDebounced(); });
       lbl.addEventListener('blur',()=>{ lbl.contentEditable='false'; lbl.style.pointerEvents='none'; cevSnapshot(); });
       div.addEventListener('dblclick',e=>{ if(edata.locked) return; e.stopPropagation(); lbl.contentEditable='true'; lbl.style.pointerEvents='auto'; lbl.focus(); });
@@ -4496,17 +4566,7 @@
     }
     const rect2=el('cevCanvas').getBoundingClientRect();
     const x=cevSnapVal((e.clientX-rect2.left-cevPanE.x)/cevZoom),y=cevSnapVal((e.clientY-rect2.top-cevPanE.y)/cevZoom);
-    let newEl=null;
-    if(cevTool==='sticky') newEl={id:cevGenId('s'),type:'sticky',x:x-100,y:y-80,w:200,h:160,color:'#FFE066',text:''};
-    else if(cevTool==='rect') newEl={id:cevGenId('r'),type:'rect',x:x-90,y:y-50,w:180,h:100,color:'#E8E8E8',text:''};
-    else if(cevTool==='circle') newEl={id:cevGenId('c'),type:'circle',x:x,y:y,r:60,color:'#E8E8E8',text:''};
-    else if(cevTool==='diamond') newEl={id:cevGenId('d'),type:'diamond',x:x-50,y:y-50,w:100,h:100,color:'#E8E8E8',text:''};
-    else if(cevTool==='text') newEl={id:cevGenId('t'),type:'text',x:x,y:y,w:120,h:30,color:'',text:'텍스트'};
-    else if(cevTool==='section'){
-      const colorIdx=cevElements.filter(e=>e.type==='section').length % SEC_COLORS.length;
-      newEl={id:cevGenId('sec'),type:'section',x:x-150,y:y-100,w:300,h:200,label:'섹션',color:SEC_COLORS[colorIdx]};
-    }
-    else if(cevTool==='card') newEl={id:cevGenId('card'),type:'card',x:x-100,y:y-44,w:200,h:88,color:undefined,noteId:null};
+    const newEl=cevMakeShapeAt(cevTool, x, y);
     if(newEl){
       cevElements.push(newEl);
       cevTool='select'; updateCevToolButtons();
@@ -4533,6 +4593,13 @@
         const x=(e.clientX-rect2.left-cevPanE.x)/cevZoom, y=(e.clientY-rect2.top-cevPanE.y)/cevZoom;
         cevMarquee={x0:x,y0:y,addMode:e.shiftKey,base:e.shiftKey?new Set(cevSelectedIds):new Set()};
         const box=el('cevMarqueeBox'); if(box){ box.style.display='block'; box.style.left=x+'px'; box.style.top=y+'px'; box.style.width='0px'; box.style.height='0px'; }
+        e.preventDefault();
+      } else if(CEV_CREATE_DRAG_TYPES.has(cevTool)){
+        // empty-canvas drag with a shape tool = draw the shape at drag size (a plain click still
+        // falls through to the 'click' handler above and creates it at the default fixed size)
+        const rect2=el('cevCanvas').getBoundingClientRect();
+        const x=(e.clientX-rect2.left-cevPanE.x)/cevZoom, y=(e.clientY-rect2.top-cevPanE.y)/cevZoom;
+        cevCreating={tool:cevTool, x0:x, y0:y, el:null};
         e.preventDefault();
       }
     }
@@ -4575,6 +4642,32 @@
       const inner=el('cevInner');
       inner.querySelectorAll('.cev-el').forEach(d=>d.classList.toggle('selected', hit.has(d.dataset.elid)));
       cevMarquee.current=hit;
+      return;
+    }
+    if(cevCreating){
+      const cr=el('cevCanvas').getBoundingClientRect();
+      const mx=(e.clientX-cr.left-cevPanE.x)/cevZoom, my=(e.clientY-cr.top-cevPanE.y)/cevZoom;
+      const dx=mx-cevCreating.x0, dy=my-cevCreating.y0;
+      if(!cevCreating.el){
+        if(Math.abs(dx)<4 && Math.abs(dy)<4) return; // still within click tolerance
+        cevDragMoved=true;
+        const newEl=cevMakeShapeAt(cevCreating.tool, cevCreating.x0, cevCreating.y0);
+        if(!newEl){ cevCreating=null; return; }
+        cevCreating.el=newEl;
+        cevElements.push(newEl);
+        cevRenderAll();
+      }
+      const edata=cevCreating.el;
+      if(edata.type==='circle'){
+        edata.x=cevSnapVal(cevCreating.x0); edata.y=cevSnapVal(cevCreating.y0);
+        edata.r=Math.max(20, Math.sqrt(dx*dx+dy*dy));
+      } else {
+        const x0=cevCreating.x0, y0=cevCreating.y0;
+        const minW=edata.type==='section'?80:60, minH=edata.type==='section'?60:40;
+        edata.x=cevSnapVal(Math.min(x0,mx)); edata.y=cevSnapVal(Math.min(y0,my));
+        edata.w=Math.max(minW, Math.abs(mx-x0)); edata.h=Math.max(minH, Math.abs(my-y0));
+      }
+      cevUpdateElPos(edata); cevUpdateElSize(edata); cevRebuildSvg();
       return;
     }
     if(cevGroupMove){
@@ -4643,6 +4736,15 @@
       cevSelectMany(ids);
       cevPanningE=false; cevPanStartE=null;
       return;
+    }
+    if(cevCreating){
+      if(cevCreating.el){
+        cevSelectElement(cevCreating.el.id);
+        cevCommit();
+        cevTool='select'; updateCevToolButtons();
+      }
+      cevCreating=null;
+      return; // if el is null (no drag past threshold), fall through to the plain 'click' handler
     }
     if(cevSpacePanning){ cevSpacePanning=false; el('cevCanvas').style.cursor=cevSpaceDown?'grab':(cevTool==='select'?'default':'crosshair'); }
     if(cevGroupMove){
@@ -4761,6 +4863,30 @@
   }
   el('newCanvasItem').addEventListener('click',()=>{ el('newBtnMenu').style.display='none'; createCanvasNote(); });
   el('newTableItem').addEventListener('click',()=>{ el('newBtnMenu').style.display='none'; createTableNote(); });
+
+  async function importMarkdownFiles(files){
+    const list = [...files].filter(f => /\.md$/i.test(f.name) || f.type==='text/markdown');
+    if(!list.length) return;
+    let lastCreated = null, count = 0;
+    for(const file of list){
+      const text = await file.text();
+      const title = file.name.replace(/\.md$/i, '').trim() || '제목 없음';
+      const draft = { title, content:text, tags:extractTags(text), links:extractLinks(text), pinned:false, properties:[] };
+      const created = await insertNote(draft);
+      if(!created) continue;
+      index.unshift(created); lastCreated = created; count++;
+    }
+    if(!count){ showToast('불러온 파일이 없습니다'); return; }
+    computeAllTags(); renderTagRow(); renderCardList();
+    if(lastCreated) await openNote(lastCreated.id);
+    showToast(`마크다운 카드 ${count}개를 불러왔습니다`);
+  }
+  el('importMdItem').addEventListener('click',()=>{ el('newBtnMenu').style.display='none'; el('importMdFile').click(); });
+  el('importMdFile').addEventListener('change', async (e) => {
+    const files = e.target.files;
+    e.target.value = '';
+    if(files && files.length) await importMarkdownFiles(files);
+  });
   el('databaseBtn').addEventListener('click',()=>openDatabaseView());
   el('dbViewExitBtn').addEventListener('click',()=>exitDatabaseView());
   el('dbViewTagSelect').addEventListener('change',()=>{

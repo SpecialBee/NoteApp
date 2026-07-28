@@ -117,10 +117,11 @@
   @media (max-width: 900px){ .app.ready{ grid-template-columns: 240px 1fr; } .rightpane{ display:none; } #resizeLeft, #resizeRight{ display:none; } }
   @media (max-width: 640px){
     .app.ready{ grid-template-columns: 1fr; }
-    .sidebar{ display:none; }
-    .app.show-sidebar .sidebar{ display:flex; position:fixed; z-index:20; height:100vh; }
+    .app .sidebar{ display:none; } /* higher specificity than the base .sidebar{display:flex} so it actually wins */
+    .app.show-sidebar .sidebar{ display:flex; position:fixed; z-index:20; height:100vh; width:min(85vw,320px); box-shadow:2px 0 16px rgba(0,0,0,0.18); }
     .rightpane{ display:none; }
     #resizeLeft, #resizeRight{ display:none; }
+    .app .mobile-topbar{ display:flex; } /* higher specificity than the base .mobile-topbar{display:none} so it actually wins */
   }
 
   .sidebar{ background:var(--bg-panel); display:flex; flex-direction:column; border-right:1px solid var(--border); min-height:0; overflow:hidden; }
@@ -183,6 +184,9 @@
   .toolbar{ display:flex; align-items:center; gap:6px; padding:10px 16px; border-bottom:1px solid var(--border-soft); flex-wrap:wrap; min-height:0; }
   .toolbar button.mobonly{ display:none; background:none;border:none;color:var(--ink);font-size:18px;cursor:pointer;flex-shrink:0; }
   @media (max-width:640px){ .toolbar button.mobonly{ display:block; } }
+  /* fallback way back to the sidebar on mobile, for every view that doesn't have its own toolbar (canvas/table/graph/dashboard/database) */
+  .mobile-topbar{ display:none; align-items:center; padding:8px 14px; border-bottom:1px solid var(--border-soft); flex-shrink:0; }
+  .mobile-topbar button{ background:none; border:none; color:var(--ink); font-size:18px; cursor:pointer; padding:2px 4px; }
   .toolbar .submeta{ font-size:11px; color:var(--ink-faint); margin-left:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; flex-shrink:1; max-width:30%; }
   .toolbar .modebtn{ font-family:var(--sans); font-size:12px; font-weight:600; letter-spacing:0.1px; background:var(--bg-panel); color:var(--ink-soft); border:1px solid var(--border); border-radius:20px; padding:5px 13px; cursor:pointer; transition:transform .1s ease; flex-shrink:0; white-space:nowrap; }
   .toolbar .modebtn.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
@@ -775,6 +779,9 @@
       <button class="pinbtn" id="cardColorBtn" title="카드 색상 변경">🎨</button>
       <button class="pinbtn" id="pinBtn">☆ 고정</button>
       <button class="pinbtn" id="delBtn" style="color:var(--danger);border-color:var(--danger-soft);">삭제</button>
+    </div>
+    <div class="mobile-topbar" id="mobileTopbar">
+      <button id="mobSidebarBtn" title="메뉴">☰</button>
     </div>
 
     <div id="emptyMain" class="emptymain">
@@ -2159,6 +2166,10 @@
     if(confirm(`"${note.title || '제목 없음'}" 카드를 삭제할까요? 되돌릴 수 없습니다.`)) await removeNote(currentId);
   };
   el('mobToggle').onclick = () => { appEl.classList.toggle('show-sidebar'); };
+  el('mobSidebarBtn').onclick = () => { appEl.classList.toggle('show-sidebar'); };
+  // inline grid-template-columns doesn't react to viewport changes on its own (see applyPanelState)
+  let panelResizeT = null;
+  window.addEventListener('resize', () => { clearTimeout(panelResizeT); panelResizeT = setTimeout(applyPanelState, 100); });
   el('trashBtn').onclick = async () => { await flushSave(); await loadTrash(); enterTrashView(); };
   el('backFromTrashBtn').onclick = () => exitTrashView();
   el('emptyTrashBtn').onclick = () => emptyTrash();
@@ -2268,9 +2279,12 @@
   function showView(name){
     const def = VIEW_DEF[name] || VIEW_DEF.empty;
     currentView = name;
+    appEl.classList.remove('show-sidebar'); // any navigation closes the mobile sidebar overlay, if open
     MAINPANE_IDS.forEach(id => { const e = el(id); if(e && id!==def.show) e.style.display='none'; });
     const target = el(def.show); if(target) target.style.display = def.disp;
     toolbar.style.display = def.toolbar ? 'flex' : 'none';
+    // the note toolbar already has its own mobile menu button; every other view leans on this shared one
+    el('mobileTopbar').style.display = def.toolbar ? 'none' : '';
     appEl.classList.toggle('dashboard-mode', !!def.dash);
     appEl.classList.toggle('trash-mode', !!def.trash);
     showingTrash = !!def.trash;
@@ -2283,22 +2297,33 @@
 
   function applyPanelState(){
     const rpApplicable = !!(VIEW_DEF[currentView] && VIEW_DEF[currentView].rightpane);
+    // grid-template-columns is set inline below (inline always beats CSS/media-query rules), so the
+    // breakpoints have to be read here in JS too, or the mobile/tablet CSS gets silently overridden
+    const w = window.innerWidth;
+    const mobile = w <= 640;   // single column; sidebar becomes a fixed overlay (pure CSS, see .show-sidebar)
+    const narrow = w <= 900;   // includes mobile; rightpane never fits here regardless of user preference
 
     // Rightpane: only exists for views that declare it; user collapse is remembered
-    const rHidden = !rpApplicable || rightpaneCollapsed;
+    const rHidden = narrow || !rpApplicable || rightpaneCollapsed;
     el('rightpane').style.display        = rHidden ? 'none' : '';
-    el('resizeRight').style.display      = rHidden ? 'none' : '';
-    el('rightpaneShowTab').style.display = (rpApplicable && rightpaneCollapsed) ? 'flex' : 'none';
-    el('rightpaneToggleBtn').style.display = (rpApplicable && !rightpaneCollapsed) ? 'flex' : 'none';
+    el('resizeRight').style.display      = (narrow || rHidden) ? 'none' : '';
+    el('rightpaneShowTab').style.display = (!narrow && rpApplicable && rightpaneCollapsed) ? 'flex' : 'none';
+    el('rightpaneToggleBtn').style.display = (!narrow && rpApplicable && !rightpaneCollapsed) ? 'flex' : 'none';
 
     // Grid template (inline style is the single authority; overrides any CSS class rules)
-    const sw = 'var(--sidebar-w, 280px)';
-    if(!rpApplicable){
-      appEl.style.gridTemplateColumns = `${sw} 5px minmax(0,1fr)`;
+    if(mobile){
+      appEl.style.gridTemplateColumns = '1fr';
+    } else if(narrow){
+      appEl.style.gridTemplateColumns = '240px 1fr';
     } else {
-      const rw = rHidden ? '0px' : 'var(--rightpane-w, 260px)';
-      const rr = rHidden ? '0px' : '5px';
-      appEl.style.gridTemplateColumns = `${sw} 5px minmax(0,1fr) ${rr} ${rw}`;
+      const sw = 'var(--sidebar-w, 280px)';
+      if(!rpApplicable){
+        appEl.style.gridTemplateColumns = `${sw} 5px minmax(0,1fr)`;
+      } else {
+        const rw = rHidden ? '0px' : 'var(--rightpane-w, 260px)';
+        const rr = rHidden ? '0px' : '5px';
+        appEl.style.gridTemplateColumns = `${sw} 5px minmax(0,1fr) ${rr} ${rw}`;
+      }
     }
 
     localStorage.setItem('stk-rl', rightpaneCollapsed ? '1' : '0');

@@ -236,7 +236,7 @@
   .preview ul ul, .preview ul ol, .preview ol ul, .preview ol ol{ margin:6px 0 0 22px; }
   .preview strong{ color:var(--ink); font-weight:700; }
   .preview del{ color:var(--ink-faint); }
-  .preview mark{ background:var(--accent-soft); color:var(--ink); padding:0 2px; border-radius:3px; }
+  .preview mark{ background:var(--mark-bg, var(--accent-soft)); color:var(--ink); padding:0 2px; border-radius:3px; }
   .preview blockquote{ margin:0 0 16px 0; padding:2px 16px; border-left:3px solid var(--accent); color:var(--ink-soft); font-style:italic; }
   .preview code{ background:var(--border-soft); padding:2px 6px; border-radius:5px; font-family:var(--mono); font-size:14px; }
   .preview pre{ background:var(--code-bg); color:var(--code-ink); padding:14px 16px; border-radius:8px; overflow-x:auto; margin:0 0 16px 0; }
@@ -507,6 +507,19 @@
   .guide-modal-close { font-family:var(--sans); font-size:15px; background:none; border:none; color:var(--ink-faint); cursor:pointer; padding:4px 8px; border-radius:6px; }
   .guide-modal-close:hover { color:var(--ink); background:var(--bg-panel); }
   .guide-modal-body { overflow-y:auto; padding:8px 24px 24px 24px; }
+  .settings-section { padding:16px 0; border-bottom:1px solid var(--border-soft); }
+  .settings-section:last-child { border-bottom:none; padding-bottom:4px; }
+  .settings-label { font-size:13px; font-weight:700; color:var(--ink); margin-bottom:10px; }
+  .settings-swatches { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+  .settings-swatch { width:26px; height:26px; border-radius:50%; border:2px solid transparent; cursor:pointer; padding:0; box-shadow:inset 0 0 0 1px rgba(0,0,0,0.08); }
+  .settings-swatch.active { border-color:var(--ink); }
+  .settings-row { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .settings-custom-color { display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--ink-soft); cursor:pointer; }
+  .settings-custom-color input[type=color] { width:26px; height:26px; padding:0; border:1px solid var(--border); border-radius:50%; cursor:pointer; background:none; }
+  .settings-reset { font-family:var(--sans); font-size:12px; font-weight:500; color:var(--ink-faint); background:none; border:1px solid var(--border); border-radius:6px; padding:5px 10px; cursor:pointer; }
+  .settings-reset:hover { color:var(--ink); border-color:var(--accent); }
+  .settings-select { font-family:var(--sans); font-size:13px; padding:7px 10px; border:1px solid var(--border); border-radius:7px; background:var(--bg-card); color:var(--ink); outline:none; cursor:pointer; width:100%; }
+  .settings-select:focus { border-color:var(--accent); }
   .dbview-tag-label { font-size:12px; color:var(--ink-soft); font-weight:600; }
   .dbview-tag-select { font-family:var(--sans); font-size:13px; padding:5px 8px; border:1px solid var(--border); border-radius:7px; background:var(--bg-card); color:var(--ink); outline:none; cursor:pointer; }
   .dbview-tag-select:focus { border-color:var(--accent); }
@@ -741,6 +754,7 @@
         <button class="logout" id="dashboardBtn" style="font-weight:700;">대시보드</button>
         <button class="logout" id="guideBtn" title="사용법 보기">?</button>
         <button class="logout" id="themeToggleBtn" title="다크 모드 전환">🌙</button>
+        <button class="logout" id="settingsBtn" title="설정">⚙️</button>
         <button class="logout" id="logoutBtn">로그아웃</button>
       </div>
     </div>
@@ -1029,6 +1043,37 @@
   </div>
 </div>
 
+<div id="settingsModal" class="guide-modal">
+  <div class="guide-modal-box" style="width:min(440px,100%);">
+    <div class="guide-modal-head">
+      <span class="guide-modal-title">⚙️ 설정</span>
+      <button class="guide-modal-close" id="settingsModalClose" title="닫기">✕</button>
+    </div>
+    <div class="guide-modal-body">
+      <div class="settings-section">
+        <div class="settings-label">테마 색상</div>
+        <div class="settings-swatches" id="accentSwatches"></div>
+        <div class="settings-row">
+          <label class="settings-custom-color">커스텀 <input type="color" id="accentCustom"></label>
+          <button class="settings-reset" id="accentReset">기본값</button>
+        </div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-label">글꼴</div>
+        <select class="settings-select" id="fontSelect"></select>
+      </div>
+      <div class="settings-section">
+        <div class="settings-label">마크다운 하이라이트 색상</div>
+        <div class="settings-swatches" id="markSwatches"></div>
+        <div class="settings-row">
+          <label class="settings-custom-color">커스텀 <input type="color" id="markCustom"></label>
+          <button class="settings-reset" id="markReset">기본값</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <button class="panel-show-tab collapse" id="rightpaneToggleBtn" title="패널 접기">›</button>
 <button class="panel-show-tab right" id="rightpaneShowTab" title="패널 열기">‹</button>
 
@@ -1202,9 +1247,101 @@
     document.documentElement.dataset.theme = theme;
     localStorage.setItem('cardCatalogTheme', theme);
     el('themeToggleBtn').textContent = theme === 'dark' ? '☀️' : '🌙';
+    // accent-hover/soft are mixed against black/white differently per theme, so re-derive them
+    applyAccentColor(localStorage.getItem('stk-accent-color') || '');
   }
   setTheme(document.documentElement.dataset.theme || 'light');
   el('themeToggleBtn').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+
+  // ---------------- appearance settings (accent color / font / highlight color) ----------------
+  const ACCENT_PRESETS = ['#D97757','#4C7EFF','#6B8F52','#B3483A','#8E6CC7','#3AA6A6','#C79A3A','#565B66'];
+  const MARK_PRESETS = ['#FDE68A','#BBF7D0','#FBCFE8','#BFDBFE','#FED7AA','#E9D5FF'];
+  const FONT_OPTIONS = [
+    { label: '기본 (Inter)', value: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
+    { label: '시스템 UI', value: "-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif" },
+    { label: '맑은 고딕', value: "'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif" },
+    { label: '바탕 (명조체)', value: "'Batang', 'Apple SD Gothic Neo', Georgia, serif" },
+    { label: '고정폭', value: "Consolas, Menlo, 'D2Coding', monospace" },
+  ];
+
+  function hexToRgb(hex){
+    const n = parseInt(hex.replace('#',''), 16);
+    return [(n>>16)&255, (n>>8)&255, n&255];
+  }
+  function mixHex(hexA, hexB, weightB){
+    const a = hexToRgb(hexA), b = hexToRgb(hexB);
+    const rgb = a.map((c,i) => Math.round(c + (b[i]-c) * weightB));
+    return '#' + rgb.map(c => c.toString(16).padStart(2,'0')).join('');
+  }
+
+  function applyAccentColor(hex){
+    const root = document.documentElement.style;
+    if(!hex){
+      root.removeProperty('--accent');
+      root.removeProperty('--accent-hover');
+      root.removeProperty('--accent-soft');
+      return;
+    }
+    const dark = document.documentElement.dataset.theme === 'dark';
+    root.setProperty('--accent', hex);
+    root.setProperty('--accent-hover', mixHex(hex, dark ? '#ffffff' : '#000000', 0.16));
+    root.setProperty('--accent-soft', mixHex(hex, dark ? '#000000' : '#ffffff', dark ? 0.72 : 0.86));
+  }
+
+  function applyMarkColor(hex){
+    if(hex) document.documentElement.style.setProperty('--mark-bg', hex);
+    else document.documentElement.style.removeProperty('--mark-bg');
+  }
+
+  function applyFont(stack){
+    if(stack) document.documentElement.style.setProperty('--sans', stack);
+    else document.documentElement.style.removeProperty('--sans');
+  }
+
+  function renderSwatches(container, presets, current, onPick){
+    container.innerHTML = '';
+    presets.forEach(hex => {
+      const btn = document.createElement('button');
+      btn.className = 'settings-swatch' + (current === hex ? ' active' : '');
+      btn.style.background = hex;
+      btn.title = hex;
+      btn.onclick = () => onPick(hex);
+      container.appendChild(btn);
+    });
+  }
+
+  function refreshSettingsUI(){
+    const accent = localStorage.getItem('stk-accent-color') || '';
+    const mark = localStorage.getItem('stk-mark-color') || '';
+    const font = localStorage.getItem('stk-font') || '';
+    renderSwatches(el('accentSwatches'), ACCENT_PRESETS, accent, hex => { localStorage.setItem('stk-accent-color', hex); applyAccentColor(hex); refreshSettingsUI(); });
+    renderSwatches(el('markSwatches'), MARK_PRESETS, mark, hex => { localStorage.setItem('stk-mark-color', hex); applyMarkColor(hex); refreshSettingsUI(); });
+    el('accentCustom').value = accent || ACCENT_PRESETS[0];
+    el('markCustom').value = mark || MARK_PRESETS[0];
+    el('fontSelect').innerHTML = FONT_OPTIONS.map((f,i) => `<option value="${i}"${f.value===font ? ' selected' : ''}>${f.label}</option>`).join('');
+    if(!font) el('fontSelect').value = '0';
+  }
+
+  el('accentCustom').addEventListener('input', e => { localStorage.setItem('stk-accent-color', e.target.value); applyAccentColor(e.target.value); refreshSettingsUI(); });
+  el('accentReset').onclick = () => { localStorage.removeItem('stk-accent-color'); applyAccentColor(''); refreshSettingsUI(); };
+  el('markCustom').addEventListener('input', e => { localStorage.setItem('stk-mark-color', e.target.value); applyMarkColor(e.target.value); refreshSettingsUI(); });
+  el('markReset').onclick = () => { localStorage.removeItem('stk-mark-color'); applyMarkColor(''); refreshSettingsUI(); };
+  el('fontSelect').onchange = e => {
+    const opt = FONT_OPTIONS[+e.target.value];
+    if(+e.target.value === 0){ localStorage.removeItem('stk-font'); applyFont(''); }
+    else { localStorage.setItem('stk-font', opt.value); applyFont(opt.value); }
+  };
+
+  applyAccentColor(localStorage.getItem('stk-accent-color') || '');
+  applyMarkColor(localStorage.getItem('stk-mark-color') || '');
+  applyFont(localStorage.getItem('stk-font') || '');
+
+  function openSettingsModal(){ refreshSettingsUI(); el('settingsModal').style.display = 'flex'; }
+  function closeSettingsModal(){ el('settingsModal').style.display = 'none'; }
+  el('settingsBtn').addEventListener('click', openSettingsModal);
+  el('settingsModalClose').addEventListener('click', closeSettingsModal);
+  el('settingsModal').addEventListener('click', e => { if(e.target === el('settingsModal')) closeSettingsModal(); });
+  document.addEventListener('keydown', e => { if(e.key==='Escape' && el('settingsModal').style.display==='flex') closeSettingsModal(); });
 
   sb.auth.onAuthStateChange((event, session) => {
     if(event === 'PASSWORD_RECOVERY'){
@@ -1454,12 +1591,35 @@
     if(after === undefined) after = before;
     const ta = editorBox;
     const start = ta.selectionStart, end = ta.selectionEnd;
-    const sel = ta.value.slice(start, end);
+    const value = ta.value;
+    // toggle off: selection is already sandwiched by the markers just outside it
+    // (this is the normal state right after wrapSelection ran once, since the
+    // selection is left on the core text, not the markers themselves)
+    const outStart = start - before.length, outEnd = end + after.length;
+    if(outStart >= 0 && value.slice(outStart, start) === before && value.slice(end, outEnd) === after){
+      ta.value = value.slice(0, outStart) + value.slice(start, end) + value.slice(outEnd);
+      ta.focus();
+      ta.selectionStart = outStart;
+      ta.selectionEnd = outStart + (end - start);
+      ta.dispatchEvent(new Event('input'));
+      return;
+    }
+    const sel = value.slice(start, end);
+    // toggle off: markers are included inside the selection itself
+    if(sel.length >= before.length + after.length && sel.startsWith(before) && sel.endsWith(after)){
+      const core = sel.slice(before.length, sel.length - after.length);
+      ta.value = value.slice(0, start) + core + value.slice(end);
+      ta.focus();
+      ta.selectionStart = start;
+      ta.selectionEnd = start + core.length;
+      ta.dispatchEvent(new Event('input'));
+      return;
+    }
     // keep leading whitespace (e.g. from indent) outside the wrap, so a line's
     // indentation stays literal leading spaces instead of ending up inside the tag
     const lead = sel.match(/^[ \t]*/)[0];
     const core = sel.slice(lead.length);
-    ta.value = ta.value.slice(0, start) + lead + before + core + after + ta.value.slice(end);
+    ta.value = value.slice(0, start) + lead + before + core + after + value.slice(end);
     ta.focus();
     ta.selectionStart = start + lead.length + before.length;
     ta.selectionEnd = start + lead.length + before.length + core.length;
@@ -1804,7 +1964,6 @@
             ${m.pinned ? '<span class="pinmark">★</span>' : ''}
             ${kindIcon}
             <span class="ttl">${escapeHtml(m.title || '제목 없음')}</span>
-            <span class="updated">${formatDate(m.updated)}</span>
           </div>
         `;
       } else {
@@ -2362,10 +2521,13 @@
   editorBox.addEventListener('input', queueSave);
   editorBox.addEventListener('input', updateWordCount);
   // live preview while in split mode
-  editorBox.addEventListener('input', () => {
+  editorBox.addEventListener('input', (e) => {
     if(mode!=='split') return;
     previewBox.innerHTML = renderMarkdown(editorBox.value);
-    previewBox.scrollTop = previewBox.scrollHeight;
+    // only follow to the bottom for real keystrokes. toolbar actions (bold/list/indent/...)
+    // dispatch a synthetic (untrusted) input event and should leave the scroll position alone,
+    // otherwise applying formatting anywhere but the very end yanks the preview away from it
+    if(e.isTrusted) previewBox.scrollTop = previewBox.scrollHeight;
   });
   // draggable divider between editor and preview
   (function(){

@@ -44,6 +44,9 @@
     --warn-soft: #F7EFDB;
     --warn-ink: #8A6A1F;
     --tip-soft: #EAF1E4;
+    /* highlighter marks stay light-bg/dark-text regardless of theme, like a real highlighter pen */
+    --mark-bg-default: #F3E3D8;
+    --mark-ink: #3D3929;
   }
   :root[data-theme="dark"]{
     --bg: #1F1E1B;
@@ -236,7 +239,7 @@
   .preview ul ul, .preview ul ol, .preview ol ul, .preview ol ol{ margin:6px 0 0 22px; }
   .preview strong{ color:var(--ink); font-weight:700; }
   .preview del{ color:var(--ink-faint); }
-  .preview mark{ background:var(--mark-bg, var(--accent-soft)); color:var(--ink); padding:0 2px; border-radius:3px; }
+  .preview mark{ background:var(--mark-bg, var(--mark-bg-default)); color:var(--mark-ink); padding:0 2px; border-radius:3px; }
   .preview blockquote{ margin:0 0 16px 0; padding:2px 16px; border-left:3px solid var(--accent); color:var(--ink-soft); font-style:italic; }
   .preview code{ background:var(--border-soft); padding:2px 6px; border-radius:5px; font-family:var(--mono); font-size:14px; }
   .preview pre{ background:var(--code-bg); color:var(--code-ink); padding:14px 16px; border-radius:8px; overflow-x:auto; margin:0 0 16px 0; }
@@ -2521,13 +2524,14 @@
   editorBox.addEventListener('input', queueSave);
   editorBox.addEventListener('input', updateWordCount);
   // live preview while in split mode
-  editorBox.addEventListener('input', (e) => {
+  editorBox.addEventListener('input', () => {
     if(mode!=='split') return;
+    // "sticky bottom": only re-pin the preview to the bottom if it was already sitting
+    // near the bottom before this edit (i.e. the user is appending at the end). editing
+    // or formatting something further up must never yank the preview away from it.
+    const wasNearBottom = previewBox.scrollTop + previewBox.clientHeight >= previewBox.scrollHeight - 24;
     previewBox.innerHTML = renderMarkdown(editorBox.value);
-    // only follow to the bottom for real keystrokes. toolbar actions (bold/list/indent/...)
-    // dispatch a synthetic (untrusted) input event and should leave the scroll position alone,
-    // otherwise applying formatting anywhere but the very end yanks the preview away from it
-    if(e.isTrusted) previewBox.scrollTop = previewBox.scrollHeight;
+    if(wasNearBottom) previewBox.scrollTop = previewBox.scrollHeight;
   });
   // draggable divider between editor and preview
   (function(){

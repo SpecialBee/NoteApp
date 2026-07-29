@@ -1073,6 +1073,10 @@
           <button class="settings-reset" id="markReset">기본값</button>
         </div>
       </div>
+      <div class="settings-section">
+        <div class="settings-label">쓰기 모드</div>
+        <label class="graph-toggle"><input type="checkbox" id="previewSyncToggle"> 편집 중 미리보기를 편집 위치와 자동 동기화</label>
+      </div>
     </div>
   </div>
 </div>
@@ -1323,6 +1327,7 @@
     el('markCustom').value = mark || MARK_PRESETS[0];
     el('fontSelect').innerHTML = FONT_OPTIONS.map((f,i) => `<option value="${i}"${f.value===font ? ' selected' : ''}>${f.label}</option>`).join('');
     if(!font) el('fontSelect').value = '0';
+    el('previewSyncToggle').checked = previewSyncEnabled();
   }
 
   el('accentCustom').addEventListener('input', e => { localStorage.setItem('stk-accent-color', e.target.value); applyAccentColor(e.target.value); refreshSettingsUI(); });
@@ -1334,6 +1339,7 @@
     if(+e.target.value === 0){ localStorage.removeItem('stk-font'); applyFont(''); }
     else { localStorage.setItem('stk-font', opt.value); applyFont(opt.value); }
   };
+  el('previewSyncToggle').onchange = e => { localStorage.setItem('stk-preview-sync', e.target.checked ? '1' : '0'); };
 
   applyAccentColor(localStorage.getItem('stk-accent-color') || '');
   applyMarkColor(localStorage.getItem('stk-mark-color') || '');
@@ -1590,6 +1596,21 @@
   }
 
   // ---------------- formatting toolbar actions ----------------
+  // every toolbar action rewrites editorBox.value and restores the selection; reassigning
+  // .value resets scrollTop and focus()+selection can trigger the browser's own
+  // scroll-caret-into-view, both of which yank the editor away from where you were
+  // looking. Route every mutation through here so scrollTop is always restored afterward.
+  function setEditorValue(newValue, selStart, selEnd){
+    const ta = editorBox;
+    const scrollTop = ta.scrollTop;
+    ta.value = newValue;
+    ta.focus();
+    ta.selectionStart = selStart;
+    ta.selectionEnd = selEnd === undefined ? selStart : selEnd;
+    ta.scrollTop = scrollTop;
+    ta.dispatchEvent(new Event('input'));
+  }
+
   function wrapSelection(before, after){
     if(after === undefined) after = before;
     const ta = editorBox;
@@ -1600,33 +1621,21 @@
     // selection is left on the core text, not the markers themselves)
     const outStart = start - before.length, outEnd = end + after.length;
     if(outStart >= 0 && value.slice(outStart, start) === before && value.slice(end, outEnd) === after){
-      ta.value = value.slice(0, outStart) + value.slice(start, end) + value.slice(outEnd);
-      ta.focus();
-      ta.selectionStart = outStart;
-      ta.selectionEnd = outStart + (end - start);
-      ta.dispatchEvent(new Event('input'));
+      setEditorValue(value.slice(0, outStart) + value.slice(start, end) + value.slice(outEnd), outStart, outStart + (end - start));
       return;
     }
     const sel = value.slice(start, end);
     // toggle off: markers are included inside the selection itself
     if(sel.length >= before.length + after.length && sel.startsWith(before) && sel.endsWith(after)){
       const core = sel.slice(before.length, sel.length - after.length);
-      ta.value = value.slice(0, start) + core + value.slice(end);
-      ta.focus();
-      ta.selectionStart = start;
-      ta.selectionEnd = start + core.length;
-      ta.dispatchEvent(new Event('input'));
+      setEditorValue(value.slice(0, start) + core + value.slice(end), start, start + core.length);
       return;
     }
     // keep leading whitespace (e.g. from indent) outside the wrap, so a line's
     // indentation stays literal leading spaces instead of ending up inside the tag
     const lead = sel.match(/^[ \t]*/)[0];
     const core = sel.slice(lead.length);
-    ta.value = value.slice(0, start) + lead + before + core + after + value.slice(end);
-    ta.focus();
-    ta.selectionStart = start + lead.length + before.length;
-    ta.selectionEnd = start + lead.length + before.length + core.length;
-    ta.dispatchEvent(new Event('input'));
+    setEditorValue(value.slice(0, start) + lead + before + core + after + value.slice(end), start + lead.length + before.length, start + lead.length + before.length + core.length);
   }
 
   function insertLinePrefix(prefix){
@@ -1643,10 +1652,7 @@
       newValue = value.slice(0, lineStart) + prefix + value.slice(lineStart);
       newPos = start + prefix.length;
     }
-    ta.value = newValue;
-    ta.focus();
-    ta.selectionStart = ta.selectionEnd = Math.max(lineStart, newPos);
-    ta.dispatchEvent(new Event('input'));
+    setEditorValue(newValue, Math.max(lineStart, newPos));
   }
 
   // runs fn(lines[]) over every line touched by the current selection (or just the
@@ -1660,11 +1666,7 @@
     if(lineEnd === -1) lineEnd = value.length;
     const block = value.slice(lineStart, lineEnd);
     const newBlock = fn(block.split('\n')).join('\n');
-    ta.value = value.slice(0, lineStart) + newBlock + value.slice(lineEnd);
-    ta.focus();
-    ta.selectionStart = lineStart;
-    ta.selectionEnd = lineStart + newBlock.length;
-    ta.dispatchEvent(new Event('input'));
+    setEditorValue(value.slice(0, lineStart) + newBlock + value.slice(lineEnd), lineStart, lineStart + newBlock.length);
   }
 
   function indentSelection(){
@@ -1714,10 +1716,7 @@
     const isSame = new RegExp('^#{' + level + '}\\s').test(line);
     const newLine = isSame ? stripped : (prefix + stripped);
     const delta = newLine.length - line.length;
-    ta.value = value.slice(0, lineStart) + newLine + value.slice(lineEnd);
-    ta.focus();
-    ta.selectionStart = ta.selectionEnd = Math.max(lineStart, start + delta);
-    ta.dispatchEvent(new Event('input'));
+    setEditorValue(value.slice(0, lineStart) + newLine + value.slice(lineEnd), Math.max(lineStart, start + delta));
   }
 
   function insertLink(){
@@ -1727,10 +1726,7 @@
     const url = window.prompt('링크 URL을 입력하세요', 'https://');
     if(url === null) return;
     const md = `[${sel}](${url})`;
-    ta.value = ta.value.slice(0, start) + md + ta.value.slice(end);
-    ta.focus();
-    ta.selectionStart = ta.selectionEnd = start + md.length;
-    ta.dispatchEvent(new Event('input'));
+    setEditorValue(ta.value.slice(0, start) + md + ta.value.slice(end), start + md.length);
   }
 
   function insertCode(){
@@ -1740,11 +1736,7 @@
     if(sel.includes('\n') || !sel){
       const body = sel || '코드';
       const block = '```\n' + body + '\n```';
-      ta.value = ta.value.slice(0, start) + block + ta.value.slice(end);
-      ta.focus();
-      ta.selectionStart = start + 4;
-      ta.selectionEnd = start + 4 + body.length;
-      ta.dispatchEvent(new Event('input'));
+      setEditorValue(ta.value.slice(0, start) + block + ta.value.slice(end), start + 4, start + 4 + body.length);
     }else{
       wrapSelection('`', '`');
     }
@@ -1758,9 +1750,7 @@
     const row = Array(cols).fill('내용').join(' | ');
     let tpl = '\n| ' + hdr + ' |\n| ' + sep + ' |\n';
     for(let r = 0; r < rows; r++) tpl += '| ' + row + ' |\n';
-    ta.value = ta.value.slice(0, start) + tpl + ta.value.slice(end);
-    ta.focus(); ta.selectionStart = ta.selectionEnd = start + tpl.length;
-    ta.dispatchEvent(new Event('input'));
+    setEditorValue(ta.value.slice(0, start) + tpl + ta.value.slice(end), start + tpl.length);
   }
 
   // Table size picker popup
@@ -1807,10 +1797,7 @@
     const ta = editorBox;
     const start = ta.selectionStart, end = ta.selectionEnd;
     const template = '\n> [!note] 제목\n> 내용을 입력하세요\n';
-    ta.value = ta.value.slice(0, start) + template + ta.value.slice(end);
-    ta.focus();
-    ta.selectionStart = ta.selectionEnd = start + template.length;
-    ta.dispatchEvent(new Event('input'));
+    setEditorValue(ta.value.slice(0, start) + template + ta.value.slice(end), start + template.length);
   }
 
   document.querySelectorAll('.fmtbtn[data-h]').forEach(btn => {
@@ -1829,7 +1816,7 @@
   el('fmtOutdent').onclick = () => outdentSelection();
   el('fmtTask').onclick = () => insertLinePrefix('- [ ] ');
   el('fmtCallout').onclick = () => insertCallout();
-  el('fmtHr').onclick = () => { const ta=editorBox; const s=ta.selectionStart; const ins='\n\n---\n\n'; ta.value=ta.value.slice(0,s)+ins+ta.value.slice(ta.selectionEnd); ta.selectionStart=ta.selectionEnd=s+ins.length; ta.focus(); ta.dispatchEvent(new Event('input')); };
+  el('fmtHr').onclick = () => { const ta=editorBox; const s=ta.selectionStart; const ins='\n\n---\n\n'; setEditorValue(ta.value.slice(0,s)+ins+ta.value.slice(ta.selectionEnd), s+ins.length); };
 
   // ---------------- sidebar rendering ----------------
   function computeAllTags(){
@@ -2524,14 +2511,22 @@
   editorBox.addEventListener('input', queueSave);
   editorBox.addEventListener('input', updateWordCount);
   // live preview while in split mode
+  function previewSyncEnabled(){ return localStorage.getItem('stk-preview-sync') !== '0'; }
+  // approximate the cursor's position in the source text as a fraction of the whole
+  // document, and scroll the preview to the same fraction of its own height. not exact
+  // (markdown blocks don't render 1:1 with source characters) but keeps the preview
+  // tracking roughly where you're editing instead of sitting still or jumping to the end.
+  function syncPreviewToCursor(){
+    if(!previewSyncEnabled()) return;
+    const total = editorBox.value.length || 1;
+    const frac = editorBox.selectionStart / total;
+    const max = previewBox.scrollHeight - previewBox.clientHeight;
+    if(max > 0) previewBox.scrollTop = Math.max(0, Math.min(max, frac * max));
+  }
   editorBox.addEventListener('input', () => {
     if(mode!=='split') return;
-    // "sticky bottom": only re-pin the preview to the bottom if it was already sitting
-    // near the bottom before this edit (i.e. the user is appending at the end). editing
-    // or formatting something further up must never yank the preview away from it.
-    const wasNearBottom = previewBox.scrollTop + previewBox.clientHeight >= previewBox.scrollHeight - 24;
     previewBox.innerHTML = renderMarkdown(editorBox.value);
-    if(wasNearBottom) previewBox.scrollTop = previewBox.scrollHeight;
+    syncPreviewToCursor();
   });
   // draggable divider between editor and preview
   (function(){

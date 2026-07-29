@@ -266,6 +266,8 @@
   .tp-cell{ width:20px; height:20px; border:1.5px solid var(--border); border-radius:3px; cursor:pointer; transition:background .07s,border-color .07s; }
   .tp-cell.hl{ background:var(--accent-soft); border-color:var(--accent); }
   .tp-label{ font-family:var(--sans); font-size:11px; color:var(--ink-faint); text-align:center; margin-top:7px; }
+  /* [[wikilink]] autocomplete */
+  .wikilink-popup{ position:fixed; display:none; width:260px; max-height:220px; overflow-y:auto; background:var(--bg-panel); border:1px solid var(--border); border-radius:10px; padding:4px; box-shadow:0 6px 20px rgba(0,0,0,.16); z-index:300; }
   /* Table view */
   .preview .wikilink{ color:var(--accent); cursor:pointer; border-bottom:1px solid var(--accent); }
   .preview .wikilink:hover{ color:var(--accent-hover); }
@@ -1089,6 +1091,8 @@
   <div class="tp-label" id="tpLabel">표 크기를 선택하세요</div>
 </div>
 
+<div id="wikiLinkPopup" class="wikilink-popup"></div>
+
 <div id="cevCtxBar"></div>
 
 <div id="cevColorPalette">
@@ -1596,19 +1600,28 @@
   }
 
   // ---------------- formatting toolbar actions ----------------
-  // every toolbar action rewrites editorBox.value and restores the selection; reassigning
-  // .value resets scrollTop and focus()+selection can trigger the browser's own
-  // scroll-caret-into-view, both of which yank the editor away from where you were
-  // looking. Route every mutation through here so scrollTop is always restored afterward.
-  function setEditorValue(newValue, selStart, selEnd){
+  // every toolbar action replaces some [start,end) range of editorBox.value with new text.
+  // routed through here instead of reassigning .value directly for two reasons:
+  // 1) reassigning .value resets scrollTop and focus()+selection can trigger the browser's
+  //    own scroll-caret-into-view, both of which yank the editor away from where you were
+  //    looking — so scrollTop is always explicitly restored afterward.
+  // 2) reassigning .value also wipes the textarea's native undo (Ctrl+Z) history. routing
+  //    the edit through execCommand('insertText', ...) instead performs it as a real edit
+  //    command, so undo keeps working after clicking a formatting button. falls back to a
+  //    direct value swap (which still works, just without undo) if execCommand is ever
+  //    unavailable.
+  function replaceEditorRange(replaceStart, replaceEnd, insertText, selStart, selEnd){
     const ta = editorBox;
     const scrollTop = ta.scrollTop;
-    ta.value = newValue;
     ta.focus();
+    ta.setSelectionRange(replaceStart, replaceEnd);
+    let usedExecCommand = false;
+    try{ usedExecCommand = document.execCommand('insertText', false, insertText); }catch(err){}
+    if(!usedExecCommand) ta.value = ta.value.slice(0, replaceStart) + insertText + ta.value.slice(replaceEnd);
     ta.selectionStart = selStart;
     ta.selectionEnd = selEnd === undefined ? selStart : selEnd;
     ta.scrollTop = scrollTop;
-    ta.dispatchEvent(new Event('input'));
+    if(!usedExecCommand) ta.dispatchEvent(new Event('input'));
   }
 
   function wrapSelection(before, after){
@@ -1621,21 +1634,21 @@
     // selection is left on the core text, not the markers themselves)
     const outStart = start - before.length, outEnd = end + after.length;
     if(outStart >= 0 && value.slice(outStart, start) === before && value.slice(end, outEnd) === after){
-      setEditorValue(value.slice(0, outStart) + value.slice(start, end) + value.slice(outEnd), outStart, outStart + (end - start));
+      replaceEditorRange(outStart, outEnd, value.slice(start, end), outStart, outStart + (end - start));
       return;
     }
     const sel = value.slice(start, end);
     // toggle off: markers are included inside the selection itself
     if(sel.length >= before.length + after.length && sel.startsWith(before) && sel.endsWith(after)){
       const core = sel.slice(before.length, sel.length - after.length);
-      setEditorValue(value.slice(0, start) + core + value.slice(end), start, start + core.length);
+      replaceEditorRange(start, end, core, start, start + core.length);
       return;
     }
     // keep leading whitespace (e.g. from indent) outside the wrap, so a line's
     // indentation stays literal leading spaces instead of ending up inside the tag
     const lead = sel.match(/^[ \t]*/)[0];
     const core = sel.slice(lead.length);
-    setEditorValue(value.slice(0, start) + lead + before + core + after + value.slice(end), start + lead.length + before.length, start + lead.length + before.length + core.length);
+    replaceEditorRange(start, end, lead + before + core + after, start + lead.length + before.length, start + lead.length + before.length + core.length);
   }
 
   function insertLinePrefix(prefix){
@@ -1644,15 +1657,8 @@
     const value = ta.value;
     const lineStart = value.lastIndexOf('\n', start - 1) + 1;
     const already = value.slice(lineStart, lineStart + prefix.length) === prefix;
-    let newValue, newPos;
-    if(already){
-      newValue = value.slice(0, lineStart) + value.slice(lineStart + prefix.length);
-      newPos = start - prefix.length;
-    }else{
-      newValue = value.slice(0, lineStart) + prefix + value.slice(lineStart);
-      newPos = start + prefix.length;
-    }
-    setEditorValue(newValue, Math.max(lineStart, newPos));
+    if(already) replaceEditorRange(lineStart, lineStart + prefix.length, '', Math.max(lineStart, start - prefix.length));
+    else replaceEditorRange(lineStart, lineStart, prefix, start + prefix.length);
   }
 
   // runs fn(lines[]) over every line touched by the current selection (or just the
@@ -1666,7 +1672,7 @@
     if(lineEnd === -1) lineEnd = value.length;
     const block = value.slice(lineStart, lineEnd);
     const newBlock = fn(block.split('\n')).join('\n');
-    setEditorValue(value.slice(0, lineStart) + newBlock + value.slice(lineEnd), lineStart, lineStart + newBlock.length);
+    replaceEditorRange(lineStart, lineEnd, newBlock, lineStart, lineStart + newBlock.length);
   }
 
   function indentSelection(){
@@ -1716,7 +1722,7 @@
     const isSame = new RegExp('^#{' + level + '}\\s').test(line);
     const newLine = isSame ? stripped : (prefix + stripped);
     const delta = newLine.length - line.length;
-    setEditorValue(value.slice(0, lineStart) + newLine + value.slice(lineEnd), Math.max(lineStart, start + delta));
+    replaceEditorRange(lineStart, lineEnd, newLine, Math.max(lineStart, start + delta));
   }
 
   function insertLink(){
@@ -1726,7 +1732,7 @@
     const url = window.prompt('링크 URL을 입력하세요', 'https://');
     if(url === null) return;
     const md = `[${sel}](${url})`;
-    setEditorValue(ta.value.slice(0, start) + md + ta.value.slice(end), start + md.length);
+    replaceEditorRange(start, end, md, start + md.length);
   }
 
   function insertCode(){
@@ -1736,7 +1742,7 @@
     if(sel.includes('\n') || !sel){
       const body = sel || '코드';
       const block = '```\n' + body + '\n```';
-      setEditorValue(ta.value.slice(0, start) + block + ta.value.slice(end), start + 4, start + 4 + body.length);
+      replaceEditorRange(start, end, block, start + 4, start + 4 + body.length);
     }else{
       wrapSelection('`', '`');
     }
@@ -1750,7 +1756,7 @@
     const row = Array(cols).fill('내용').join(' | ');
     let tpl = '\n| ' + hdr + ' |\n| ' + sep + ' |\n';
     for(let r = 0; r < rows; r++) tpl += '| ' + row + ' |\n';
-    setEditorValue(ta.value.slice(0, start) + tpl + ta.value.slice(end), start + tpl.length);
+    replaceEditorRange(start, end, tpl, start + tpl.length);
   }
 
   // Table size picker popup
@@ -1797,7 +1803,7 @@
     const ta = editorBox;
     const start = ta.selectionStart, end = ta.selectionEnd;
     const template = '\n> [!note] 제목\n> 내용을 입력하세요\n';
-    setEditorValue(ta.value.slice(0, start) + template + ta.value.slice(end), start + template.length);
+    replaceEditorRange(start, end, template, start + template.length);
   }
 
   document.querySelectorAll('.fmtbtn[data-h]').forEach(btn => {
@@ -1816,7 +1822,7 @@
   el('fmtOutdent').onclick = () => outdentSelection();
   el('fmtTask').onclick = () => insertLinePrefix('- [ ] ');
   el('fmtCallout').onclick = () => insertCallout();
-  el('fmtHr').onclick = () => { const ta=editorBox; const s=ta.selectionStart; const ins='\n\n---\n\n'; setEditorValue(ta.value.slice(0,s)+ins+ta.value.slice(ta.selectionEnd), s+ins.length); };
+  el('fmtHr').onclick = () => { const ta=editorBox; const s=ta.selectionStart, e=ta.selectionEnd; const ins='\n\n---\n\n'; replaceEditorRange(s, e, ins, s+ins.length); };
 
   // ---------------- sidebar rendering ----------------
   function computeAllTags(){
@@ -2508,6 +2514,7 @@
   el('editModeBtn').onclick = () => setMode('split');
   el('previewModeBtn').onclick = () => setMode('preview');
   titleField.addEventListener('input', queueSave);
+  titleField.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); editorBox.focus(); editorBox.setSelectionRange(0, 0); } });
   editorBox.addEventListener('input', queueSave);
   editorBox.addEventListener('input', updateWordCount);
   // live preview while in split mode
@@ -2663,6 +2670,120 @@
 
   paletteOverlay.addEventListener('click', (e) => { if(e.target === paletteOverlay) closePalette(); });
   el('paletteBtn').onclick = () => openPalette();
+
+  // ---------------- wikilink [[...]] autocomplete ----------------
+  let wikiPopupOpen = false, wikiPopupResults = [], wikiPopupIdx = 0, wikiPopupRange = null;
+
+  // mirrors the textarea's text up to `position` in an offscreen div with identical
+  // font metrics, then reads the pixel position of a marker span placed right there —
+  // textareas have no native API for where the caret is on screen, this is the standard workaround
+  function getCaretCoordinates(ta, position){
+    const computed = window.getComputedStyle(ta);
+    const mirror = document.createElement('div');
+    const props = ['boxSizing','width','fontStyle','fontVariant','fontWeight','fontSize','fontFamily','lineHeight','letterSpacing','textTransform','wordSpacing','paddingTop','paddingRight','paddingBottom','paddingLeft','borderTopWidth','borderRightWidth','borderBottomWidth','borderLeftWidth'];
+    props.forEach(p => { mirror.style[p] = computed[p]; });
+    mirror.style.position = 'absolute';
+    mirror.style.visibility = 'hidden';
+    mirror.style.whiteSpace = 'pre-wrap';
+    mirror.style.wordWrap = 'break-word';
+    mirror.style.top = '0';
+    mirror.style.left = '-9999px';
+    document.body.appendChild(mirror);
+    mirror.textContent = ta.value.slice(0, position);
+    const span = document.createElement('span');
+    span.textContent = ta.value.slice(position) || '.';
+    mirror.appendChild(span);
+    const rect = ta.getBoundingClientRect();
+    const top = rect.top + span.offsetTop - ta.scrollTop + (parseInt(computed.borderTopWidth) || 0);
+    const left = rect.left + span.offsetLeft - ta.scrollLeft + (parseInt(computed.borderLeftWidth) || 0);
+    const lineHeight = parseInt(computed.lineHeight) || 18;
+    document.body.removeChild(mirror);
+    return { top, left, lineHeight };
+  }
+
+  // returns {start,end,query} for the open "[[partial title" span the cursor sits inside,
+  // or null if the cursor isn't in wikilink-typing position right now
+  function detectWikiLinkQuery(){
+    const ta = editorBox;
+    const pos = ta.selectionStart;
+    if(ta.selectionEnd !== pos) return null;
+    const value = ta.value;
+    const openIdx = value.lastIndexOf('[[', pos - 1);
+    if(openIdx === -1) return null;
+    const between = value.slice(openIdx + 2, pos);
+    if(between.includes('\n') || between.includes('[[') || between.includes(']]')) return null;
+    return { start: openIdx + 2, end: pos, query: between };
+  }
+
+  function closeWikiPopup(){
+    wikiPopupOpen = false;
+    el('wikiLinkPopup').style.display = 'none';
+  }
+
+  function renderWikiPopup(){
+    const box = el('wikiLinkPopup');
+    box.innerHTML = '';
+    if(!wikiPopupResults.length){
+      box.innerHTML = '<div class="palette-item" style="color:var(--ink-faint);cursor:default;">일치하는 카드 없음 (그대로 두면 새 카드로 연결돼요)</div>';
+      return;
+    }
+    wikiPopupResults.forEach((m, i) => {
+      const item = document.createElement('div');
+      item.className = 'palette-item' + (i === wikiPopupIdx ? ' active' : '');
+      item.textContent = m.title || '제목 없음';
+      // mousedown (not click) fires before the textarea's blur, so the selection/range is still valid
+      item.onmousedown = (e) => { e.preventDefault(); pickWikiResult(m); };
+      box.appendChild(item);
+    });
+  }
+
+  function pickWikiResult(note){
+    if(!wikiPopupRange) return;
+    const title = note.title || '제목 없음';
+    replaceEditorRange(wikiPopupRange.start, wikiPopupRange.end, title + ']]', wikiPopupRange.start + title.length + 2);
+    closeWikiPopup();
+  }
+
+  function updateWikiPopup(){
+    const q = detectWikiLinkQuery();
+    if(!q){ closeWikiPopup(); return; }
+    wikiPopupRange = { start: q.start, end: q.end };
+    const query = q.query.toLowerCase();
+    wikiPopupResults = (query ? index.filter(m => (m.title || '').toLowerCase().includes(query)) : index.slice()).slice(0, 8);
+    wikiPopupIdx = 0;
+    wikiPopupOpen = true;
+    renderWikiPopup();
+    const coords = getCaretCoordinates(editorBox, q.end);
+    const box = el('wikiLinkPopup');
+    box.style.display = 'block';
+    // clamp within the viewport so it doesn't run off the right/bottom edge on narrow (mobile) screens
+    const boxW = box.offsetWidth || 260, boxH = box.offsetHeight || 40;
+    const left = Math.min(coords.left, window.innerWidth - boxW - 8);
+    const top = (coords.top + coords.lineHeight + boxH + 8 > window.innerHeight)
+      ? coords.top - boxH - 4
+      : coords.top + coords.lineHeight + 4;
+    box.style.left = Math.max(4, left) + 'px';
+    box.style.top = Math.max(4, top) + 'px';
+  }
+
+  editorBox.addEventListener('input', updateWikiPopup);
+  editorBox.addEventListener('click', () => { if(wikiPopupOpen) updateWikiPopup(); });
+  // delay closing on blur so a mousedown on a popup item (which fires before blur) still lands first
+  editorBox.addEventListener('blur', () => setTimeout(closeWikiPopup, 150));
+  editorBox.addEventListener('keydown', (e) => {
+    if(wikiPopupOpen){
+      if(e.key === 'ArrowDown'){ e.preventDefault(); wikiPopupIdx = Math.min(wikiPopupIdx + 1, wikiPopupResults.length - 1); renderWikiPopup(); return; }
+      if(e.key === 'ArrowUp'){ e.preventDefault(); wikiPopupIdx = Math.max(wikiPopupIdx - 1, 0); renderWikiPopup(); return; }
+      if((e.key === 'Enter' || e.key === 'Tab') && wikiPopupResults.length){ e.preventDefault(); pickWikiResult(wikiPopupResults[wikiPopupIdx]); return; }
+      if(e.key === 'Escape'){ closeWikiPopup(); return; }
+    }
+    // Tab/Shift+Tab indent instead of leaving the textarea (the browser's default Tab
+    // behavior moves focus to the next control, which is jarring while writing a list)
+    if(e.key === 'Tab'){
+      e.preventDefault();
+      if(e.shiftKey) outdentSelection(); else indentSelection();
+    }
+  });
 
   // ---------------- view manager (single source of truth) ----------------
   // Every mainpane transition goes through showView(). Each view declares whether

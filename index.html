@@ -2362,7 +2362,11 @@
   editorBox.addEventListener('input', queueSave);
   editorBox.addEventListener('input', updateWordCount);
   // live preview while in split mode
-  editorBox.addEventListener('input', () => { if(mode==='split') previewBox.innerHTML = renderMarkdown(editorBox.value); });
+  editorBox.addEventListener('input', () => {
+    if(mode!=='split') return;
+    previewBox.innerHTML = renderMarkdown(editorBox.value);
+    previewBox.scrollTop = previewBox.scrollHeight;
+  });
   // draggable divider between editor and preview
   (function(){
     const divider=el('splitDivider'), split=el('editorSplit');

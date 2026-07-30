@@ -706,15 +706,18 @@
   [data-theme="dark"] .dash-cal-cell[data-intensity="4"] { background:#C86A47; }
 
   /* ===== Hero graph ===== */
-  .dash-hero { display:flex; gap:0; background:var(--bg-card); border:1px solid var(--border-soft); border-radius:14px; height:280px; }
-  .dash-hero-graph-wrap { flex:1; position:relative; min-width:0; border-radius:14px 0 0 14px; overflow:hidden; }
+  /* graph on top, stats/legend/button in a row underneath — same stacked layout on
+     desktop and mobile (previously side-by-side, but that squeezed the graph too
+     narrow, so it's stacked everywhere now) */
+  .dash-hero { display:flex; flex-direction:column; gap:0; background:var(--bg-card); border:1px solid var(--border-soft); border-radius:14px; height:auto; }
+  .dash-hero-graph-wrap { flex:none; height:220px; position:relative; min-width:0; border-radius:14px 14px 0 0; overflow:hidden; }
   .dash-hero-empty { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; padding:24px; font-size:13px; color:var(--ink-faint); line-height:1.7; }
-  .dash-hero-side { width:150px; flex-shrink:0; display:flex; flex-direction:column; gap:14px; padding:18px; border-left:1px solid var(--border-soft); box-sizing:border-box; overflow-y:auto; }
-  .dash-hero-stat { display:flex; flex-direction:column; }
-  .dash-hero-stat b { font-size:24px; font-weight:800; color:var(--ink); line-height:1.1; }
+  .dash-hero-side { width:auto; flex-shrink:0; display:flex; flex-direction:row; flex-wrap:wrap; align-items:center; gap:14px 22px; padding:14px 18px; border-left:none; border-top:1px solid var(--border-soft); box-sizing:border-box; overflow-y:visible; }
+  .dash-hero-stat { display:flex; flex-direction:row; align-items:baseline; gap:5px; }
+  .dash-hero-stat b { font-size:20px; font-weight:800; color:var(--ink); line-height:1.1; }
   .dash-hero-stat span { font-size:11px; color:var(--ink-soft); }
-  .dash-hero-side .graph-legend { flex-direction:column; align-items:flex-start; gap:6px; padding:0; border:none; }
-  .dash-hero-open { margin-top:auto; background:none; border:1px solid var(--border); color:var(--ink-soft); border-radius:8px; padding:7px 10px; font-family:var(--sans); font-size:11.5px; cursor:pointer; text-align:left; transition:color .12s,border-color .12s; }
+  .dash-hero-side .graph-legend { flex-direction:row; align-items:center; gap:10px; padding:0; border:none; }
+  .dash-hero-open { margin-left:auto; background:none; border:1px solid var(--border); color:var(--ink-soft); border-radius:8px; padding:7px 10px; font-family:var(--sans); font-size:11.5px; cursor:pointer; text-align:left; transition:color .12s,border-color .12s; white-space:nowrap; }
   .dash-hero-open:hover { color:var(--accent); border-color:var(--accent); }
   /* node state markers (hero graph only) */
   @keyframes dashNodePulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.4); } }

@@ -117,7 +117,17 @@
   .app.trash-mode { grid-template-columns: var(--sidebar-w, 280px) 5px minmax(0,1fr); }
   .resize-handle{ cursor:col-resize; background:transparent; position:relative; z-index:5; }
   .resize-handle:hover, .resize-handle.dragging{ background:var(--accent-soft); }
-  @media (max-width: 900px){ .app.ready{ grid-template-columns: 240px 1fr; } .rightpane{ display:none; } #resizeLeft, #resizeRight{ display:none; } }
+  @media (max-width: 900px){
+    .app.ready{ grid-template-columns: 240px 1fr; }
+    .rightpane{ display:none; }
+    #resizeLeft, #resizeRight{ display:none; }
+    /* mobile/tablet has no room for a side-by-side right panel, so it becomes a fixed
+       slide-over instead (opened via the same show/collapse tab buttons used on desktop —
+       see applyPanelState's mobileRightpaneOpen branch). display:none above still wins
+       until JS sets an inline display on #rightpane to override it. */
+    .app.show-rightpane .rightpane{ position:fixed; z-index:25; right:0; top:0; height:100vh; width:min(85vw,320px); box-shadow:-2px 0 16px rgba(0,0,0,0.18); }
+    .app.show-rightpane .panel-show-tab.collapse{ right:min(85vw,320px); }
+  }
   @media (max-width: 640px){
     .app.ready{ grid-template-columns: 1fr; }
     .app .sidebar{ display:none; } /* higher specificity than the base .sidebar{display:flex} so it actually wins */
@@ -150,6 +160,8 @@
   .tagrow{ display:flex; flex-wrap:wrap; gap:6px; padding:0 14px 10px 14px; flex-shrink:0; max-height:22vh; overflow-y:auto; }
   .tagchip{ font-family:var(--sans); font-size:11px; font-weight:500; color:var(--accent-hover); background:var(--accent-soft); border:1px solid transparent; padding:3px 9px; border-radius:12px; cursor:pointer; white-space:nowrap; }
   .tagchip.active{ background:var(--accent); color:#fff; }
+  .tagchip-more{ font-weight:700; padding:3px 11px; }
+  .tag-overflow-popup{ position:fixed; z-index:400; background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:8px; box-shadow:0 4px 16px rgba(0,0,0,.14); display:flex; flex-wrap:wrap; gap:5px; width:220px; max-height:260px; overflow-y:auto; }
   .cardlist{ flex:1; min-height:0; overflow-y:auto; padding:4px 8px 16px 8px; display:flex; flex-direction:column; gap:5px; min-width:0; }
   .cardlist.empty-state{ align-items:center; justify-content:center; text-align:center; color:var(--ink-faint); font-size:12.5px; padding:30px; line-height:1.7; }
   .card-tab{ position:relative; flex-shrink:0; background:var(--bg-card); color:var(--ink); border-radius:8px; padding:10px 12px 10px 12px; cursor:pointer; border:1px solid var(--border-soft); opacity:0; animation: fanin .3s ease forwards; transition: border-color .12s ease, background .12s ease; min-width:0; overflow:hidden; }
@@ -216,9 +228,9 @@
   .sortbtn, .tagchip{ transition:transform .1s ease; }
   .sortbtn:active, .tagchip:active{ transform:scale(0.94); }
   .fmtsep{ width:1px; height:18px; background:var(--border); margin:0 8px; flex-shrink:0; }
-  .editorbox{ width:100%; min-height:70vh; background:none; border:none; outline:none; resize:none; color:var(--ink); font-family:var(--sans); font-size:17px; line-height:1.9; word-break:keep-all; overflow-wrap:break-word; }
+  .editorbox{ width:100%; min-height:70vh; background:none; border:none; outline:none; resize:none; color:var(--ink); font-family:var(--sans); font-size:calc(17px * var(--card-font-scale, 1)); line-height:1.9; word-break:keep-all; overflow-wrap:break-word; }
   .editorbox::placeholder{ color:var(--ink-faint); }
-  .preview{ font-family:var(--sans); font-size:17px; line-height:1.9; color:var(--ink); word-break:keep-all; overflow-wrap:break-word; }
+  .preview{ font-family:var(--sans); font-size:calc(17px * var(--card-font-scale, 1)); line-height:1.9; color:var(--ink); word-break:keep-all; overflow-wrap:break-word; }
   /* split editor/preview */
   .split-divider{ display:none; }
   .editor-split.split{ display:flex; align-items:stretch; gap:0; height:calc(100vh - 210px); min-height:340px; }
@@ -234,7 +246,7 @@
     .editor-split.split > .split-divider{ display:none; }
   }
   .preview h1,.preview h2,.preview h3,.preview h4{ font-weight:800; color:var(--ink); margin:26px 0 12px 0; }
-  .preview h1{ font-size:26px; } .preview h2{ font-size:22px; } .preview h3{ font-size:18px; } .preview h4{ font-size:15.5px; }
+  .preview h1{ font-size:1.53em; } .preview h2{ font-size:1.29em; } .preview h3{ font-size:1.06em; } .preview h4{ font-size:0.91em; }
   .preview p{ margin:0 0 16px 0; } .preview ul,.preview ol{ margin:0 0 16px 22px; padding:0; } .preview li{ margin-bottom:6px; }
   .preview ul ul, .preview ul ol, .preview ol ul, .preview ol ol{ margin:6px 0 0 22px; }
   .preview strong{ color:var(--ink); font-weight:700; }
@@ -250,6 +262,8 @@
   .preview table{ width:max-content; min-width:100%; border-collapse:collapse; font-size:14.5px; }
   .preview th,.preview td{ border:1px solid var(--border); padding:8px 10px; text-align:left; white-space:nowrap; }
   .preview th{ background:var(--bg-panel); font-weight:700; }
+  .tbl-cell-btn{ position:fixed; z-index:350; width:20px; height:20px; display:none; align-items:center; justify-content:center; font-size:11px; line-height:1; background:var(--bg-card); border:1px solid var(--border); border-radius:5px; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,.14); padding:0; }
+  .tbl-cell-btn:hover{ background:var(--accent-soft); border-color:var(--accent); }
   /* Panel collapse buttons */
   .panel-collapse-btn{ font-size:12px; color:var(--ink-faint); background:none; border:none; cursor:pointer; padding:2px 6px; border-radius:4px; line-height:1; font-family:var(--sans); flex-shrink:0; }
   .panel-collapse-btn:hover{ color:var(--accent); background:var(--accent-soft); }
@@ -299,7 +313,6 @@
   .graphmini line{ stroke:var(--border); stroke-width:1; }
   .graphmini text{ font-family:var(--sans); font-size:9px; fill:var(--ink-faint); }
   .graphmini .gnode{ cursor:grab; }
-  .graphmini .gnode.self{ cursor:default; }
   .graphmini.grabbing, .graphmini.grabbing .gnode{ cursor:grabbing; }
   .toast{ position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:var(--toast-bg); color:var(--toast-ink); font-size:12.5px; font-weight:500; padding:9px 16px; border-radius:20px; opacity:0; pointer-events:none; transition:opacity .25s ease, transform .25s ease; z-index:50; display:flex; align-items:center; gap:12px; }
   .toast-action{ background:none; border:none; color:var(--accent); font-family:var(--sans); font-size:12px; font-weight:700; cursor:pointer; text-decoration:underline; padding:0; pointer-events:auto; }
@@ -1077,7 +1090,19 @@
       </div>
       <div class="settings-section">
         <div class="settings-label">쓰기 모드</div>
-        <label class="graph-toggle"><input type="checkbox" id="previewSyncToggle"> 편집 중 미리보기를 편집 위치와 자동 동기화</label>
+        <select class="settings-select" id="writeLayoutSelect">
+          <option value="split">쓰기모드 + 미리보기</option>
+          <option value="write-only">쓰기모드만</option>
+        </select>
+        <label class="graph-toggle" id="previewSyncToggleRow" style="margin-top:8px;"><input type="checkbox" id="previewSyncToggle"> 편집 중 미리보기를 편집 위치와 자동 동기화</label>
+      </div>
+      <div class="settings-section">
+        <div class="settings-label">카드 글자 크기</div>
+        <select class="settings-select" id="fontSizeSelect">
+          <option value="small">축소</option>
+          <option value="normal">보통</option>
+          <option value="large">확대</option>
+        </select>
       </div>
     </div>
   </div>
@@ -1309,6 +1334,11 @@
     else document.documentElement.style.removeProperty('--sans');
   }
 
+  const FONT_SIZE_SCALES = { small: 0.85, normal: 1, large: 1.2 };
+  function applyFontSize(size){
+    document.documentElement.style.setProperty('--card-font-scale', FONT_SIZE_SCALES[size] || 1);
+  }
+
   function renderSwatches(container, presets, current, onPick){
     container.innerHTML = '';
     presets.forEach(hex => {
@@ -1332,6 +1362,9 @@
     el('fontSelect').innerHTML = FONT_OPTIONS.map((f,i) => `<option value="${i}"${f.value===font ? ' selected' : ''}>${f.label}</option>`).join('');
     if(!font) el('fontSelect').value = '0';
     el('previewSyncToggle').checked = previewSyncEnabled();
+    el('writeLayoutSelect').value = writeOnlyEnabled() ? 'write-only' : 'split';
+    el('previewSyncToggleRow').style.display = writeOnlyEnabled() ? 'none' : '';
+    el('fontSizeSelect').value = localStorage.getItem('stk-font-size') || 'normal';
   }
 
   el('accentCustom').addEventListener('input', e => { localStorage.setItem('stk-accent-color', e.target.value); applyAccentColor(e.target.value); refreshSettingsUI(); });
@@ -1344,10 +1377,17 @@
     else { localStorage.setItem('stk-font', opt.value); applyFont(opt.value); }
   };
   el('previewSyncToggle').onchange = e => { localStorage.setItem('stk-preview-sync', e.target.checked ? '1' : '0'); };
+  el('writeLayoutSelect').onchange = e => {
+    localStorage.setItem('stk-write-layout', e.target.value);
+    refreshSettingsUI();
+    if(mode==='split') setMode('split');
+  };
+  el('fontSizeSelect').onchange = e => { localStorage.setItem('stk-font-size', e.target.value); applyFontSize(e.target.value); };
 
   applyAccentColor(localStorage.getItem('stk-accent-color') || '');
   applyMarkColor(localStorage.getItem('stk-mark-color') || '');
   applyFont(localStorage.getItem('stk-font') || '');
+  applyFontSize(localStorage.getItem('stk-font-size') || 'normal');
 
   function openSettingsModal(){ refreshSettingsUI(); el('settingsModal').style.display = 'flex'; }
   function closeSettingsModal(){ el('settingsModal').style.display = 'none'; }
@@ -1575,14 +1615,44 @@
 
     s = s.replace(/(?:^[ \t]*(?:-|\d+\.)[ \t]+.*(?:\n|$))+/gm, block => buildListHtml(block) + '\n');
 
+    let tableIdx = -1;
     s = s.replace(/(?:^\|.*\|[ \t]*\n?)+/gm, block => {
       const lines = block.trim().split('\n');
       if(lines.length < 2 || !/^\|?[\s:|-]+\|?$/.test(lines[1])) return block;
+      tableIdx++;
+      const tIdx = tableIdx;
       const parseRow = (line) => line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => c.trim());
+      // column alignment, standard markdown separator syntax (:--- / :---: / ---:)
+      const aligns = parseRow(lines[1]).map(seg => {
+        if(/^:.*:$/.test(seg)) return 'center';
+        if(/:$/.test(seg)) return 'right';
+        if(/^:/.test(seg)) return 'left';
+        return '';
+      });
+      // per-cell background color, a small non-standard extension: a leading
+      // {{bg:#hex}} marker (curly braces survive escapeHtml, unlike <!-- --> or [[ ]])
+      // that this renderer strips and turns into the cell's background style.
+      const cellHtml = (raw, ci) => {
+        const bgm = raw.match(/^\{\{bg:(#[0-9a-fA-F]{3,8})\}\}([\s\S]*)$/);
+        const bg = bgm ? bgm[1] : '';
+        const text = bgm ? bgm[2] : raw;
+        const styles = [];
+        if(aligns[ci]) styles.push('text-align:' + aligns[ci]);
+        if(bg) styles.push('background:' + bg);
+        return { attr: styles.length ? ` style="${styles.join(';')}"` : '', text };
+      };
       const header = parseRow(lines[0]);
       const rows = lines.slice(2).map(parseRow);
-      let table = '<div class="tbl-wrap"><table><thead><tr>' + header.map(h => `<th>${h}</th>`).join('') + '</tr></thead><tbody>';
-      rows.forEach(r => { table += '<tr>' + r.map(c => `<td>${c}</td>`).join('') + '</tr>'; });
+      let table = `<div class="tbl-wrap"><table data-tidx="${tIdx}"><thead><tr>` + header.map((h, ci) => {
+        const { attr, text } = cellHtml(h, ci);
+        return `<th data-row="0" data-col="${ci}"${attr}>${text}</th>`;
+      }).join('') + '</tr></thead><tbody>';
+      rows.forEach((r, ri) => {
+        table += '<tr>' + r.map((c, ci) => {
+          const { attr, text } = cellHtml(c, ci);
+          return `<td data-row="${ri + 1}" data-col="${ci}"${attr}>${text}</td>`;
+        }).join('') + '</tr>';
+      });
       table += '</tbody></table></div>';
       return table + '\n';
     });
@@ -1832,15 +1902,46 @@
   let activeTagFilter = null;
   let searchQuery = '';
 
+  const TAG_ROW_LIMIT = 10;
+
+  function makeTagChip(t){
+    const chip = document.createElement('div');
+    chip.className = 'tagchip' + (activeTagFilter === t ? ' active' : '');
+    chip.textContent = '#' + t;
+    chip.onclick = () => { activeTagFilter = activeTagFilter === t ? null : t; renderTagRow(); renderCardList(); closeTagOverflowPopup(); };
+    return chip;
+  }
+
+  function closeTagOverflowPopup(){
+    document.querySelector('.tag-overflow-popup')?.remove();
+  }
+
+  function openTagOverflowPopup(anchorEl){
+    closeTagOverflowPopup();
+    const pop = document.createElement('div');
+    pop.className = 'tag-overflow-popup';
+    allTags.forEach(t => pop.appendChild(makeTagChip(t)));
+    const rect = anchorEl.getBoundingClientRect();
+    pop.style.left = rect.left + 'px';
+    pop.style.top = (rect.bottom + 4) + 'px';
+    document.body.appendChild(pop);
+    const close = ev => { if(!pop.contains(ev.target)){ closeTagOverflowPopup(); document.removeEventListener('mousedown', close); } };
+    setTimeout(()=>document.addEventListener('mousedown', close), 0);
+  }
+
   function renderTagRow(){
     tagRow.innerHTML = '';
-    allTags.forEach(t => {
-      const chip = document.createElement('div');
-      chip.className = 'tagchip' + (activeTagFilter === t ? ' active' : '');
-      chip.textContent = '#' + t;
-      chip.onclick = () => { activeTagFilter = activeTagFilter === t ? null : t; renderTagRow(); renderCardList(); };
-      tagRow.appendChild(chip);
-    });
+    closeTagOverflowPopup();
+    const shown = allTags.length > TAG_ROW_LIMIT ? allTags.slice(0, TAG_ROW_LIMIT) : allTags;
+    shown.forEach(t => tagRow.appendChild(makeTagChip(t)));
+    if(allTags.length > TAG_ROW_LIMIT){
+      const more = document.createElement('div');
+      more.className = 'tagchip tagchip-more';
+      more.textContent = '…';
+      more.title = `태그 ${allTags.length}개 모두 보기`;
+      more.onclick = (e) => { e.stopPropagation(); openTagOverflowPopup(more); };
+      tagRow.appendChild(more);
+    }
   }
 
   // Human-readable searchable text per note type (canvas/table store JSON in content,
@@ -2042,21 +2143,24 @@
     btn.classList.toggle('pinned', !!note.pinned);
   }
 
+  function writeOnlyEnabled(){ return localStorage.getItem('stk-write-layout') === 'write-only'; }
+
   function setMode(m){
-    if(m!=='preview') m='split'; // 쓰기모드 = 편집+미리보기 분할, 읽기모드 = 미리보기
+    if(m!=='preview') m='split'; // 쓰기모드 = 편집(+미리보기 분할, 설정에 따라), 읽기모드 = 미리보기
     mode = m;
     el('editModeBtn').classList.toggle('active', m==='split');
     el('previewModeBtn').classList.toggle('active', m==='preview');
     const split = el('editorSplit');
-    split.classList.toggle('split', m==='split');
     // side-by-side split doesn't fit a phone screen; 쓰기모드 there shows just the editor (see the
     // .editor-split.split mobile media query) — so the preview pane/divider/flex-basis inline
     // overrides below must stay off on mobile or they'd fight that CSS the same way applyPanelState's did
     const mobile = window.innerWidth <= 640;
+    const showPreviewPane = m==='split' && !mobile && !writeOnlyEnabled();
+    split.classList.toggle('split', showPreviewPane);
     editorBox.style.display  = (m==='split') ? 'block' : 'none';
-    previewBox.style.display = (m==='preview' || (m==='split' && !mobile)) ? 'block' : 'none';
-    el('splitDivider').style.display = (m==='split' && !mobile) ? 'block' : 'none';
-    if(m==='split' && !mobile){
+    previewBox.style.display = (m==='preview' || showPreviewPane) ? 'block' : 'none';
+    el('splitDivider').style.display = showPreviewPane ? 'block' : 'none';
+    if(showPreviewPane){
       const r = parseFloat(localStorage.getItem('stk-split-ratio')) || 0.5;
       editorBox.style.flexBasis = (Math.min(0.8,Math.max(0.2,r))*100) + '%';
     } else {
@@ -2214,7 +2318,10 @@
     // neighbors start bunched near the center (small random jitter) rather than
     // already at their resting layout, so the spring/repulsion forces visibly
     // spread them into place instead of producing near-imperceptible motion
-    const nodes = [{ self:true, id:note.id, title:note.title, x:cx, y:cy, vx:0, vy:0, fixed:true }];
+    // the current card's node starts pinned at center (so the layout doesn't jump the
+    // instant it's drawn) but isn't permanently fixed — like a global-graph node, it
+    // relaxes into the physics once the sim settles, and can be dragged around too.
+    const nodes = [{ self:true, id:note.id, title:note.title, x:cx, y:cy, vx:0, vy:0, fixed:true, settleFrame:26 }];
     neighbors.forEach((n,i) => {
       const jAngle = Math.random()*Math.PI*2, jR = Math.random()*12;
       nodes.push({ self:false, id:n.id, title:n.title, x:cx+Math.cos(jAngle)*jR, y:cy+Math.sin(jAngle)*jR, vx:0, vy:0, fixed:false });
@@ -2260,6 +2367,9 @@
         if(!nodes[b].fixed){ nodes[b].vx-=ux*f; nodes[b].vy-=uy*f; }
       });
       for(const n of nodes){
+        if(n.settleFrame !== undefined){
+          if(n.settleFrame-- <= 0) n.fixed = false;
+        }
         if(n.fixed){ n.vx=0; n.vy=0; continue; }
         n.vx*=DAMP; n.vy*=DAMP;
         if(n.vx>VMAX)n.vx=VMAX; else if(n.vx<-VMAX)n.vx=-VMAX;
@@ -2280,7 +2390,8 @@
     miniSim.raf = requestAnimationFrame(step);
   }
 
-  // drag a mini-graph neighbor node (physics reacts); the self node stays pinned at center
+  // drag any mini-graph node (self included, like the global graph); a tap that didn't
+  // move a neighbor node navigates to it, same as the global graph's node click
   let miniDrag = null;
   function miniClientToSvg(clientX, clientY){
     const ctm = graphMini.getScreenCTM(); if(!ctm) return null;
@@ -2289,22 +2400,27 @@
     return { x:p.x, y:p.y };
   }
   function miniDragStart(clientX, clientY, target){
-    const g = target.closest('.gnode'); if(!g || g.classList.contains('self') || !miniSim) return;
-    const node = miniSim.nodes.find(n => n.id === g.dataset.id); if(!node) return;
-    miniDrag = { node };
+    const g = target.closest('.gnode'); if(!g || !miniSim) return;
+    const isSelf = g.classList.contains('self');
+    const node = isSelf ? miniSim.nodes[0] : miniSim.nodes.find(n => n.id === g.dataset.id);
+    if(!node) return;
+    miniDrag = { node, id: isSelf ? null : g.dataset.id, moved:false };
     node.fixed = true;
+    node.settleFrame = undefined;
     graphMini.classList.add('grabbing');
     reheatMiniSim();
   }
   function miniDragMove(clientX, clientY){
     if(!miniDrag) return;
     const p = miniClientToSvg(clientX, clientY); if(!p) return;
+    miniDrag.moved = true;
     miniDrag.node.x = p.x; miniDrag.node.y = p.y; miniDrag.node.vx = 0; miniDrag.node.vy = 0;
   }
   function miniDragEnd(){
     if(!miniDrag) return;
     miniDrag.node.fixed = false;
     graphMini.classList.remove('grabbing');
+    if(!miniDrag.moved && miniDrag.id) openNote(miniDrag.id);
     miniDrag = null;
   }
   graphMini.addEventListener('mousedown', e => miniDragStart(e.clientX, e.clientY, e.target));
@@ -2535,6 +2651,157 @@
     previewBox.innerHTML = renderMarkdown(editorBox.value);
     syncPreviewToCursor();
   });
+  // double-click a spot in the preview to jump the editor caret to roughly the same
+  // spot in the source. same proportional approximation as syncPreviewToCursor, just
+  // inverted (click position within preview's scroll height -> fraction -> source offset),
+  // then snapped out to word boundaries so the caret lands on a whole word.
+  previewBox.addEventListener('dblclick', (e) => {
+    if(mode !== 'split') return;
+    if(e.target.closest('.wikilink') || e.target.closest('.taskbox') || e.target.closest('a')) return;
+    const rect = previewBox.getBoundingClientRect();
+    const relY = previewBox.scrollTop + (e.clientY - rect.top);
+    const frac = previewBox.scrollHeight > 0 ? relY / previewBox.scrollHeight : 0;
+    const val = editorBox.value;
+    let pos = Math.round(Math.max(0, Math.min(1, frac)) * val.length);
+    let start = pos, end = pos;
+    while(start > 0 && !/\s/.test(val[start - 1])) start--;
+    while(end < val.length && !/\s/.test(val[end])) end++;
+    editorBox.focus();
+    editorBox.setSelectionRange(start, end);
+    const lineHeight = parseFloat(getComputedStyle(editorBox).lineHeight) || 20;
+    const lineIdx = val.slice(0, start).split('\n').length - 1;
+    editorBox.scrollTop = Math.max(0, lineIdx * lineHeight - editorBox.clientHeight / 2);
+  });
+
+  // ---- table editing from the preview: column alignment + per-cell background ----
+  // tables render 1:1 (one row per source line) unlike prose, so instead of the fuzzy
+  // proportional mapping used elsewhere, walk the raw source with the same block regex
+  // renderMarkdown used and pick out the Nth table match (data-tidx) to get exact offsets.
+  function locateTableInSource(tidx){
+    const val = editorBox.value;
+    const re = /(?:^\|.*\|[ \t]*\n?)+/gm;
+    let m, idx = -1;
+    while((m = re.exec(val))){
+      let block = m[0];
+      if(block.endsWith('\n')) block = block.slice(0, -1);
+      const lines = block.split('\n');
+      if(lines.length < 2 || !/^\|?[\s:|-]+\|?$/.test(lines[1])) continue;
+      idx++;
+      if(idx === tidx){
+        let offset = m.index;
+        const lineStarts = lines.map(line => { const s0 = offset; offset += line.length + 1; return s0; });
+        return { lines, lineStarts };
+      }
+    }
+    return null;
+  }
+
+  function splitTableRow(line){
+    const trimmed = line.trim();
+    const lead = trimmed.startsWith('|');
+    const trail = trimmed.length > 1 && trimmed.endsWith('|');
+    const core = trimmed.replace(/^\|/, '').replace(/\|$/, '');
+    return { cells: core.split('|'), lead, trail };
+  }
+  function joinTableRow(cells, lead, trail){
+    return (lead ? '|' : '') + cells.join('|') + (trail ? '|' : '');
+  }
+
+  function cycleTableAlign(tidx, col){
+    const loc = locateTableInSource(tidx);
+    if(!loc) return;
+    const { cells, lead, trail } = splitTableRow(loc.lines[1]);
+    if(col >= cells.length) return;
+    const cur = cells[col].trim();
+    let next;
+    if(/^:.*:$/.test(cur)) next = '---';
+    else if(/:$/.test(cur)) next = ':---:';
+    else if(/^:/.test(cur)) next = '---:';
+    else next = ':---';
+    cells[col] = ' ' + next + ' ';
+    const rebuilt = joinTableRow(cells, lead, trail);
+    const lineStart = loc.lineStarts[1], lineEnd = lineStart + loc.lines[1].length;
+    replaceEditorRange(lineStart, lineEnd, rebuilt, lineStart + rebuilt.length);
+  }
+
+  function setTableCellColor(tidx, row, col, hex){
+    const loc = locateTableInSource(tidx);
+    if(!loc) return;
+    const lineIdx = row + 1; // row 0 = header (source line 0), data rows start at source line 2
+    if(lineIdx >= loc.lines.length) return;
+    const { cells, lead, trail } = splitTableRow(loc.lines[lineIdx]);
+    if(col >= cells.length) return;
+    const raw = cells[col];
+    const leadWs = raw.match(/^\s*/)[0];
+    const core = raw.trim().replace(/^\{\{bg:#[0-9a-fA-F]{3,8}\}\}/, '');
+    cells[col] = leadWs + (hex ? `{{bg:${hex}}}` : '') + core + ' ';
+    const rebuilt = joinTableRow(cells, lead, trail);
+    const lineStart = loc.lineStarts[lineIdx], lineEnd = lineStart + loc.lines[lineIdx].length;
+    replaceEditorRange(lineStart, lineEnd, rebuilt, lineStart + rebuilt.length);
+  }
+
+  let tblHoverBtn = null;
+  function tblCellBtn(){
+    if(tblHoverBtn) return tblHoverBtn;
+    tblHoverBtn = document.createElement('button');
+    tblHoverBtn.type = 'button';
+    tblHoverBtn.className = 'tbl-cell-btn';
+    document.body.appendChild(tblHoverBtn);
+    return tblHoverBtn;
+  }
+  previewBox.addEventListener('mouseover', (e) => {
+    if(mode !== 'split') return;
+    const cell = e.target.closest('td[data-col], th[data-col]');
+    if(!cell) return;
+    const table = cell.closest('table[data-tidx]');
+    if(!table) return;
+    const btn = tblCellBtn();
+    const rect = cell.getBoundingClientRect();
+    const isHeader = cell.tagName === 'TH';
+    btn.textContent = isHeader ? '⇔' : '🎨';
+    btn.title = isHeader ? '정렬 전환' : '칸 색깔';
+    btn.style.display = 'flex';
+    btn.style.left = Math.max(0, rect.right - 22) + 'px';
+    btn.style.top = rect.top + 'px';
+    btn.onclick = (ev) => {
+      ev.stopPropagation();
+      const tidx = parseInt(table.dataset.tidx, 10);
+      const col = parseInt(cell.dataset.col, 10);
+      if(isHeader){ cycleTableAlign(tidx, col); btn.style.display = 'none'; }
+      else openTableCellColorPopup(tidx, parseInt(cell.dataset.row, 10), col, btn);
+    };
+  });
+  previewBox.addEventListener('mouseout', (e) => {
+    if(!tblHoverBtn || tblHoverBtn.style.display === 'none') return;
+    const to = e.relatedTarget;
+    if(to && (to === tblHoverBtn || (to.closest && to.closest('td[data-col], th[data-col]')))) return;
+    tblHoverBtn.style.display = 'none';
+  });
+
+  function openTableCellColorPopup(tidx, row, col, anchorEl){
+    document.querySelector('.card-color-palette')?.remove();
+    const pal = document.createElement('div');
+    pal.className = 'card-color-palette';
+    CARD_COLORS.forEach(c => {
+      const sw = document.createElement('div');
+      sw.className = 'card-color-swatch';
+      sw.style.background = c;
+      sw.onclick = ev => { ev.stopPropagation(); pal.remove(); setTableCellColor(tidx, row, col, c); };
+      pal.appendChild(sw);
+    });
+    const none = document.createElement('div');
+    none.className = 'card-color-swatch';
+    none.title = '색상 제거'; none.style.background = 'var(--bg)'; none.style.border = '1.5px dashed var(--border)';
+    none.onclick = ev => { ev.stopPropagation(); pal.remove(); setTableCellColor(tidx, row, col, null); };
+    pal.appendChild(none);
+    const rect = anchorEl.getBoundingClientRect();
+    pal.style.left = (rect.left - 120) + 'px';
+    pal.style.top = (rect.bottom + 4) + 'px';
+    document.body.appendChild(pal);
+    const close = ev => { if(!pal.contains(ev.target)){ pal.remove(); document.removeEventListener('mousedown', close); } };
+    setTimeout(()=>document.addEventListener('mousedown', close), 0);
+  }
+
   // draggable divider between editor and preview
   (function(){
     const divider=el('splitDivider'), split=el('editorSplit');
@@ -2806,6 +3073,7 @@
     const def = VIEW_DEF[name] || VIEW_DEF.empty;
     currentView = name;
     appEl.classList.remove('show-sidebar'); // any navigation closes the mobile sidebar overlay, if open
+    mobileRightpaneOpen = false; // ...and the mobile rightpane overlay, if open
     MAINPANE_IDS.forEach(id => { const e = el(id); if(e && id!==def.show) e.style.display='none'; });
     const target = el(def.show); if(target) target.style.display = def.disp;
     toolbar.style.display = def.toolbar ? 'flex' : 'none';
@@ -2820,6 +3088,10 @@
 
   // ---------------- panel collapse (right panel only; left sidebar is always shown) ----------------
   let rightpaneCollapsed = localStorage.getItem('stk-rl') === '1';
+  // on mobile/tablet the rightpane can't sit side-by-side (no room), so instead of the desktop
+  // collapse/expand it becomes a fixed slide-over that's closed by default and opened on demand
+  // via the same show/collapse tab buttons — see the .app.show-rightpane CSS.
+  let mobileRightpaneOpen = false;
 
   function applyPanelState(){
     const rpApplicable = !!(VIEW_DEF[currentView] && VIEW_DEF[currentView].rightpane);
@@ -2827,14 +3099,18 @@
     // breakpoints have to be read here in JS too, or the mobile/tablet CSS gets silently overridden
     const w = window.innerWidth;
     const mobile = w <= 640;   // single column; sidebar becomes a fixed overlay (pure CSS, see .show-sidebar)
-    const narrow = w <= 900;   // includes mobile; rightpane never fits here regardless of user preference
+    const narrow = w <= 900;   // includes mobile; rightpane never fits side-by-side here
+    if(!narrow) mobileRightpaneOpen = false; // overlay state is only meaningful once we're back on a narrow screen
 
-    // Rightpane: only exists for views that declare it; user collapse is remembered
-    const rHidden = narrow || !rpApplicable || rightpaneCollapsed;
-    el('rightpane').style.display        = rHidden ? 'none' : '';
+    const showOverlay = narrow && rpApplicable && mobileRightpaneOpen;
+    // Rightpane: only exists for views that declare it; desktop collapse state is remembered,
+    // mobile/tablet uses the overlay flag instead
+    const rHidden = narrow ? !showOverlay : (!rpApplicable || rightpaneCollapsed);
+    appEl.classList.toggle('show-rightpane', showOverlay);
+    el('rightpane').style.display        = rHidden ? 'none' : (narrow ? 'block' : '');
     el('resizeRight').style.display      = (narrow || rHidden) ? 'none' : '';
-    el('rightpaneShowTab').style.display = (!narrow && rpApplicable && rightpaneCollapsed) ? 'flex' : 'none';
-    el('rightpaneToggleBtn').style.display = (!narrow && rpApplicable && !rightpaneCollapsed) ? 'flex' : 'none';
+    el('rightpaneShowTab').style.display = rpApplicable && (narrow ? !showOverlay : rightpaneCollapsed) ? 'flex' : 'none';
+    el('rightpaneToggleBtn').style.display = rpApplicable && (narrow ? showOverlay : !rightpaneCollapsed) ? 'flex' : 'none';
 
     // Grid template (inline style is the single authority; overrides any CSS class rules)
     if(mobile){
@@ -2855,8 +3131,16 @@
     localStorage.setItem('stk-rl', rightpaneCollapsed ? '1' : '0');
   }
 
-  el('rightpaneToggleBtn').onclick = () => { rightpaneCollapsed = !rightpaneCollapsed; applyPanelState(); };
-  el('rightpaneShowTab').onclick = () => { rightpaneCollapsed = false; applyPanelState(); };
+  el('rightpaneToggleBtn').onclick = () => {
+    if(window.innerWidth <= 900) mobileRightpaneOpen = false;
+    else rightpaneCollapsed = true;
+    applyPanelState();
+  };
+  el('rightpaneShowTab').onclick = () => {
+    if(window.innerWidth <= 900) mobileRightpaneOpen = true;
+    else rightpaneCollapsed = false;
+    applyPanelState();
+  };
 
   // ---------------- global connection graph ----------------
   const globalGraphView = el('globalGraphView');

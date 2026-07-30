@@ -1,0 +1,19 @@
+{
+  "name": "graphidea",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GRAPHIDEA - wikilink/graph note-taking app (Supabase-backed), wrapped for Android via Capacitor",
+  "scripts": {
+    "sync": "cap sync",
+    "android": "cap open android",
+    "android:run": "cap run android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/app": "^7.0.0",
+    "@capacitor/core": "^7.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.0.0"
+  }
+}

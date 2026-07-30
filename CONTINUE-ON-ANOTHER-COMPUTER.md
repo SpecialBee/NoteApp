@@ -2,7 +2,14 @@
 
 배포된 사이트: https://note-app-gamma-wheat.vercel.app
 
-> 상세 변경 이력·현재 기능은 [`CHANGELOG.md`](CHANGELOG.md) 참고. 앱은 `index.html` 단일 파일.
+> 상세 변경 이력·현재 기능은 [`CHANGELOG.md`](CHANGELOG.md) 참고. 앱 본체는 `www/index.html` 단일 파일 (2026-07-30부로 Capacitor 빌드를 위해 저장소 루트에서 `www/`로 이동함).
+
+## 안드로이드 빌드 (Capacitor)
+- `www/index.html`이 웹·앱 공용 소스. 수정 후 `npx cap sync android`로 `android/`에 반영.
+- 새 컴퓨터에서 안드로이드 빌드를 이어서 하려면: `npm install` → Android Studio에서 `android/` 폴더 열기 (또는 `npx cap open android`).
+- 이 컴퓨터에는 Android Studio/JDK가 아직 설치 안 되어 있었음 — 다른 컴퓨터도 마찬가지일 가능성 높음, 먼저 설치 필요.
+- `android/` 폴더는 저장소에 커밋됨(Capacitor 표준 관행). `node_modules`, `android/**/build`, `local.properties` 등은 `.gitignore`로 제외.
+- `capacitor.config.json`의 `appId`(`com.specialbee.graphidea`)는 임시값 — Play 스토어에 최초 게시하면 이후 변경 불가하니 정식 출시 전 확정할 것.
 
 ## 현재 상태 (2026-07-26 기준)
 - 노트 타입: 일반(마크다운) · 🎨 캔버스 · 📊 테이블. + 🗄 데이터베이스는 전역 뷰(사이드바 검색 위 버튼).

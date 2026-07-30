@@ -3610,6 +3610,22 @@
     if(saveTimer){ e.preventDefault(); e.returnValue = ''; }
   });
 
+  // beforeunload doesn't fire reliably when a mobile app is backgrounded or killed by
+  // the OS (no page "unload" happens, the process is just suspended/frozen), so the
+  // pending debounced save could be lost entirely. visibilitychange is the standard,
+  // more reliable signal for "about to go away" on both mobile browsers and app webviews.
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'hidden') flushSave();
+  });
+  // belt-and-suspenders for the actual Capacitor-wrapped app: Capacitor.Plugins.App is
+  // injected automatically by the native runtime (no bundler/import needed) and its
+  // pause/appStateChange events fire even in cases visibilitychange might not catch.
+  if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App){
+    const CapApp = window.Capacitor.Plugins.App;
+    CapApp.addListener('pause', () => flushSave());
+    CapApp.addListener('appStateChange', (state) => { if(!state.isActive) flushSave(); });
+  }
+
   // ---------------- resizable panels ----------------
   function loadPanelWidths(){
     try{
@@ -6096,7 +6112,7 @@
     const rnd=dashTodayNote();
     const tc=el('dashTodayCard');
     if(rnd){
-      tc.innerHTML=`<div class="dash-today-card-inner"><div class="dash-today-card-title">${escapeHtml(rnd.title||'제목 없음')}</div><div class="dash-today-card-preview">${(rnd.content||'').replace(/```[\s\S]*?```/g,'').replace(/[#*`\[\]]/g,'').trim().slice(0,120)}</div></div>`;
+      tc.innerHTML=`<div class="dash-today-card-inner"><div class="dash-today-card-title">${escapeHtml(rnd.title||'제목 없음')}</div><div class="dash-today-card-preview">${escapeHtml((rnd.content||'').replace(/```[\s\S]*?```/g,'').replace(/[#*`\[\]]/g,'').trim().slice(0,120))}</div></div>`;
       tc.querySelector('.dash-today-card-inner').addEventListener('click',()=>openNote(rnd.id));
     } else {
       tc.innerHTML='<div class="dash-empty">오늘 기록한 카드가 많네요! ✨</div>';

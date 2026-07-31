@@ -1064,6 +1064,7 @@
       <div id="propAddRow"></div>
     </div>
     <div class="rp-section"><div class="rp-title">역링크</div><div id="backlinkList" class="rp-empty">이 카드를 가리키는 카드가 없습니다.</div></div>
+    <div class="rp-section" id="canvasBacklinkSection" style="display:none;"><div class="rp-title">캔버스 보드</div><div id="canvasBacklinkList"></div></div>
     <div class="rp-section"><div class="rp-title">태그</div><div id="tagList" class="tag-list"><span class="rp-empty">태그 없음</span></div></div>
     <div class="rp-section"><div class="rp-title">연결 지도</div><svg class="graphmini" id="graphMini" viewBox="0 0 240 150"></svg></div>
   </div>
@@ -1192,6 +1193,8 @@
   const editorBox = el('editorBox');
   const previewBox = el('previewBox');
   const backlinkList = el('backlinkList');
+  const canvasBacklinkSection = el('canvasBacklinkSection');
+  const canvasBacklinkList = el('canvasBacklinkList');
   const tagList = el('tagList');
   const graphMini = el('graphMini');
   const syncDot = el('syncDot');
@@ -2276,6 +2279,19 @@
         backlinkList.appendChild(item);
       });
     }
+    canvasBacklinkList.innerHTML = '';
+    const canvasRefs = index.filter(m => isCanvasNote(m) && !m.deletedAt).filter(m => {
+      const { elements } = parseCanvasContent(m.content || '');
+      return elements.some(e => e.type === 'card' && e.noteId === note.id);
+    });
+    canvasBacklinkSection.style.display = canvasRefs.length ? '' : 'none';
+    canvasRefs.forEach(m => {
+      const item = document.createElement('div');
+      item.className = 'backlink-item';
+      item.textContent = '🎨 ' + (m.title || '제목 없음');
+      item.onclick = () => openNote(m.id);
+      canvasBacklinkList.appendChild(item);
+    });
     tagList.innerHTML = '';
     (note.tags||[]).forEach(t => {
       const chip = document.createElement('span');

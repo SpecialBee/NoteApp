@@ -145,6 +145,10 @@
       right:10px !important; left:auto !important;
       width:34px; height:34px; border-radius:8px; font-size:16px;
     }
+    /* side-by-side split preview can never fit a phone screen (see setMode's mobile
+       check), so the "쓰기모드 + 미리보기" layout setting has no effect here — hide it
+       instead of exposing a control that does nothing */
+    #writeLayoutSection{ display:none; }
   }
 
   .sidebar{ background:var(--bg-panel); display:flex; flex-direction:column; border-right:1px solid var(--border); min-height:0; overflow:hidden; }
@@ -246,7 +250,7 @@
   /* default (non-split) state: editor-split fills the remaining .cardsheet height so only
      editorbox/preview (flex:1 above) scroll internally — cardsheet itself never needs its own scrollbar */
   .editor-split{ display:flex; flex-direction:column; flex:1; min-height:0; }
-  .editor-split.split{ display:flex; align-items:stretch; gap:0; height:calc(100vh - 210px); min-height:340px; }
+  .editor-split.split{ display:flex; flex-direction:row; align-items:stretch; gap:0; height:calc(100vh - 210px); min-height:340px; }
   .editor-split.split > .editorbox{ flex:0 0 50%; min-width:120px; min-height:0; height:100%; overflow-y:auto; padding-right:16px; }
   .editor-split.split > .preview{ flex:1 1 0; min-width:120px; min-height:0; height:100%; overflow-y:auto; padding-left:20px; border-left:1px solid var(--border-soft); }
   .editor-split.split > .split-divider{ display:block; flex:0 0 9px; align-self:stretch; cursor:col-resize; position:relative; }
@@ -1104,7 +1108,7 @@
           <button class="settings-reset" id="markReset">기본값</button>
         </div>
       </div>
-      <div class="settings-section">
+      <div class="settings-section" id="writeLayoutSection">
         <div class="settings-label">쓰기 모드</div>
         <select class="settings-select" id="writeLayoutSelect">
           <option value="split">쓰기모드 + 미리보기</option>

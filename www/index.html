@@ -499,6 +499,12 @@
   .cev-card-node .cev-card-title{ font-size:13px; font-weight:700; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .cev-card-node .cev-card-meta{ font-size:10px; font-weight:600; color:var(--ink-faint); letter-spacing:.02em; }
   .cev-card-node.selected{ outline:2px solid var(--accent); outline-offset:2px; }
+  .cev-card-badges{ display:flex; flex-wrap:wrap; align-items:center; gap:4px; }
+  .cev-card-badge{ font-size:9px; font-weight:700; padding:1px 6px; border-radius:8px; background:var(--bg-panel); color:var(--ink-soft); white-space:nowrap; line-height:1.5; }
+  .cev-card-badge.cev-card-badge-check{ background:none; padding:0; color:var(--ink-faint); }
+  .cev-card-badge.cev-card-badge-check.checked{ color:var(--ok, #16a34a); }
+  .cev-card-progress{ flex:0 0 100%; height:4px; border-radius:2px; background:var(--border-soft); overflow:hidden; }
+  .cev-card-progress-fill{ height:100%; background:var(--accent); border-radius:2px; }
   .cev-card-picker{ position:fixed; z-index:9999; width:280px; background:var(--bg-card); border:1px solid var(--border); border-radius:10px; box-shadow:0 8px 28px rgba(0,0,0,0.18); padding:8px; }
   .cev-card-picker-input{ width:100%; box-sizing:border-box; font-family:var(--sans); font-size:13px; padding:7px 9px; border:1px solid var(--border); border-radius:7px; outline:none; background:var(--bg-panel); color:var(--ink); }
   .cev-card-picker-input:focus{ border-color:var(--accent); }
@@ -3788,6 +3794,10 @@
         if(mode === 'preview') previewBox.innerHTML = renderMarkdown(editorBox.value);
         showToast('다른 기기에서의 변경을 반영했습니다');
       }
+    } else if(cevCurrentNoteId && cevElements.some(e => e.type==='card' && e.noteId===row.id)){
+      // a note referenced by a card on the currently-open canvas changed elsewhere — refresh
+      // the card's live property badges without disturbing the canvas's own save state
+      cevRenderAll();
     }
     computeAllTags(); renderTagRow(); renderCardList();
     refreshOpenNoteView();
@@ -5468,6 +5478,31 @@
       const tEl=document.createElement('div'); tEl.className='cev-card-title'; tEl.textContent=title;
       const mEl=document.createElement('div'); mEl.className='cev-card-meta'; mEl.textContent = note ? kind : (edata.noteId?'연결 끊김':'더블클릭해 카드 지정');
       div.appendChild(tEl); div.appendChild(mEl);
+      // live property badges: reflects note.properties as of the last cevRenderAll() call,
+      // which handleRemoteChange() re-triggers when a linked note changes on another device
+      const badgeProps = note ? (note.properties||[]).filter(p => p.id!=='__color' && (p.type==='checkbox' || (p.value!=='' && p.value!=null))).slice(0,2) : [];
+      if(badgeProps.length){
+        const badgeWrap=document.createElement('div'); badgeWrap.className='cev-card-badges';
+        badgeProps.forEach(p=>{
+          const b=document.createElement('span'); b.className='cev-card-badge';
+          if(p.type==='checkbox'){
+            b.classList.add('cev-card-badge-check'); if(p.value) b.classList.add('checked');
+            b.textContent=(p.value?'✓ ':'○ ')+p.name;
+          }else if(p.type==='select'){
+            const c=colorForTag(String(p.value)); b.style.background=c+'26'; b.style.color=c;
+            b.textContent=p.value;
+          }else{
+            b.textContent=p.name+' '+p.value;
+          }
+          badgeWrap.appendChild(b);
+          if(p.type==='number' && typeof p.value==='number' && p.value>=0 && p.value<=100){
+            const barWrap=document.createElement('div'); barWrap.className='cev-card-progress';
+            const bar=document.createElement('div'); bar.className='cev-card-progress-fill'; bar.style.width=p.value+'%';
+            barWrap.appendChild(bar); badgeWrap.appendChild(barWrap);
+          }
+        });
+        div.appendChild(badgeWrap);
+      }
       div.addEventListener('dblclick',e=>{ if(edata.locked) return; e.stopPropagation(); if(edata.noteId && note) cevOpenLinkedCard(edata); else cevOpenCardPicker(edata); });
       cevBindElDrag(div, edata, null);
       cevAddAnchors(div, edata); inner.appendChild(div); return;

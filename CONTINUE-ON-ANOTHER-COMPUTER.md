@@ -38,7 +38,8 @@
 - `www/index.html`이 웹·앱 공용 소스. 수정 후 `npx cap sync android`로 `android/`에 반영 (그래야 다음 빌드에 코드 변경분이 들어감).
 - `android/` 폴더는 저장소에 커밋됨(Capacitor 표준 관행). `node_modules`, `android/**/build`, `local.properties`, `.idea/` 등은 `.gitignore`로 제외.
 - `capacitor.config.json`의 `appId`(`com.specialbee.graphidea`)는 임시값 — Play 스토어에 최초 게시하면 이후 변경 불가하니 정식 출시 전 확정할 것.
-- 정식 출시 전 아직 안 한 것(막는 건 아니고 개인용 빌드엔 불필요, Play 스토어 공개 배포 전엔 필수): 회원 탈퇴 기능, 개인정보처리방침/이용약관 페이지, 비밀번호 재설정 딥링크(현재 `redirectTo: window.location.href`라 앱 안에서 안 돌아옴), CDN(jsdelivr) Supabase SDK 번들 내장·버전 고정, 페이지네이션(현재 노트 전체를 매번 `select('*')`로 한번에 로드).
+- 정식 출시 전 아직 안 한 것(막는 건 아니고 개인용 빌드엔 불필요, Play 스토어 공개 배포 전엔 필수): 회원 탈퇴 기능, 개인정보처리방침/이용약관 페이지, 비밀번호 재설정 딥링크(현재 `redirectTo: window.location.href`라 앱 안에서 안 돌아옴), 페이지네이션(현재 노트 전체를 매번 `select('*')`로 한번에 로드).
+- ~~CDN(jsdelivr) Supabase SDK 번들 내장·버전 고정~~ 2026-08-04 완료 — `npm install @supabase/supabase-js` 후 `www/vendor/supabase.js`로 UMD 빌드 복사, `<script>` 태그가 로컬 파일을 로드하도록 변경. 버전 올릴 땐 `npm update @supabase/supabase-js && npm run vendor:supabase`.
 
 ## 현재 상태 (2026-07-26 기준)
 - 노트 타입: 일반(마크다운) · 🎨 캔버스 · 📊 테이블. + 🗄 데이터베이스는 전역 뷰(사이드바 검색 위 버튼).

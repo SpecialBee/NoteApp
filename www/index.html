@@ -2122,8 +2122,27 @@
   }
 
   // ---------------- open / edit ----------------
+  // remember where the cursor/scroll was in each note so reopening it resumes there
+  // instead of jumping back to the top.
+  let cursorSaveTimer = null;
+  function saveCursorPos(){
+    if(!currentId || mode==='preview') return;
+    try{ localStorage.setItem('stk-pos-'+currentId, JSON.stringify({ s: editorBox.selectionStart, t: editorBox.scrollTop })); }catch(e){}
+  }
+  function queueCursorSave(){ clearTimeout(cursorSaveTimer); cursorSaveTimer = setTimeout(saveCursorPos, 300); }
+  function restoreCursorPos(id){
+    let saved = null;
+    try{ saved = JSON.parse(localStorage.getItem('stk-pos-'+id)); }catch(e){}
+    if(!saved) return;
+    requestAnimationFrame(() => {
+      const pos = Math.min(saved.s || 0, editorBox.value.length);
+      editorBox.setSelectionRange(pos, pos);
+      editorBox.scrollTop = saved.t || 0;
+    });
+  }
+
   async function openNote(id){
-    if(currentId && currentId !== id) await flushSave();
+    if(currentId && currentId !== id){ saveCursorPos(); await flushSave(); }
     if(tevCurrentNoteId) tevFlushSave();
     if(cevCurrentNoteId) cevFlushSave();
     currentId = id;
@@ -2154,6 +2173,7 @@
     subLine.textContent = `${serialOf(index.findIndex(m=>m.id===id))} · 마지막 수정 ${new Date(note.updated).toLocaleString('ko-KR')}`;
     updateWordCount();
     setMode(localStorage.getItem('stk-editor-mode') || 'split');
+    restoreCursorPos(id);
     renderCardList();
     renderRightPane(note);
     updatePinBtn(note);
@@ -2676,6 +2696,10 @@
   titleField.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); editorBox.focus(); editorBox.setSelectionRange(0, 0); } });
   editorBox.addEventListener('input', queueSave);
   editorBox.addEventListener('input', updateWordCount);
+  editorBox.addEventListener('input', queueCursorSave);
+  editorBox.addEventListener('click', queueCursorSave);
+  editorBox.addEventListener('keyup', queueCursorSave);
+  editorBox.addEventListener('scroll', queueCursorSave);
   // live preview while in split mode
   function previewSyncEnabled(){ return localStorage.getItem('stk-preview-sync') !== '0'; }
   // approximate the cursor's position in the source text as a fraction of the whole

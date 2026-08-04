@@ -2353,8 +2353,33 @@
   // mini graph: live force simulation (Obsidian-style), same cooldown pattern as the
   // global graph / dashboard hero graph — the current note stays pinned at center,
   // neighbors settle around it and can be dragged
+  // once a force sim settles, give it a barely-there idle drift instead of freezing solid —
+  // a cheap per-node sine wobble around the settled position, far lighter than full physics.
+  function startIdleFloat(sim, nodeEls, lineEls, links, isActiveFn, extraTransform){
+    sim.nodes.forEach(n => {
+      n.fx = n.x; n.fy = n.y;
+      n.fPhase = Math.random() * Math.PI * 2;
+      n.fFreq = 0.0005 + Math.random() * 0.0004;
+      n.fAmp = 2 + Math.random() * 2;
+    });
+    const t0 = performance.now();
+    function idleStep(now){
+      if(sim.running || !isActiveFn()) return; // a reheat (drag) took over, or the view closed
+      const t = now - t0;
+      sim.nodes.forEach(n => {
+        if(n.fixed) return;
+        n.x = n.fx + Math.sin(t*n.fFreq + n.fPhase) * n.fAmp;
+        n.y = n.fy + Math.cos(t*n.fFreq*0.85 + n.fPhase) * n.fAmp;
+      });
+      nodeEls.forEach((g,i) => { if(!g) return; const n = sim.nodes[i]; g.setAttribute('transform', `translate(${n.x.toFixed(1)},${n.y.toFixed(1)})${extraTransform ? extraTransform(n) : ''}`); });
+      lineEls.forEach((ln,i) => { const [a,b] = links[i]; ln.setAttribute('x1', sim.nodes[a].x.toFixed(1)); ln.setAttribute('y1', sim.nodes[a].y.toFixed(1)); ln.setAttribute('x2', sim.nodes[b].x.toFixed(1)); ln.setAttribute('y2', sim.nodes[b].y.toFixed(1)); });
+      sim.idleRaf = requestAnimationFrame(idleStep);
+    }
+    sim.idleRaf = requestAnimationFrame(idleStep);
+  }
+
   let miniSim = null;
-  function stopMiniSim(){ if(miniSim){ cancelAnimationFrame(miniSim.raf); miniSim.running = false; } }
+  function stopMiniSim(){ if(miniSim){ cancelAnimationFrame(miniSim.raf); cancelAnimationFrame(miniSim.idleRaf); miniSim.running = false; } }
   function reheatMiniSim(){
     if(!miniSim) return;
     miniSim.alpha = Math.max(miniSim.alpha, 0.5);
@@ -2446,7 +2471,11 @@
 
       miniSim.frame++;
       miniSim.alpha *= ALPHA_DECAY;
-      if(miniSim.alpha < ALPHA_MIN || miniSim.frame > 400){ stopMiniSim(); return; }
+      if(miniSim.alpha < ALPHA_MIN || miniSim.frame > 400){
+        stopMiniSim();
+        startIdleFloat(miniSim, nodeEls, lineEls, links, () => currentId === note.id && el('rightpane').style.display !== 'none');
+        return;
+      }
       miniSim.raf = requestAnimationFrame(step);
     }
     miniSim = { raf:0, frame:0, alpha:1, running:true, nodes, step };
@@ -3220,7 +3249,7 @@
   let globalSim = null; // live force simulation state (Obsidian-style), persists after settle so drag can reheat it
 
   function isGraphOpen(){ return globalGraphView.style.display === 'flex'; }
-  function stopGlobalSim(){ if(globalSim){ cancelAnimationFrame(globalSim.raf); globalSim.running=false; } }
+  function stopGlobalSim(){ if(globalSim){ cancelAnimationFrame(globalSim.raf); cancelAnimationFrame(globalSim.idleRaf); globalSim.running=false; } }
   function globalReheat(){
     if(!globalSim) return;
     globalSim.alpha = Math.max(globalSim.alpha, 0.5);
@@ -3426,7 +3455,12 @@
 
       globalSim.frame++;
       globalSim.alpha *= ALPHA_DECAY;
-      if(globalSim.alpha < ALPHA_MIN || globalSim.frame > 500){ stopGlobalSim(); saveGlobalPositions(); return; }
+      if(globalSim.alpha < ALPHA_MIN || globalSim.frame > 500){
+        stopGlobalSim();
+        saveGlobalPositions();
+        startIdleFloat(globalSim, nodeEls, lineEls, links, isGraphOpen, depth3dEnabled ? (n => ` scale(${n.depthScale})`) : null);
+        return;
+      }
       globalSim.raf = requestAnimationFrame(step);
     }
     globalSim = { raf:0, frame:0, alpha:1, running:true, nodes, W, H, step };
@@ -6391,7 +6425,7 @@
 
   // ===== Hero connection graph (live Obsidian-style force simulation) =====
   let dashSim = null; // persists after settle so drag can reheat it
-  function stopDashSim(){ if(dashSim){ cancelAnimationFrame(dashSim.raf); dashSim.running=false; } }
+  function stopDashSim(){ if(dashSim){ cancelAnimationFrame(dashSim.raf); cancelAnimationFrame(dashSim.idleRaf); dashSim.running=false; } }
   function dashReheat(){
     if(!dashSim) return;
     dashSim.alpha=Math.max(dashSim.alpha, 0.5);
@@ -6524,7 +6558,11 @@
 
       dashSim.frame++;
       dashSim.alpha*=ALPHA_DECAY;
-      if(dashSim.alpha<ALPHA_MIN || dashSim.frame>500){ stopDashSim(); return; }
+      if(dashSim.alpha<ALPHA_MIN || dashSim.frame>500){
+        stopDashSim();
+        startIdleFloat(dashSim, nodeEls, lineEls, links, () => currentView==='dashboard');
+        return;
+      }
       dashSim.raf=requestAnimationFrame(step);
     }
     dashSim={ raf:0, frame:0, alpha:1, running:true, nodes, W, H, step };

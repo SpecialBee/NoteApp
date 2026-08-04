@@ -397,6 +397,7 @@
   .prop-input{ font-family:var(--sans); font-size:12px; color:var(--ink); background:transparent; border:none; outline:none; width:100%; padding:0; }
   .prop-input::placeholder{ color:var(--ink-faint); }
   .prop-select{ font-family:var(--sans); font-size:12px; color:var(--ink); background:transparent; border:none; outline:none; width:100%; cursor:pointer; padding:0; max-width:100%; }
+  .prop-rollup-val{ font-family:var(--sans); font-size:12px; font-weight:700; color:var(--accent); cursor:help; }
   .prop-checkbox{ width:14px; height:14px; cursor:pointer; accent-color:var(--accent); flex-shrink:0; }
   .prop-del{ opacity:0; font-size:13px; line-height:1; color:var(--ink-faint); background:none; border:none; cursor:pointer; padding:0 2px; align-self:center; transition:opacity .1s; }
   .prop-del:hover{ color:var(--danger); }
@@ -3823,7 +3824,36 @@
     { id:'date',     icon:'📅', label:'날짜' },
     { id:'select',   icon:'◉',  label:'선택' },
     { id:'checkbox', icon:'☑',  label:'체크' },
+    { id:'rollup',   icon:'Σ',  label:'롤업' },
   ];
+
+  // ---------------- graph-based rollup ----------------
+  // Connected notes = wikilink graph neighbors (both directions), no separate relation field
+  // needed since every note is already linked via [[title]] — this is the whole point of a
+  // rollup here vs. Notion's relation+rollup two-step setup.
+  function connectedNotesOf(note){
+    const outgoing = (note.links||[]).map(t => index.find(m => m.title && m.title.toLowerCase()===t.toLowerCase())).filter(Boolean);
+    const incoming = index.filter(m => m.id!==note.id && (m.links||[]).some(l => l.toLowerCase()===(note.title||'').toLowerCase()));
+    const seen = new Set(); const result = [];
+    [...outgoing, ...incoming].forEach(m => { if(m.id!==note.id && !seen.has(m.id)){ seen.add(m.id); result.push(m); } });
+    return result;
+  }
+  // rollups only ever read concrete (non-rollup) properties on neighbors, so a cycle
+  // (A rolls up B which rolls up A) simply can't happen — no recursion to guard against.
+  function computeRollup(note, prop){
+    const connected = connectedNotesOf(note);
+    const filtered = prop.tagFilter ? connected.filter(n => (n.tags||[]).includes(prop.tagFilter)) : connected;
+    const values = [];
+    filtered.forEach(n => {
+      const p = (n.properties||[]).find(pp => pp.name===prop.targetProp && pp.type!=='rollup');
+      if(p && p.value!=='' && p.value!=null && !isNaN(parseFloat(p.value))) values.push(parseFloat(p.value));
+    });
+    if(prop.agg==='count') return values.length;
+    if(!values.length) return 0;
+    const sum = values.reduce((a,b)=>a+b, 0);
+    return prop.agg==='avg' ? Math.round((sum/values.length)*100)/100 : sum;
+  }
+  const ROLLUP_AGG_LABEL = { sum:'합계', avg:'평균', count:'개수' };
   function propTypeIcon(type){ return (PROP_TYPE_META.find(m=>m.id===type)||{icon:'T'}).icon; }
 
   let propAddState = { open:false, type:'text', presetOpen:false, savingPreset:false };
@@ -3981,6 +4011,28 @@
         form.appendChild(optInp);
       }
 
+      let targetPropInp = null, tagFilterInp = null, aggSel = null;
+      if(propAddState.type === 'rollup'){
+        targetPropInp = document.createElement('input');
+        targetPropInp.className = 'prop-inline-options';
+        targetPropInp.placeholder = '합산할 연결 카드의 속성 이름 (예: 금액)';
+        targetPropInp.autocomplete = 'off';
+        form.appendChild(targetPropInp);
+
+        tagFilterInp = document.createElement('input');
+        tagFilterInp.className = 'prop-inline-options';
+        tagFilterInp.placeholder = '태그 필터 (선택, 예: 예산)';
+        tagFilterInp.autocomplete = 'off';
+        form.appendChild(tagFilterInp);
+
+        aggSel = document.createElement('select');
+        aggSel.className = 'prop-select';
+        Object.entries(ROLLUP_AGG_LABEL).forEach(([id,label]) => {
+          const o = document.createElement('option'); o.value=id; o.textContent=label; aggSel.appendChild(o);
+        });
+        form.appendChild(aggSel);
+      }
+
       const doConfirm = async () => {
         if(!currentId) return;
         const note2 = index.find(m=>m.id===currentId);
@@ -3989,7 +4041,12 @@
         const type = propAddState.type;
         const options = (type==='select' && optInp) ? optInp.value.split(',').map(s=>s.trim()).filter(Boolean) : undefined;
         const defaultVal = type==='checkbox' ? false : (type==='select' && options?.length ? options[0] : '');
-        const prop = { id:genPropId(), name, type, value:defaultVal, ...(options ? {options} : {}) };
+        const rollupFields = type==='rollup' ? {
+          targetProp: (targetPropInp?.value||'').trim(),
+          tagFilter: (tagFilterInp?.value||'').trim(),
+          agg: aggSel?.value || 'sum',
+        } : {};
+        const prop = { id:genPropId(), name, type, value:defaultVal, ...(options ? {options} : {}), ...rollupFields };
         note2.properties = [...(note2.properties||[]), prop];
         await savePropertiesOf(note2.id, note2.properties);
         propAddState.open = false;
@@ -4067,7 +4124,14 @@
       // Value cell
       const valCell = document.createElement('div');
       valCell.className = 'prop-val-cell';
-      if(prop.type==='checkbox'){
+      if(prop.type==='rollup'){
+        const val = computeRollup(note, prop);
+        const span = document.createElement('span');
+        span.className = 'prop-rollup-val';
+        span.title = `${prop.tagFilter ? '#'+prop.tagFilter+' ' : ''}연결 카드의 "${prop.targetProp}" ${ROLLUP_AGG_LABEL[prop.agg]||prop.agg}`;
+        span.textContent = val;
+        valCell.appendChild(span);
+      } else if(prop.type==='checkbox'){
         const cb = document.createElement('input');
         cb.type='checkbox'; cb.checked=!!prop.value; cb.className='prop-checkbox';
         cb.onchange = async () => { prop.value=cb.checked; await savePropertiesOf(note.id, note.properties); };
@@ -5480,7 +5544,7 @@
       div.appendChild(tEl); div.appendChild(mEl);
       // live property badges: reflects note.properties as of the last cevRenderAll() call,
       // which handleRemoteChange() re-triggers when a linked note changes on another device
-      const badgeProps = note ? (note.properties||[]).filter(p => p.id!=='__color' && (p.type==='checkbox' || (p.value!=='' && p.value!=null))).slice(0,2) : [];
+      const badgeProps = note ? (note.properties||[]).filter(p => p.id!=='__color' && (p.type==='checkbox' || p.type==='rollup' || (p.value!=='' && p.value!=null))).slice(0,2) : [];
       if(badgeProps.length){
         const badgeWrap=document.createElement('div'); badgeWrap.className='cev-card-badges';
         badgeProps.forEach(p=>{
@@ -5491,6 +5555,8 @@
           }else if(p.type==='select'){
             const c=colorForTag(String(p.value)); b.style.background=c+'26'; b.style.color=c;
             b.textContent=p.value;
+          }else if(p.type==='rollup'){
+            b.textContent='Σ '+p.name+' '+computeRollup(note, p);
           }else{
             b.textContent=p.name+' '+p.value;
           }

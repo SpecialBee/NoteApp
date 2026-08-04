@@ -38,7 +38,14 @@
 - `www/index.html`이 웹·앱 공용 소스. 수정 후 `npx cap sync android`로 `android/`에 반영 (그래야 다음 빌드에 코드 변경분이 들어감).
 - `android/` 폴더는 저장소에 커밋됨(Capacitor 표준 관행). `node_modules`, `android/**/build`, `local.properties`, `.idea/` 등은 `.gitignore`로 제외.
 - `capacitor.config.json`의 `appId`(`com.specialbee.graphidea`)는 임시값 — Play 스토어에 최초 게시하면 이후 변경 불가하니 정식 출시 전 확정할 것.
-- 정식 출시 전 아직 안 한 것(막는 건 아니고 개인용 빌드엔 불필요, Play 스토어 공개 배포 전엔 필수): 회원 탈퇴 기능, 개인정보처리방침/이용약관 페이지, 비밀번호 재설정 딥링크(현재 `redirectTo: window.location.href`라 앱 안에서 안 돌아옴).
+- ~~개인정보처리방침/이용약관 페이지~~ 2026-08-04 완료 — `www/privacy.html`, 로그인 화면·설정 모달에서 링크.
+- ~~비밀번호 재설정 딥링크(`redirectTo: window.location.href`가 앱 안에서 안 돌아오던 문제)~~ 2026-08-04 완료 — `SITE_URL`(고정 배포 URL) 상수로 교체.
+- **회원 탈퇴 — 코드는 완료, Edge Function 배포만 남음.** 설정 모달 "계정" 섹션에 버튼 추가됨(`el('deleteAccountBtn')`). 실제 삭제는 `sb.functions.invoke('delete-account')`가 호출하는 Supabase Edge Function이 처리(anon key로는 auth 계정을 못 지우므로 service-role 권한이 필요해 클라이언트 코드로는 불가능). **배포 안 하면 버튼 눌러도 에러남.** 배포 방법:
+  1. [Supabase 대시보드](https://supabase.com/dashboard) → 프로젝트 → Edge Functions → New Function
+  2. 이름: `delete-account`
+  3. `supabase/functions/delete-account/index.ts` 내용을 그대로 붙여넣고 Deploy
+  4. `SUPABASE_URL`/`SUPABASE_ANON_KEY`/`SUPABASE_SERVICE_ROLE_KEY`는 Edge Functions 런타임이 자동 주입 — 별도 설정 불필요
+  5. 배포 후 설정 → 회원 탈퇴 버튼으로 테스트 (되돌릴 수 없으니 테스트 계정으로 먼저 확인 권장)
 - ~~CDN(jsdelivr) Supabase SDK 번들 내장·버전 고정~~ 2026-08-04 완료 — `npm install @supabase/supabase-js` 후 `www/vendor/supabase.js`로 UMD 빌드 복사, `<script>` 태그가 로컬 파일을 로드하도록 변경. 버전 올릴 땐 `npm update @supabase/supabase-js && npm run vendor:supabase`.
 - ~~페이지네이션(노트 전체를 매번 `select('*')`로 한번에 로드)~~ 2026-08-04 완료(방향 전환) — 행 단위 페이지네이션 대신 본문(content) 지연 로딩으로 전환. `notes` 테이블에 `type`(note/canvas/table)·`content_len`(generated) 컬럼 추가(스키마 변경, Supabase 대시보드에서 SQL 실행 완료). 목록/그래프/검색/위키링크 자동완성은 가벼운 필드만 로드, 본문은 카드를 열 때 `ensureContentLoaded()`로 개별 요청. 리네임 시 다른 카드의 `[[링크]]` 갱신, 캔버스 보드 백링크 탐색은 서버 쪽 `ilike` 부분일치 쿼리로 대상 후보만 좁혀서 조회하도록 재작성(전체 로드 불필요). 알려진 트레이드오프: 아직 한 번도 안 연 노트의 본문은 검색에 안 걸림(제목·태그 검색은 영향 없음).
 

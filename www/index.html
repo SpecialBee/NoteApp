@@ -6102,9 +6102,9 @@
   }
   el('importMdItem').addEventListener('click',()=>{ el('newBtnMenu').style.display='none'; el('importMdFile').click(); });
   el('importMdFile').addEventListener('change', async (e) => {
-    const files = e.target.files;
+    const files = Array.from(e.target.files || []);
     e.target.value = '';
-    if(files && files.length) await importMarkdownFiles(files);
+    if(files.length) await importMarkdownFiles(files);
   });
   el('databaseBtn').addEventListener('click',()=>openDatabaseView());
   el('dbViewExitBtn').addEventListener('click',()=>exitDatabaseView());

@@ -6,12 +6,14 @@
   "scripts": {
     "sync": "cap sync",
     "android": "cap open android",
-    "android:run": "cap run android"
+    "android:run": "cap run android",
+    "vendor:supabase": "node -e \"require('fs').copyFileSync('node_modules/@supabase/supabase-js/dist/umd/supabase.js', 'www/vendor/supabase.js')\""
   },
   "dependencies": {
     "@capacitor/android": "^7.0.0",
     "@capacitor/app": "^7.0.0",
-    "@capacitor/core": "^7.0.0"
+    "@capacitor/core": "^7.0.0",
+    "@supabase/supabase-js": "^2.112.0"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",

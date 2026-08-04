@@ -438,6 +438,8 @@
   </div>
 </div>
 
+<script src="lib/constants.js"></script>
+<script src="lib/utils.js"></script>
 <script>
 (function(){
 
@@ -512,8 +514,6 @@
     showToast._t = setTimeout(()=> toast.classList.remove('show'), action ? 4000 : 1800);
   }
 
-  function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-  function serialOf(idx){ return '#' + String(idx+1).padStart(4,'0'); }
 
   // ---------------- auth ----------------
   function setAuthMode(m){
@@ -649,25 +649,7 @@
   el('themeToggleBtn').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
 
   // ---------------- appearance settings (accent color / font / highlight color) ----------------
-  const ACCENT_PRESETS = ['#D97757','#4C7EFF','#6B8F52','#B3483A','#8E6CC7','#3AA6A6','#C79A3A','#565B66'];
-  const MARK_PRESETS = ['#FDE68A','#BBF7D0','#FBCFE8','#BFDBFE','#FED7AA','#E9D5FF'];
-  const FONT_OPTIONS = [
-    { label: '기본 (Inter)', value: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
-    { label: '시스템 UI', value: "-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif" },
-    { label: '맑은 고딕', value: "'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif" },
-    { label: '바탕 (명조체)', value: "'Batang', 'Apple SD Gothic Neo', Georgia, serif" },
-    { label: '고정폭', value: "Consolas, Menlo, 'D2Coding', monospace" },
-  ];
 
-  function hexToRgb(hex){
-    const n = parseInt(hex.replace('#',''), 16);
-    return [(n>>16)&255, (n>>8)&255, n&255];
-  }
-  function mixHex(hexA, hexB, weightB){
-    const a = hexToRgb(hexA), b = hexToRgb(hexB);
-    const rgb = a.map((c,i) => Math.round(c + (b[i]-c) * weightB));
-    return '#' + rgb.map(c => c.toString(16).padStart(2,'0')).join('');
-  }
 
   function applyAccentColor(hex){
     const root = document.documentElement.style;
@@ -693,7 +675,6 @@
     else document.documentElement.style.removeProperty('--sans');
   }
 
-  const FONT_SIZE_SCALES = { small: 0.85, normal: 1, large: 1.2 };
   function applyFontSize(size){
     document.documentElement.style.setProperty('--card-font-scale', FONT_SIZE_SCALES[size] || 1);
   }
@@ -778,13 +759,6 @@
   // ensureContentLoaded). `type` is a real column so the list can pick an icon and the
   // canvas/table editors can route correctly without needing content loaded first.
   const NOTE_LIST_FIELDS = 'id,title,type,tags,links,pinned,properties,content_len,created_at,updated_at,deleted_at';
-
-  function detectNoteType(content){
-    const c = (content||'').trimStart();
-    if(c.startsWith('```canvas')) return 'canvas';
-    if(c.startsWith('```table')) return 'table';
-    return 'note';
-  }
 
   function rowToNote(r){
     return { id:r.id, title:r.title, content:r.content, type: r.type || detectNoteType(r.content), tags:r.tags||[], links:r.links||[], pinned:r.pinned, updated: new Date(r.updated_at).getTime(), created: new Date(r.created_at).getTime(), deletedAt: r.deleted_at ? new Date(r.deleted_at).getTime() : null, properties: Array.isArray(r.properties) ? r.properties : [], contentLen: r.content!=null ? r.content.length : (typeof r.content_len==='number' ? r.content_len : null) };
@@ -882,18 +856,6 @@
   });
 
   // ---------------- parsing ----------------
-  function extractTags(content){
-    const set = new Set(); const re = /(^|\s)#([a-zA-Z0-9가-힣_-]{1,24})/g; let m;
-    while((m = re.exec(content))) set.add(m[2]);
-    return Array.from(set);
-  }
-  function extractLinks(content){
-    const set = new Set(); const re = /\[\[([^\]\n]+)\]\]/g; let m;
-    while((m = re.exec(content))) set.add(m[1].trim());
-    return Array.from(set);
-  }
-
-  function escapeRegExp(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
   // when a card's title changes, rewrite [[oldTitle]] references in every other card so
   // incoming links don't silently break. Content isn't kept in memory for every note anymore,
@@ -1386,9 +1348,6 @@
     return sorted.filter(matchesSearch);
   }
 
-  const CARD_COLORS = ['#FF6B6B','#FF9F45','#FFD166','#06D6A0','#4CC9F0','#7B2FBE','#F72585','#90E0EF','#B5E48C','#ADB5BD'];
-
-  function noteColor(note){ const c=(note.properties||[]).find(p=>p.id==='__color'); return c?c.value:null; }
 
   async function setNoteColor(note, color){
     note.properties = (note.properties||[]).filter(p=>p.id!=='__color');
@@ -1477,13 +1436,6 @@
       };
       cardList.appendChild(card);
     });
-  }
-
-  function formatDate(ts){
-    if(!ts) return '';
-    const d = new Date(ts); const now = new Date();
-    if(d.toDateString() === now.toDateString()) return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
-    return (d.getMonth()+1) + '/' + d.getDate();
   }
 
   // ---------------- open / edit ----------------
@@ -2624,7 +2576,6 @@
   // ---------------- global connection graph ----------------
   const globalGraphView = el('globalGraphView');
   const globalGraphSvg = el('globalGraphSvg');
-  const TAG_PALETTE = ['#D97757','#6B8F52','#4A7A9E','#B3483A','#8A6FB0','#C79A3A','#4A9490','#A65D8A'];
   let showIsolatedNodes = localStorage.getItem('cardCatalogShowIsolated') === '1';
   let graphView = { scale: 1, tx: 0, ty: 0 };
   let graphAdjacency = {};
@@ -2645,33 +2596,10 @@
     saveGraphPositions(pos);
   }
 
-  function colorForTag(tag){
-    if(!tag) return 'var(--ink-faint)';
-    let hash = 0;
-    for(let i = 0; i < tag.length; i++) hash = (hash * 31 + tag.charCodeAt(i)) >>> 0;
-    return TAG_PALETTE[hash % TAG_PALETTE.length];
-  }
-
-  // fake-3D depth: each note gets a stable pseudo-random depth (0=far, 1=near) from
-  // its id, so the "layer" a note sits on doesn't shuffle every time the graph redraws
+  // fake-3D depth toggle: each note gets a stable pseudo-random depth (0=far, 1=near) from
+  // its id (depthOf/depthBucket, in lib/utils.js), so the "layer" a note sits on doesn't
+  // shuffle every time the graph redraws
   let depth3dEnabled = localStorage.getItem('cardCatalogDepth3d') !== '0'; // prototype: on by default, toggle off to compare
-  function depthOf(id){
-    let hash = 0;
-    for(let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
-    // avalanche mix so similarly-suffixed ids (e.g. sequential ids) still spread across depth buckets.
-    // XOR returns a signed int32, so the final XOR can flip the sign bit back on - force unsigned
-    // before the modulo, or a negative hash silently makes depthBucket() return undefined.
-    hash ^= hash >>> 16; hash = Math.imul(hash, 0x45d9f3b) >>> 0; hash ^= hash >>> 16;
-    hash = hash >>> 0;
-    return (hash % 1000) / 1000;
-  }
-  const DEPTH_BUCKETS = [
-    { min:0.70, blurId:'',    scale:1.15, opacity:1    },
-    { min:0.40, blurId:'gd1', scale:1.0,  opacity:0.82 },
-    { min:0.15, blurId:'gd2', scale:0.85, opacity:0.6  },
-    { min:0,    blurId:'gd3', scale:0.72, opacity:0.42 },
-  ];
-  function depthBucket(z){ return DEPTH_BUCKETS.find(b => z >= b.min) || DEPTH_BUCKETS[DEPTH_BUCKETS.length-1]; }
 
   function applyGraphTransform(){
     const g = document.getElementById('graphViewport');
@@ -3250,23 +3178,12 @@
   function loadUserPresets(){ try{ userPresets=JSON.parse(localStorage.getItem('stacker-presets')||'[]'); }catch{ userPresets=[]; } }
   function saveUserPresets(){ localStorage.setItem('stacker-presets', JSON.stringify(userPresets)); }
 
-  function genPropId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
-
   async function savePropertiesOf(noteId, props){
     const note = index.find(m => m.id === noteId);
     if(!note) return;
     note.properties = props;
     await updateNote(note);
   }
-
-  const PROP_TYPE_META = [
-    { id:'text',     icon:'T',  label:'텍스트' },
-    { id:'number',   icon:'#',  label:'숫자' },
-    { id:'date',     icon:'📅', label:'날짜' },
-    { id:'select',   icon:'◉',  label:'선택' },
-    { id:'checkbox', icon:'☑',  label:'체크' },
-    { id:'rollup',   icon:'Σ',  label:'롤업' },
-  ];
 
   // ---------------- graph-based rollup ----------------
   // Connected notes = wikilink graph neighbors (both directions), no separate relation field
@@ -3294,7 +3211,6 @@
     const sum = values.reduce((a,b)=>a+b, 0);
     return prop.agg==='avg' ? Math.round((sum/values.length)*100)/100 : sum;
   }
-  const ROLLUP_AGG_LABEL = { sum:'합계', avg:'평균', count:'개수' };
   function propTypeIcon(type){ return (PROP_TYPE_META.find(m=>m.id===type)||{icon:'T'}).icon; }
 
   let propAddState = { open:false, type:'text', presetOpen:false, savingPreset:false };
@@ -3619,7 +3535,6 @@
     renderPropAddRow(note);
   }
 
-  const SEC_COLORS = ['#82C4F8','#85E09A','#FF9F9F','#FFE066','#C3B1E1','#FFB347'];
 
   // ========== Canvas Editor (FigJam-style) ==========
   let cevElements = [];
@@ -3670,8 +3585,6 @@
   }
 
   function cevGenId(prefix){ return prefix + (++cevIdCounter) + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
-  function isCanvasNote(note){ return note.type ? note.type==='canvas' : (note.content||'').trimStart().startsWith('```canvas'); }
-  function isTableNote(note){ return note.type ? note.type==='table' : (note.content||'').trimStart().startsWith('```table'); }
 
   // ============================================================
   // Table Editor
@@ -3681,13 +3594,6 @@
   let tevSortCol = null;
   let tevSortDir = 'asc';
   let tevSaveTimer = null;
-
-  function parseTableContent(content){
-    const m = (content||'').match(/```table\n?([\s\S]*?)```/);
-    if(!m) return { columns:[], rows:[] };
-    try { return JSON.parse(m[1].trim()) || { columns:[], rows:[] }; }
-    catch { return { columns:[], rows:[] }; }
-  }
 
   function tevFlushSave(){
     if(!tevSaveTimer) return;
@@ -3737,8 +3643,6 @@
     renderCardList();
   }
 
-  const TEV_TYPES = ['text','number','checkbox','date','select'];
-  const TEV_TYPE_LABELS = {text:'Aa', number:'12', checkbox:'☑', date:'📅', select:'▾'};
 
   // compare two cell values for a given column type
   function tevCompare(a, b, type){
@@ -4116,10 +4020,6 @@
   }
 
   // ---- CSV import / export ----
-  function csvEscape(v){
-    const s = (v===null||v===undefined) ? '' : String(v);
-    return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
-  }
   function tevExportCsv(){
     const data = tevData;
     const header = data.columns.map(c => csvEscape(c.name)).join(',');
@@ -4137,25 +4037,6 @@
     a.href = URL.createObjectURL(blob); a.download = name + '.csv';
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
-  }
-  function parseCsv(text){
-    const rows=[]; let row=[], cur='', inQ=false;
-    text = text.replace(/^﻿/,'');
-    for(let i=0;i<text.length;i++){
-      const ch=text[i];
-      if(inQ){
-        if(ch==='"'){ if(text[i+1]==='"'){ cur+='"'; i++; } else inQ=false; }
-        else cur+=ch;
-      } else {
-        if(ch==='"') inQ=true;
-        else if(ch===','){ row.push(cur); cur=''; }
-        else if(ch==='\n'){ row.push(cur); rows.push(row); row=[]; cur=''; }
-        else if(ch==='\r'){ /* skip */ }
-        else cur+=ch;
-      }
-    }
-    if(cur!==''||row.length){ row.push(cur); rows.push(row); }
-    return rows.filter(r => r.length && !(r.length===1 && r[0]===''));
   }
   function tevImportCsv(text){
     const grid = parseCsv(text);
@@ -4458,9 +4339,6 @@
     try{ let n=parseInt((hex||'#9CA3AF').replace(/^var\(.*\)/,'#9CA3AF').slice(1),16); if(isNaN(n)) n=0x9CA3AF; const r=Math.max(0,Math.min(255,(n>>16)+pct)),g=Math.max(0,Math.min(255,((n>>8)&0xff)+pct)),b=Math.max(0,Math.min(255,(n&0xff)+pct)); return `rgb(${r},${g},${b})`; }catch(e){ return '#9CA3AF'; }
   }
 
-  const CEV_CTX_COLORS = [null,'#FF9F9F','#FFE066','#85E09A','#82C4F8','#C3B1E1','#FFB347'];
-  const CEV_TEXT_COLORS = ['#3D3929','#DC2626','#2563EB','#16A34A','#CA8A04','#7C3AED','#ffffff'];
-  const CEV_CONN_COLORS = [null,'#DC2626','#2563EB','#16A34A','#CA8A04','#7C3AED'];
 
   // ---- history (undo / redo) ----
   function cevSnapshot(){

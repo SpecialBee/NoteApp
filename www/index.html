@@ -103,6 +103,9 @@
   }
   .loginbox button:hover{ background:var(--accent-hover); }
   .loginbox .toggle{ margin-top:16px; font-size:12.5px; font-weight:500; color:var(--accent); cursor:pointer; text-align:center; }
+  .loginbox .legal-link{ margin-top:20px; text-align:center; }
+  .loginbox .legal-link a{ font-size:11.5px; color:var(--ink-faint); text-decoration:none; }
+  .loginbox .legal-link a:hover{ color:var(--accent); }
   .loginbox .toggle:hover{ text-decoration:underline; }
   .loginbox .msg{ font-size:12px; margin-top:14px; min-height:16px; color:var(--danger); }
   .loginbox .msg.ok{ color:var(--ok); }
@@ -560,6 +563,10 @@
   .settings-custom-color input[type=color] { width:26px; height:26px; padding:0; border:1px solid var(--border); border-radius:50%; cursor:pointer; background:none; }
   .settings-reset { font-family:var(--sans); font-size:12px; font-weight:500; color:var(--ink-faint); background:none; border:1px solid var(--border); border-radius:6px; padding:5px 10px; cursor:pointer; }
   .settings-reset:hover { color:var(--ink); border-color:var(--accent); }
+  .settings-legal-link { font-size:12.5px; color:var(--ink-faint); text-decoration:none; }
+  .settings-legal-link:hover { color:var(--accent); }
+  .settings-danger-btn { font-family:var(--sans); font-size:12.5px; font-weight:600; color:var(--danger); background:none; border:1px solid var(--danger); border-radius:6px; padding:6px 12px; cursor:pointer; }
+  .settings-danger-btn:hover { color:#fff; background:var(--danger); }
   .settings-select { font-family:var(--sans); font-size:13px; padding:7px 10px; border:1px solid var(--border); border-radius:7px; background:var(--bg-card); color:var(--ink); outline:none; cursor:pointer; width:100%; }
   .settings-select:focus { border-color:var(--accent); }
   .dbview-tag-label { font-size:12px; color:var(--ink-soft); font-weight:600; }
@@ -776,6 +783,7 @@
     <div class="toggle" id="authToggle">계정이 없나요? 새로 만들기</div>
     <div class="toggle" id="forgotToggle">비밀번호를 잊으셨나요?</div>
     <div class="msg" id="authMsg"></div>
+    <div class="legal-link"><a href="privacy.html" target="_blank" rel="noopener">개인정보처리방침 · 이용약관</a></div>
   </div>
 </div>
 
@@ -1132,6 +1140,15 @@
           <option value="large">확대</option>
         </select>
       </div>
+      <div class="settings-section">
+        <div class="settings-label">계정</div>
+        <div class="settings-row">
+          <a href="privacy.html" target="_blank" rel="noopener" class="settings-legal-link">개인정보처리방침 · 이용약관</a>
+        </div>
+        <div class="settings-row" style="margin-top:12px;">
+          <button class="settings-danger-btn" id="deleteAccountBtn">회원 탈퇴</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -1172,6 +1189,13 @@
   const SUPABASE_URL = 'https://curwidzkbjdyremkfpgh.supabase.co';
   const SUPABASE_ANON_KEY = 'sb_publishable_3kVI4cBl2nTHRSWq_oZAbQ_Mfa5-mWk';
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  // fixed production URL for auth email redirects (password reset, etc). window.location.href
+  // isn't safe for this: inside the Android app it's a file://.../capacitor:// URL that the
+  // email link's browser can't open, so the reset would silently dead-end. Always pointing at
+  // the real deployed site means the link works everywhere — from the app it opens the reset
+  // page in the browser instead of deep-linking back into the app, but that still completes
+  // the reset instead of failing.
+  const SITE_URL = 'https://note-app-gamma-wheat.vercel.app/';
 
   // ---------------- state ----------------
   let index = [];       // in-memory list of note rows (metadata + content, mirrors DB)
@@ -1258,7 +1282,7 @@
       if(!email){ authMsg.textContent = '이메일을 입력하세요.'; authMsg.className='msg'; return; }
       authMsg.textContent = '처리 중…'; authMsg.className='msg';
       try{
-        const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.href });
+        const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: SITE_URL });
         if(error) throw error;
         authMsg.textContent = '재설정 링크를 이메일로 보냈습니다. 받은편지함을 확인하세요.';
         authMsg.className='msg ok';
@@ -1307,6 +1331,22 @@
     await flushSave();
     teardownRealtime();
     await sb.auth.signOut();
+  };
+
+  el('deleteAccountBtn').onclick = async () => {
+    if(!confirm('정말로 회원 탈퇴하시겠어요? 계정과 작성한 모든 노트가 영구적으로 삭제되며 되돌릴 수 없습니다.')) return;
+    const btn = el('deleteAccountBtn');
+    btn.disabled = true; btn.textContent = '처리 중…';
+    try{
+      const { error } = await sb.functions.invoke('delete-account');
+      if(error) throw error;
+      teardownRealtime();
+      await sb.auth.signOut();
+      location.reload();
+    }catch(e){
+      showToast('회원 탈퇴 실패: ' + (e.message || '오류가 발생했습니다'));
+      btn.disabled = false; btn.textContent = '회원 탈퇴';
+    }
   };
 
   function setTheme(theme){

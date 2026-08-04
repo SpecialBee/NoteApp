@@ -49,6 +49,20 @@ alter table notes add column if not exists deleted_at timestamptz;
 -- properties: ordered array of { id, name, type, value, options? }
 alter table notes add column if not exists properties jsonb not null default '[]';
 
+-- note "type" (note/canvas/table) as a real column instead of sniffing the content's fenced
+-- code-block prefix client-side — lets the note list/graph/search load without pulling every
+-- note's full content just to figure out which icon to show.
+alter table notes add column if not exists type text not null default 'note';
+update notes set type = case
+  when content like '```canvas%' then 'canvas'
+  when content like '```table%' then 'table'
+  else 'note'
+end;
+
+-- cheap character count for the dashboard "총 글자 수" stat — computed by Postgres so the
+-- client can sum it from the lightweight note list instead of loading every note's content.
+alter table notes add column if not exists content_len integer generated always as (length(content)) stored;
+
 -- enable realtime so open tabs/devices see each other's changes live
 do $$
 begin

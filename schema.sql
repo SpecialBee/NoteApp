@@ -11,6 +11,14 @@ create table if not exists notes (
   updated_at timestamptz not null default now()
 );
 
+-- every query is implicitly filtered by the RLS policies below (user_id = auth.uid()), but
+-- Postgres doesn't auto-index a plain FK column — without this, that filter is a sequential
+-- scan of the whole table once there's more than one user's worth of rows in it. Matches the
+-- app's actual hot-path query shape (loadAll: user_id + deleted_at is null, ordered by
+-- updated_at desc) so it also satisfies the ORDER BY without a separate sort step.
+create index if not exists notes_user_id_deleted_at_updated_at_idx
+  on notes (user_id, deleted_at, updated_at desc);
+
 -- keep updated_at fresh automatically
 create or replace function set_updated_at() returns trigger as $$
 begin
@@ -79,6 +87,9 @@ create table if not exists checklist_items (
   done boolean not null default false,
   created_at timestamptz not null default now()
 );
+
+create index if not exists checklist_items_user_id_created_at_idx
+  on checklist_items (user_id, created_at desc);
 
 alter table checklist_items enable row level security;
 

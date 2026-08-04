@@ -7,12 +7,25 @@
 // the Edge Functions runtime — no manual secrets setup needed.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+// the browser sends a CORS preflight (OPTIONS) before the real POST, and every response needs
+// Access-Control-Allow-Origin or the browser blocks it client-side before it even reads the
+// body — curl doesn't hit this since it ignores CORS entirely, which is why this looked fine
+// from the command line but failed with a generic "Failed to fetch" from the app.
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
 Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
   const authHeader = req.headers.get('Authorization');
   if (!authHeader) {
     return new Response(JSON.stringify({ error: '인증이 필요합니다.' }), {
       status: 401,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
@@ -26,7 +39,7 @@ Deno.serve(async (req) => {
   if (userError || !user) {
     return new Response(JSON.stringify({ error: '유효하지 않은 세션입니다.' }), {
       status: 401,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
@@ -37,12 +50,12 @@ Deno.serve(async (req) => {
   if (deleteError) {
     return new Response(JSON.stringify({ error: deleteError.message }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
   return new Response(JSON.stringify({ ok: true }), {
     status: 200,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 });

@@ -563,6 +563,7 @@
   .settings-custom-color input[type=color] { width:26px; height:26px; padding:0; border:1px solid var(--border); border-radius:50%; cursor:pointer; background:none; }
   .settings-reset { font-family:var(--sans); font-size:12px; font-weight:500; color:var(--ink-faint); background:none; border:1px solid var(--border); border-radius:6px; padding:5px 10px; cursor:pointer; }
   .settings-reset:hover { color:var(--ink); border-color:var(--accent); }
+  .settings-hint { font-size:11.5px; color:var(--ink-faint); margin-top:8px; }
   .settings-legal-link { font-size:12.5px; color:var(--ink-faint); text-decoration:none; }
   .settings-legal-link:hover { color:var(--accent); }
   .settings-danger-btn { font-family:var(--sans); font-size:12.5px; font-weight:600; color:var(--danger); background:none; border:1px solid var(--danger); border-radius:6px; padding:6px 12px; cursor:pointer; }
@@ -1141,6 +1142,13 @@
         </select>
       </div>
       <div class="settings-section">
+        <div class="settings-label">데이터</div>
+        <div class="settings-row">
+          <button class="settings-reset" id="backupAllBtn">전체 백업 다운로드 (JSON)</button>
+        </div>
+        <div class="settings-hint" id="backupAllHint">모든 카드와 할 일 목록을 파일 하나로 내려받습니다.</div>
+      </div>
+      <div class="settings-section">
         <div class="settings-label">계정</div>
         <div class="settings-row">
           <a href="privacy.html" target="_blank" rel="noopener" class="settings-legal-link">개인정보처리방침 · 이용약관</a>
@@ -1331,6 +1339,39 @@
     await flushSave();
     teardownRealtime();
     await sb.auth.signOut();
+  };
+
+  el('backupAllBtn').onclick = async () => {
+    const btn = el('backupAllBtn');
+    const hint = el('backupAllHint');
+    btn.disabled = true; const label = btn.textContent; btn.textContent = '내려받는 중…';
+    try{
+      // the in-memory index only carries lightweight fields (content is lazy-loaded per note —
+      // see ensureContentLoaded), so a full backup needs its own full-row fetch rather than
+      // reusing index directly.
+      const [notesRes, checklistRes] = await Promise.all([
+        sb.from('notes').select('*').is('deleted_at', null).order('created_at', { ascending:true }),
+        sb.from('checklist_items').select('*').order('created_at', { ascending:true }),
+      ]);
+      if(notesRes.error) throw notesRes.error;
+      if(checklistRes.error) throw checklistRes.error;
+      const payload = {
+        app: 'GRAPHIDEA', exportVersion: 1, exportedAt: new Date().toISOString(),
+        notes: notesRes.data, checklistItems: checklistRes.data || [],
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const dateStr = new Date().toISOString().slice(0,10);
+      a.href = url; a.download = `graphidea-backup-${dateStr}.json`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      hint.textContent = `카드 ${notesRes.data.length}개, 할 일 ${(checklistRes.data||[]).length}개 내려받음`;
+    }catch(e){
+      showToast('백업 실패: ' + (e.message || '오류가 발생했습니다'));
+    }finally{
+      btn.disabled = false; btn.textContent = label;
+    }
   };
 
   el('deleteAccountBtn').onclick = async () => {

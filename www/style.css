@@ -52,6 +52,9 @@
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--ink);font-family:var(--sans);overflow:hidden;word-break:keep-all;overflow-wrap:break-word;transition:background-color .2s ease,color .2s ease;}
   ::selection{ background: var(--accent-soft); color: var(--ink); }
+  /* dark mode: the tinted accent-soft highlight is nearly invisible on a dark page —
+     use a solid white drag/selection highlight with dark text so selected text reads clearly */
+  [data-theme="dark"] ::selection{ background:#ffffff; color:#1F1E1B; }
   ::-webkit-scrollbar{width:8px;height:8px;}
   ::-webkit-scrollbar-track{background:transparent;}
   ::-webkit-scrollbar-thumb{background:rgba(128,124,108,0.25);border-radius:4px;}
@@ -237,9 +240,40 @@
   .editor-split.split{ display:flex; flex-direction:row; align-items:stretch; gap:0; height:calc(100vh - 210px); min-height:340px; }
   .editor-split.split > .editorbox{ flex:0 0 50%; min-width:120px; min-height:0; height:100%; overflow-y:auto; padding-right:16px; }
   .editor-split.split > .preview{ flex:1 1 0; min-width:120px; min-height:0; height:100%; overflow-y:auto; padding-left:20px; border-left:1px solid var(--border-soft); }
-  .editor-split.split > .split-divider{ display:block; flex:0 0 9px; align-self:stretch; cursor:col-resize; position:relative; }
+  .editor-split.split > .split-divider{ display:block; flex:0 0 9px; align-self:stretch; cursor:col-resize; position:relative; touch-action:none; }
+  /* fatter grab target on touch/pen devices (tablets) so the divider is draggable by finger */
+  @media (pointer:coarse){ .editor-split.split > .split-divider{ flex-basis:22px; } }
   .editor-split.split > .split-divider::before{ content:''; position:absolute; top:0; bottom:0; left:4px; width:1px; background:var(--border); }
   .editor-split.split > .split-divider:hover::before, .editor-split.split > .split-divider.dragging::before{ background:var(--accent); width:2px; left:3.5px; }
+  /* read-mode two-card compare: previewBox (left) | compare-pane (right) */
+  .compare-divider{ display:none; }
+  .compare-pane{ display:none; }
+  .editor-split.compare{ display:flex; flex-direction:row; align-items:stretch; gap:0; height:calc(100vh - 210px); min-height:340px; }
+  .editor-split.compare > #previewBox{ flex:0 0 50%; min-width:120px; min-height:0; height:100%; overflow-y:auto; padding-right:20px; }
+  .editor-split.compare > .compare-pane{ flex:1 1 0; min-width:160px; min-height:0; height:100%; display:flex; flex-direction:column; padding-left:20px; border-left:1px solid var(--border-soft); }
+  .editor-split.compare > .compare-divider{ display:block; flex:0 0 9px; align-self:stretch; cursor:col-resize; position:relative; touch-action:none; }
+  @media (pointer:coarse){ .editor-split.compare > .compare-divider{ flex-basis:22px; } }
+  .editor-split.compare > .compare-divider::before{ content:''; position:absolute; top:0; bottom:0; left:4px; width:1px; background:var(--border); }
+  .editor-split.compare > .compare-divider:hover::before, .editor-split.compare > .compare-divider.dragging::before{ background:var(--accent); width:2px; left:3.5px; }
+  .compare-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:14px; flex-shrink:0; }
+  .compare-pick-btn{ background:var(--border-soft); border:1px solid var(--border); color:var(--ink); font-family:var(--sans); font-size:13px; font-weight:600; padding:5px 12px; border-radius:6px; cursor:pointer; max-width:75%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .compare-pick-btn:hover{ border-color:var(--accent); }
+  .compare-close{ background:none; border:none; color:var(--ink-faint); font-size:15px; cursor:pointer; padding:4px 9px; border-radius:6px; line-height:1; }
+  .compare-close:hover{ background:var(--border-soft); color:var(--ink); }
+  .compare-preview{ flex:1 1 0; min-height:0; overflow-y:auto; }
+  /* compare popover: pick which card to show on the right */
+  .compare-picker{ position:fixed; z-index:210; width:280px; max-width:80vw; background:var(--bg-card); border:1px solid var(--border); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.18); padding:8px; }
+  .compare-picker-input{ width:100%; box-sizing:border-box; padding:8px 10px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:13px; outline:none; margin-bottom:6px; }
+  .compare-picker-input:focus{ border-color:var(--accent); }
+  .compare-picker-list{ max-height:280px; overflow-y:auto; }
+  .compare-picker-item{ padding:8px 10px; border-radius:6px; cursor:pointer; font-size:13.5px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .compare-picker-item:hover{ background:var(--accent-soft); }
+  .compare-picker-empty{ padding:12px 10px; color:var(--ink-faint); font-size:13px; text-align:center; }
+  /* two-card compare can't fit a phone; the 비교 button is hidden on mobile too (setMode) */
+  @media (max-width:640px){
+    .editor-split.compare > .compare-pane, .editor-split.compare > .compare-divider{ display:none; }
+    .editor-split.compare > #previewBox{ flex:1 1 100%; padding-right:0; }
+  }
   /* side-by-side split doesn't fit a phone screen; 쓰기모드 shows just the editor there (읽기모드 still works normally) */
   @media (max-width:640px){
     .editor-split.split > .editorbox{ flex:1 1 100%; padding-right:0; }
@@ -334,6 +368,16 @@
   .preview .callout-danger .callout-title{ color:var(--danger); }
   .preview .callout-tip{ border-left-color:var(--ok); background:var(--tip-soft); }
   .preview .callout-tip .callout-title{ color:var(--ok); }
+
+  /* ---------- callout picker (toolbox popover on the 💡 button) ---------- */
+  .callout-picker{ position:fixed; z-index:210; display:flex; gap:4px; padding:6px; background:var(--bg-card); border:1px solid var(--border); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.18); }
+  .callout-pick{ display:flex; flex-direction:column; align-items:center; gap:3px; width:58px; padding:8px 4px; background:none; border:1px solid transparent; border-radius:8px; cursor:pointer; color:var(--ink); font-size:12px; font-family:var(--sans); }
+  .callout-pick:hover{ background:var(--accent-soft); border-color:var(--border); }
+  .callout-pick-icon{ font-size:18px; line-height:1; }
+  .callout-pick-note{ border-left:3px solid var(--accent); }
+  .callout-pick-tip{ border-left:3px solid var(--ok); }
+  .callout-pick-warning{ border-left:3px solid var(--warn); }
+  .callout-pick-danger{ border-left:3px solid var(--danger); }
 
   /* ---------- quick switcher palette ---------- */
   .palette-overlay{ position:fixed; inset:0; background:rgba(61,57,41,0.35); display:flex; align-items:flex-start; justify-content:center; padding-top:12vh; z-index:200; }
@@ -517,6 +561,12 @@
   .cev-el:hover > .cev-anchor { opacity:1; pointer-events:auto; }
   .cev-anchor:hover { transform:translate(-50%,-50%) scale(1.4); }
   .cev-connecting .cev-anchor { opacity:1; pointer-events:auto; }
+  /* touch devices have no :hover, so the anchors would stay invisible/unusable — reveal them on
+     the selected shape (tap to select first) and make them finger-sized */
+  @media (pointer:coarse){
+    .cev-anchor{ width:22px; height:22px; border-width:3px; }
+    .cev-el.selected > .cev-anchor{ opacity:1; pointer-events:auto; }
+  }
   .cev-drop-target { outline:2px solid var(--accent) !important; outline-offset:3px; }
   .cev-temp-line { stroke:var(--accent); stroke-width:1.5; stroke-dasharray:6 4; fill:none; pointer-events:none; }
   /* canvas badge in card list */

@@ -99,6 +99,7 @@
       <button class="mobonly" id="mobToggle">☰</button>
       <button class="modebtn active" id="editModeBtn">쓰기모드</button>
       <button class="modebtn" id="previewModeBtn">읽기모드</button>
+      <button class="modebtn deskonly" id="compareBtn" title="읽기모드에서 다른 카드와 나란히 비교" style="display:none;">⧉ 비교</button>
       <span class="submeta" id="subLine"></span>
       <span class="submeta" id="wordCount"></span>
       <div class="spacer"></div>
@@ -302,8 +303,6 @@
         <button class="fmtbtn" id="fmtCode" title="코드">&lt;/&gt;</button>
         <button class="fmtbtn" id="fmtTable" title="표">▦</button>
         <span class="fmtsep"></span>
-        <button class="fmtbtn" id="fmtBulletList" title="글머리 기호 목록">•</button>
-        <button class="fmtbtn" id="fmtOrderedList" title="번호 매기기 목록">1.</button>
         <button class="fmtbtn" id="fmtOutdent" title="내어쓰기">←</button>
         <button class="fmtbtn" id="fmtIndent" title="들여쓰기">→</button>
         <span class="fmtsep"></span>
@@ -315,6 +314,14 @@
         <textarea class="editorbox" id="editorBox" placeholder="당신의 이야기를 적어보세요… [[카드 제목]]으로 다른 카드와 연결할 수 있어요."></textarea>
         <div class="split-divider" id="splitDivider" title="드래그해서 크기 조절"></div>
         <div class="preview" id="previewBox" style="display:none;"></div>
+        <div class="compare-divider" id="compareDivider" title="드래그해서 크기 조절" style="display:none;"></div>
+        <div class="compare-pane" id="comparePane" style="display:none;">
+          <div class="compare-head">
+            <button class="compare-pick-btn" id="comparePickBtn">카드 선택 ▾</button>
+            <button class="compare-close" id="compareCloseBtn" title="비교 닫기">✕</button>
+          </div>
+          <div class="preview compare-preview" id="previewBox2"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -461,6 +468,8 @@
   let showingTrash = false;
   let currentId = null;
   let mode = 'edit';
+  let compareOpen = false;   // read-mode side-by-side two-card compare (desktop/tablet only)
+  let compareId = null;      // note id shown in the right compare pane
   let saveTimer = null;
   let allTags = [];
   let authMode = 'login'; // 'login' | 'signup' | 'forgot'
@@ -530,6 +539,10 @@
 
   el('authToggle').onclick = () => setAuthMode(authMode === 'signup' ? 'login' : 'signup');
   el('forgotToggle').onclick = () => setAuthMode(authMode === 'forgot' ? 'login' : 'forgot');
+
+  // Enter from any auth field submits (mobile keyboards show a "Go"/이동 key that fires Enter)
+  ['authEmail','authPass'].forEach(id => el(id).addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); el('authBtn').click(); } }));
+  el('recoveryPass').addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); el('recoveryBtn').click(); } });
 
   el('authBtn').onclick = async () => {
     const email = el('authEmail').value.trim();
@@ -1226,11 +1239,42 @@
     });
   })();
 
-  function insertCallout(){
+  // the 4 callout kinds, matching renderMarkdown's [!note|tip|warning|danger] parser
+  const CALLOUT_TYPES = [
+    { type:'note',    icon:'📝', label:'노트', title:'노트' },
+    { type:'tip',     icon:'💡', label:'팁',   title:'팁' },
+    { type:'warning', icon:'⚠️', label:'주의', title:'주의' },
+    { type:'danger',  icon:'🚫', label:'위험', title:'위험' },
+  ];
+  function insertCallout(type){
     const ta = editorBox;
     const start = ta.selectionStart, end = ta.selectionEnd;
-    const template = '\n> [!note] 제목\n> 내용을 입력하세요\n';
+    const meta = CALLOUT_TYPES.find(c => c.type === type) || CALLOUT_TYPES[0];
+    const template = `\n> [!${meta.type}] ${meta.title}\n> 내용을 입력하세요\n`;
     replaceEditorRange(start, end, template, start + template.length);
+  }
+  // FigJam-style toolbox popover: show all 4 callout kinds, pick one to insert
+  function openCalloutPicker(anchorBtn){
+    document.querySelector('.callout-picker')?.remove();
+    const pop = document.createElement('div');
+    pop.className = 'callout-picker';
+    CALLOUT_TYPES.forEach(c => {
+      const b = document.createElement('button');
+      b.className = 'callout-pick callout-pick-' + c.type;
+      b.innerHTML = `<span class="callout-pick-icon">${c.icon}</span><span>${c.label}</span>`;
+      b.onmousedown = (e) => { e.preventDefault(); };
+      b.onclick = () => { insertCallout(c.type); pop.remove(); };
+      pop.appendChild(b);
+    });
+    document.body.appendChild(pop);
+    const rect = anchorBtn.getBoundingClientRect();
+    // prefer below the button; flip above if it would go off-screen
+    let top = rect.bottom + 6, left = rect.left;
+    pop.style.left = Math.max(8, Math.min(left, window.innerWidth - pop.offsetWidth - 8)) + 'px';
+    if(top + pop.offsetHeight > window.innerHeight - 8) top = rect.top - pop.offsetHeight - 6;
+    pop.style.top = top + 'px';
+    const close = ev => { if(!pop.contains(ev.target) && ev.target !== anchorBtn){ pop.remove(); document.removeEventListener('mousedown', close); } };
+    setTimeout(() => document.addEventListener('mousedown', close), 0);
   }
 
   document.querySelectorAll('.fmtbtn[data-h]').forEach(btn => {
@@ -1243,12 +1287,10 @@
   el('fmtQuote').onclick = () => insertLinePrefix('> ');
   el('fmtLink').onclick = () => insertLink();
   el('fmtCode').onclick = () => insertCode();
-  el('fmtBulletList').onclick = () => toggleBulletList();
-  el('fmtOrderedList').onclick = () => toggleOrderedList();
   el('fmtIndent').onclick = () => indentSelection();
   el('fmtOutdent').onclick = () => outdentSelection();
   el('fmtTask').onclick = () => insertLinePrefix('- [ ] ');
-  el('fmtCallout').onclick = () => insertCallout();
+  el('fmtCallout').onclick = () => openCalloutPicker(el('fmtCallout'));
   el('fmtHr').onclick = () => { const ta=editorBox; const s=ta.selectionStart, e=ta.selectionEnd; const ins='\n\n---\n\n'; replaceEditorRange(s, e, ins, s+ins.length); };
 
   // ---------------- sidebar rendering ----------------
@@ -1535,8 +1577,72 @@
     } else {
       editorBox.style.flexBasis = '';
     }
+    // read-mode compare: split the reading area into current-note (left) | picked-note (right)
+    const showCompare = (m==='preview') && compareOpen && !mobile;
+    split.classList.toggle('compare', showCompare);
+    el('compareBtn').style.display = (m==='preview' && !mobile) ? '' : 'none';
+    el('compareBtn').classList.toggle('active', showCompare);
+    el('comparePane').style.display = showCompare ? 'flex' : 'none';
+    el('compareDivider').style.display = showCompare ? 'block' : 'none';
+    if(showCompare){
+      const cr = parseFloat(localStorage.getItem('stk-compare-ratio')) || 0.5;
+      previewBox.style.flexBasis = (Math.min(0.8,Math.max(0.2,cr))*100) + '%';
+      renderComparePane();
+    } else {
+      previewBox.style.flexBasis = '';
+    }
     previewBox.innerHTML = renderMarkdown(editorBox.value);
     localStorage.setItem('stk-editor-mode', m);
+  }
+
+  // ---------------- read-mode two-card compare ----------------
+  async function renderComparePane(){
+    const pv2 = el('previewBox2'), pick = el('comparePickBtn');
+    if(!compareId){
+      pick.textContent = '카드 선택 ▾';
+      pv2.innerHTML = '<div class="rp-empty" style="padding:24px 0;">비교할 카드를 선택하세요.</div>';
+      return;
+    }
+    const note = index.find(m => m.id === compareId);
+    if(!note){
+      compareId = null; pick.textContent = '카드 선택 ▾';
+      pv2.innerHTML = '<div class="rp-empty" style="padding:24px 0;">카드를 찾을 수 없습니다.</div>';
+      return;
+    }
+    pick.textContent = (note.title || '제목 없음') + ' ▾';
+    await ensureContentLoaded(note);
+    pv2.innerHTML = renderMarkdown(note.content || '');
+  }
+
+  // popover list of note-type cards to pick the compare target
+  function openComparePicker(anchorEl){
+    document.querySelector('.compare-picker')?.remove();
+    const pop = document.createElement('div'); pop.className = 'compare-picker';
+    const inp = document.createElement('input'); inp.className = 'compare-picker-input'; inp.placeholder = '카드 검색…'; inp.spellcheck = false;
+    const list = document.createElement('div'); list.className = 'compare-picker-list';
+    pop.appendChild(inp); pop.appendChild(list);
+    const render = (q) => {
+      list.innerHTML = '';
+      const ql = (q||'').toLowerCase();
+      const items = index.filter(n => !isCanvasNote(n) && !isTableNote(n) && n.id !== currentId && n.id !== compareId
+        && (!ql || (n.title||'').toLowerCase().includes(ql))).slice(0, 60);
+      if(!items.length){ const e0 = document.createElement('div'); e0.className = 'compare-picker-empty'; e0.textContent = '카드 없음'; list.appendChild(e0); return; }
+      items.forEach(n => {
+        const it = document.createElement('div'); it.className = 'compare-picker-item'; it.textContent = n.title || '제목 없음';
+        it.onmousedown = (e) => { e.preventDefault(); compareId = n.id; renderComparePane(); pop.remove(); };
+        list.appendChild(it);
+      });
+    };
+    render('');
+    inp.addEventListener('input', () => render(inp.value));
+    inp.addEventListener('keydown', (e) => { if(e.key === 'Escape') pop.remove(); });
+    document.body.appendChild(pop);
+    const rect = anchorEl.getBoundingClientRect();
+    pop.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - pop.offsetWidth - 8)) + 'px';
+    pop.style.top = (rect.bottom + 6) + 'px';
+    inp.focus();
+    const close = (ev) => { if(!pop.contains(ev.target) && ev.target !== anchorEl){ pop.remove(); document.removeEventListener('mousedown', close); } };
+    setTimeout(() => document.addEventListener('mousedown', close), 0);
   }
 
   function queueSave(){ clearTimeout(saveTimer); saveTimer = setTimeout(doSave, 600); }
@@ -2056,6 +2162,19 @@
   el('emptyNewBtn').onclick = () => createNote('');
   el('editModeBtn').onclick = () => setMode('split');
   el('previewModeBtn').onclick = () => setMode('preview');
+  el('compareBtn').onclick = () => {
+    compareOpen = !compareOpen;
+    setMode('preview'); // compare only exists in read mode; re-apply layout
+    if(compareOpen && !compareId) openComparePicker(el('comparePickBtn'));
+  };
+  el('comparePickBtn').onclick = () => openComparePicker(el('comparePickBtn'));
+  el('compareCloseBtn').onclick = () => { compareOpen = false; setMode('preview'); };
+  // wikilinks inside the compare pane load that card into the same (right) pane
+  el('previewBox2').addEventListener('click', (e) => {
+    const t = e.target.closest('.wikilink'); if(!t) return;
+    const found = index.find(m => m.title.toLowerCase() === t.dataset.link.toLowerCase());
+    if(found){ compareId = found.id; renderComparePane(); }
+  });
   titleField.addEventListener('input', queueSave);
   titleField.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); editorBox.focus(); editorBox.setSelectionRange(0, 0); } });
   editorBox.addEventListener('input', queueSave);
@@ -2237,16 +2356,46 @@
   (function(){
     const divider=el('splitDivider'), split=el('editorSplit');
     let dragging=false;
-    divider.addEventListener('mousedown', e => { dragging=true; divider.classList.add('dragging'); document.body.style.userSelect='none'; document.body.style.cursor='col-resize'; e.preventDefault(); });
-    window.addEventListener('mousemove', e => {
+    const start=()=>{ dragging=true; divider.classList.add('dragging'); document.body.style.userSelect='none'; document.body.style.cursor='col-resize'; };
+    const move=(clientX)=>{
       if(!dragging) return;
       const rect=split.getBoundingClientRect();
-      let ratio=(e.clientX-rect.left)/rect.width;
+      let ratio=(clientX-rect.left)/rect.width;
       ratio=Math.min(0.8, Math.max(0.2, ratio));
       editorBox.style.flexBasis=(ratio*100)+'%';
       localStorage.setItem('stk-split-ratio', ratio);
-    });
-    window.addEventListener('mouseup', () => { if(dragging){ dragging=false; divider.classList.remove('dragging'); document.body.style.userSelect=''; document.body.style.cursor=''; } });
+    };
+    const stop=()=>{ if(dragging){ dragging=false; divider.classList.remove('dragging'); document.body.style.userSelect=''; document.body.style.cursor=''; } };
+    divider.addEventListener('mousedown', e => { start(); e.preventDefault(); });
+    window.addEventListener('mousemove', e => move(e.clientX));
+    window.addEventListener('mouseup', stop);
+    // touch (tablet/pad): same drag, but stop the touch from scrolling the editor underneath
+    divider.addEventListener('touchstart', e => { if(e.touches.length!==1) return; start(); e.preventDefault(); }, {passive:false});
+    window.addEventListener('touchmove', e => { if(dragging && e.touches.length===1){ move(e.touches[0].clientX); e.preventDefault(); } }, {passive:false});
+    window.addEventListener('touchend', stop);
+    window.addEventListener('touchcancel', stop);
+  })();
+  // draggable divider between the two compare panes (read-mode two-card view)
+  (function(){
+    const divider=el('compareDivider'), split=el('editorSplit');
+    let dragging=false;
+    const start=()=>{ dragging=true; divider.classList.add('dragging'); document.body.style.userSelect='none'; document.body.style.cursor='col-resize'; };
+    const move=(clientX)=>{
+      if(!dragging) return;
+      const rect=split.getBoundingClientRect();
+      let ratio=(clientX-rect.left)/rect.width;
+      ratio=Math.min(0.8, Math.max(0.2, ratio));
+      previewBox.style.flexBasis=(ratio*100)+'%';
+      localStorage.setItem('stk-compare-ratio', ratio);
+    };
+    const stop=()=>{ if(dragging){ dragging=false; divider.classList.remove('dragging'); document.body.style.userSelect=''; document.body.style.cursor=''; } };
+    divider.addEventListener('mousedown', e => { start(); e.preventDefault(); });
+    window.addEventListener('mousemove', e => move(e.clientX));
+    window.addEventListener('mouseup', stop);
+    divider.addEventListener('touchstart', e => { if(e.touches.length!==1) return; start(); e.preventDefault(); }, {passive:false});
+    window.addEventListener('touchmove', e => { if(dragging && e.touches.length===1){ move(e.touches[0].clientX); e.preventDefault(); } }, {passive:false});
+    window.addEventListener('touchend', stop);
+    window.addEventListener('touchcancel', stop);
   })();
   searchInput.addEventListener('input', (e) => { searchQuery = e.target.value; renderCardList(); });
   el('dupBtn').onclick = () => { if(currentId) duplicateNote(currentId); };
@@ -2271,6 +2420,16 @@
   };
   el('mobToggle').onclick = () => { appEl.classList.toggle('show-sidebar'); };
   el('mobSidebarBtn').onclick = () => { appEl.classList.toggle('show-sidebar'); };
+  // when the mobile sidebar overlay is open, a tap on the visible content area (to its right)
+  // just closes the drawer — swallow that tap so it doesn't also activate whatever's underneath.
+  // capture phase so it runs before card/button onclick handlers.
+  appEl.addEventListener('click', (e) => {
+    if(!appEl.classList.contains('show-sidebar')) return;
+    if(window.innerWidth > 640) return;
+    if(e.target.closest('#sidebar') || e.target.closest('#mobToggle') || e.target.closest('#mobSidebarBtn')) return;
+    e.preventDefault(); e.stopPropagation();
+    appEl.classList.remove('show-sidebar');
+  }, true);
   // inline grid-template-columns doesn't react to viewport changes on its own (see applyPanelState)
   let panelResizeT = null;
   window.addEventListener('resize', () => {
@@ -3026,6 +3185,30 @@
   document.addEventListener('visibilitychange', () => {
     if(document.visibilityState === 'hidden') flushSave();
   });
+  // Android back (hardware button / gesture): unwind one UI layer at a time instead of the
+  // default "kill the whole app". Returns true if it consumed the back press.
+  function handleBackNav(){
+    // 1. transient popovers / pickers floating on top of everything
+    const pop = document.querySelector('.callout-picker, .tag-overflow-popup, #cevCardPicker, #cevLabelEdit');
+    if(pop){ pop.remove(); return true; }
+    // 2. modals
+    if(el('guideModal').style.display === 'flex'){ closeGuideModal(); return true; }
+    if(el('settingsModal').style.display === 'flex'){ closeSettingsModal(); return true; }
+    // 3. mobile slide-over overlays
+    if(mobileRightpaneOpen){ mobileRightpaneOpen = false; applyPanelState(); return true; }
+    if(appEl.classList.contains('show-sidebar')){ appEl.classList.remove('show-sidebar'); return true; }
+    // 4. a content view is open -> flush pending edits and return to the home list
+    if(currentView !== 'empty'){
+      if(cevCurrentNoteId) cevFlushSave();
+      if(tevCurrentNoteId) tevFlushSave();
+      flushSave();
+      showView('empty');
+      appEl.classList.add('show-sidebar'); // reveal the card list so they can pick another
+      return true;
+    }
+    return false;
+  }
+
   // belt-and-suspenders for the actual Capacitor-wrapped app: Capacitor.Plugins.App is
   // injected automatically by the native runtime (no bundler/import needed) and its
   // pause/appStateChange events fire even in cases visibilitychange might not catch.
@@ -3033,6 +3216,7 @@
     const CapApp = window.Capacitor.Plugins.App;
     CapApp.addListener('pause', () => flushSave());
     CapApp.addListener('appStateChange', (state) => { if(!state.isActive) flushSave(); });
+    CapApp.addListener('backButton', () => { if(!handleBackNav()) CapApp.minimizeApp(); });
   }
 
   // ---------------- resizable panels ----------------
@@ -4695,8 +4879,7 @@
       const dot=document.createElement('div');
       dot.className='cev-anchor'; dot.dataset.side=side;
       dot.style.top=top; dot.style.left=left;
-      dot.addEventListener('mousedown',e=>{
-        e.stopPropagation(); e.preventDefault();
+      const startConn=()=>{
         const canvasRect=el('cevCanvas').getBoundingClientRect();
         const dotRect=dot.getBoundingClientRect();
         const sx=(dotRect.left+dotRect.width/2-canvasRect.left-cevPanE.x)/cevZoom;
@@ -4708,7 +4891,10 @@
         cevTempLine.setAttribute('x2',sx); cevTempLine.setAttribute('y2',sy);
         el('cevSvg').appendChild(cevTempLine);
         el('cevInner').classList.add('cev-connecting');
-      });
+      };
+      dot.addEventListener('mousedown',e=>{ e.stopPropagation(); e.preventDefault(); startConn(); });
+      // touch: same drag-to-connect (document touchmove/touchend already handle cevConnDrawing)
+      dot.addEventListener('touchstart',e=>{ if(e.touches.length!==1) return; e.stopPropagation(); e.preventDefault(); startConn(); }, {passive:false});
       div.appendChild(dot);
     });
   }
@@ -4738,6 +4924,24 @@
     if(edata.fontSize) node.style.fontSize = edata.fontSize + 'px';
     if(edata.bold) node.style.fontWeight = '800';
     if(edata.textColor) node.style.color = edata.textColor;
+  }
+  // enter text-edit mode on an element programmatically (same as double-clicking it) — used by
+  // the Enter key so a selected shape can be typed into without reaching for the mouse
+  function cevBeginTextEdit(id){
+    const ed=cevElements.find(x=>x.id===id); if(!ed||ed.locked) return;
+    const div=el('cevInner').querySelector(`[data-elid="${id}"]`); if(!div) return;
+    if(ed.type==='sticky'){ const ta=div.querySelector('textarea'); if(ta){ ta.style.pointerEvents='auto'; ta.focus(); } return; }
+    if(ed.type==='text'){
+      div.contentEditable='true'; div.focus();
+      const r=document.createRange(); r.selectNodeContents(div); const s=window.getSelection(); s.removeAllRanges(); s.addRange(r);
+      return;
+    }
+    // rect / circle / diamond share a .cev-shape-label
+    const lbl=div.querySelector('.cev-shape-label');
+    if(lbl){
+      lbl.contentEditable='true'; lbl.style.pointerEvents='auto'; lbl.focus();
+      const r=document.createRange(); r.selectNodeContents(lbl); const s=window.getSelection(); s.removeAllRanges(); s.addRange(r);
+    }
   }
   // shared element pointer-down: selection (with Shift additive) + single/group drag, respects lock
   function cevElMouseDown(e, edata, lbl){
@@ -5234,6 +5438,20 @@
       const dx=(e.clientX-cevResizing.startMX)/cevZoom,dy=(e.clientY-cevResizing.startMY)/cevZoom,h=cevResizing.handle;
       if(edata.type==='circle'){
         const dr=(h==='s'||h==='e'?1:-1)*Math.sqrt(dx*dx+dy*dy)/2; edata.r=Math.max(20,cevResizing.origR+dr);
+      } else if(edata.type==='diamond'){
+        // keep width==height so all four sides stay equal (a true rhombus). The corner/edge
+        // opposite the dragged handle stays anchored; drag distance sets the new square size.
+        const oX=cevResizing.origX, oY=cevResizing.origY, oW=cevResizing.origW;
+        const right=h.includes('w'), bottom=h.includes('n'); // handle anchored on opposite side
+        const ax=right?oX+oW:oX, ay=bottom?oY+oW:oY;         // fixed anchor point (origH==origW for diamonds)
+        let ns;
+        if(h==='e'||h==='w') ns=oW+(h==='e'?dx:-dx);
+        else if(h==='n'||h==='s') ns=oW+(h==='s'?dy:-dy);
+        else ns=Math.max(oW+(h.includes('e')?dx:-dx), oW+(h.includes('s')?dy:-dy)); // corner: larger axis
+        ns=Math.max(40, ns);
+        edata.w=ns; edata.h=ns;
+        edata.x=right?ax-ns:ax;
+        edata.y=bottom?ay-ns:ay;
       } else {
         if(h.includes('e')) edata.w=Math.max(60,cevResizing.origW+dx);
         if(h.includes('s')) edata.h=Math.max(40,cevResizing.origH+dy);
@@ -5324,6 +5542,12 @@
       if(k==='y'){ e.preventDefault(); cevRedo(); return; }
       if(k==='d'){ e.preventDefault(); cevDuplicateSelection(); return; }
       if(k==='a'){ e.preventDefault(); cevSelectMany(cevElements.map(el=>el.id)); return; }
+      return;
+    }
+    // Enter on a single selected shape jumps straight into typing its text (like double-clicking)
+    if(e.key==='Enter' && cevSelectedIds.size===1 && !cevSelectedConn){
+      e.preventDefault();
+      cevBeginTextEdit([...cevSelectedIds][0]);
       return;
     }
     const keys={v:'select',s:'sticky',r:'rect',c:'circle',d:'diamond',t:'text'};

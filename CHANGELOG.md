@@ -7,6 +7,33 @@
 
 ---
 
+## 2026-08-05 작업 요약
+
+노트 편집기·모바일·캔버스의 사용성 다듬기 묶음. 웹 기준으로 전부 반영·푸시(안드로이드 앱 반영은 `npx cap sync android` + 재빌드 필요).
+
+### 노트 카드
+- **글머리 기호·번호 매기기 툴바 버튼 제거** (`fmtBulletList`/`fmtOrderedList` 버튼·핸들러 삭제; `toggleBulletList`/`toggleOrderedList` 함수는 미사용으로 남겨둠).
+- **콜아웃을 툴박스 선택 방식으로**: 💡 버튼을 누르면 4종(📝노트·💡팁·⚠️주의·🚫위험) 팝오버가 뜨고 하나를 골라 삽입. 캔버스 컨텍스트 툴바와 유사한 형태(`openCalloutPicker`, `CALLOUT_TYPES`, `.callout-picker` CSS). 기존 `insertCallout()`은 타입 인자를 받도록 변경.
+- **쓰기|읽기 분할 구분선을 터치로도 조절**: `#splitDivider` 드래그에 touch 이벤트 추가(태블릿/펜), `touch-action:none` + coarse 포인터에서 손잡이 폭 22px.
+- **다크모드 텍스트 드래그(선택) 하이라이트를 흰색으로**: `[data-theme="dark"] ::selection{ background:#fff; color:#1F1E1B }` (기존 accent-soft가 어두운 배경에서 거의 안 보였음).
+- **읽기모드 2카드 비교 (신규)**: 읽기모드 툴바에 `⧉ 비교` 버튼. 누르면 읽기 영역이 좌(현재 노트)|우(피커로 고른 노트)로 갈라짐. 가운데 드래그 구분선(비율 `localStorage: stk-compare-ratio`), 각 창 독립 스크롤, ✕로 닫기, 오른쪽 창의 위키링크는 같은 창에 로드. 노트 타입 카드만 피커에 노출. **데스크탑/태블릿 전용**(≤640px에선 버튼 숨김·한 장 유지). 관련: `compareOpen`/`compareId` 상태, `renderComparePane`/`openComparePicker`, `.editor-split.compare` CSS, `#comparePane`/`#previewBox2`/`#compareDivider` DOM.
+
+### 모바일 / 기타
+- **사이드바 오버레이 열린 상태에서 콘텐츠 영역 탭 → 패널 닫힘**: 캡처 단계 클릭 핸들러가 그 탭을 소비해 밑의 카드가 실행되지 않도록 처리(≤640px 한정).
+- **Android 뒤로가기 지원 (갤럭시 등)**: Capacitor `App` `backButton` 리스너 + `handleBackNav()` — 팝오버→모달(가이드/설정)→모바일 오버레이(오른쪽 패널·사이드바)→열린 뷰(편집분 flush 후 홈+목록) 순으로 한 단계씩 해제, 더 해제할 게 없으면 `minimizeApp()`(앱 종료가 아니라 백그라운드로).
+- **로그인/재설정 입력창 Enter로 제출**: 이메일·비번·새비번 필드에서 Enter → 해당 버튼 클릭(모바일 키보드의 "이동/Go" 키 포함).
+
+### 캔버스 카드
+- **마름모 리사이즈 시 항상 정사각(네 변 길이 동일)**: diamond는 원처럼 폭==높이로 균일 확대되도록 리사이즈 분기 추가(드래그한 핸들의 반대편을 고정 앵커로). 이전엔 w≠h면 회전 사각형이 되어 네 변이 두 쌍으로 갈렸음.
+- **도형 선택 후 Enter로 바로 글씨 입력**: 캔버스 keydown에 Enter 처리 추가(`cevBeginTextEdit` — 더블클릭과 동일하게 텍스트/라벨 편집 진입). 단일 선택일 때만.
+- **모바일 선연결 개선**: 근본 원인 2건 수정 — ① 앵커 점에 `touchstart`가 아예 없어서 터치로는 연결 시작 자체가 불가했음(추가; document touchmove/touchend는 이미 `cevConnDrawing` 처리 중이라 나머지는 그대로 동작). ② 터치엔 `:hover`가 없어 `.cev-el:hover > .cev-anchor`가 영원히 안 떴음 → **선택된 도형에 앵커 표시**(`.cev-el.selected > .cev-anchor`)로 바꾸고 coarse 포인터에서 22px로 확대. (요청대로 탭-탭 연결모드 등 추가 단계 없이 Stage 1에서 종료.)
+
+### 참고
+- 이번엔 **DB 스키마 변경 없음**, 새 인프라 없음. 전부 `www/index.html`·`www/style.css` 두 파일 수정. 저장 키 추가: `stk-compare-ratio`.
+- 문법 검증(인라인 스크립트 `new Function()` 파싱) 통과. 브라우저 확장 미연결·자격증명 부재로 실사용 시각 검증은 배포 후 로그인해 확인 필요.
+
+---
+
 ## 2026-08-04 작업 요약
 
 개인용 노트 앱에서 **유료·다중 사용자 정식 출시**로 방향을 굳힌 날. 웹 기능을 먼저 다 정리하고, Play 스토어 출시 전 체크리스트를 전부 처리하고, 실제 계정 2개로 RLS를 검증하고, 마지막에 안드로이드 앱까지 오늘 변경분을 전부 반영했다.

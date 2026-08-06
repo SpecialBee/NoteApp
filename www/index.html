@@ -5321,7 +5321,12 @@
       cevMarquee=null; cevCreating=null;
       const box=el('cevMarqueeBox'); if(box) box.style.display='none';
       const [t1,t2]=e.touches;
-      cevPinch={ startDist:cevTouchDist(t1,t2), startZoom:cevZoom, startPanX:cevPanE.x, startPanY:cevPanE.y, mid:cevTouchMid(t1,t2) };
+      const rect0=el('cevCanvas').getBoundingClientRect(); const mid0=cevTouchMid(t1,t2);
+      // world-space point under the fingers' midpoint at gesture start, so it can be kept
+      // under the (moving) midpoint every frame — this is what makes two-finger drag pan the
+      // canvas, not just pinch-zoom in place around a fixed point
+      const worldX=(mid0.x-rect0.left-cevPanE.x)/cevZoom, worldY=(mid0.y-rect0.top-cevPanE.y)/cevZoom;
+      cevPinch={ startDist:cevTouchDist(t1,t2), startZoom:cevZoom, worldX, worldY };
       e.preventDefault();
       return;
     }
@@ -5334,9 +5339,10 @@
       const [t1,t2]=e.touches;
       const newZoom=Math.min(4, Math.max(0.15, cevPinch.startZoom*(cevTouchDist(t1,t2)/cevPinch.startDist)));
       const rect2=el('cevCanvas').getBoundingClientRect();
-      const mx=cevPinch.mid.x-rect2.left, my=cevPinch.mid.y-rect2.top;
-      cevPanE.x=mx-(mx-cevPinch.startPanX)*(newZoom/cevPinch.startZoom);
-      cevPanE.y=my-(my-cevPinch.startPanY)*(newZoom/cevPinch.startZoom);
+      const mid=cevTouchMid(t1,t2);
+      const mx=mid.x-rect2.left, my=mid.y-rect2.top;
+      cevPanE.x=mx-cevPinch.worldX*newZoom;
+      cevPanE.y=my-cevPinch.worldY*newZoom;
       cevZoom=newZoom;
       cevApplyTransform();
       e.preventDefault();
@@ -5401,6 +5407,12 @@
       if(edata.type==='circle'){
         edata.x=cevSnapVal(cevCreating.x0); edata.y=cevSnapVal(cevCreating.y0);
         edata.r=Math.max(20, Math.sqrt(dx*dx+dy*dy));
+      } else if(edata.type==='diamond'){
+        // force width==height while dragging out a new diamond, same square constraint as resize
+        const x0=cevCreating.x0, y0=cevCreating.y0;
+        const s=Math.max(60, Math.max(Math.abs(dx), Math.abs(dy)));
+        edata.x=cevSnapVal(dx<0 ? x0-s : x0); edata.y=cevSnapVal(dy<0 ? y0-s : y0);
+        edata.w=s; edata.h=s;
       } else {
         const x0=cevCreating.x0, y0=cevCreating.y0;
         const minW=edata.type==='section'?80:60, minH=edata.type==='section'?60:40;

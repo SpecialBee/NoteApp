@@ -360,6 +360,7 @@
       <button class="guide-modal-close" id="settingsModalClose" title="닫기">✕</button>
     </div>
     <div class="guide-modal-body">
+      <div class="settings-group-title">화면</div>
       <div class="settings-section">
         <div class="settings-label">테마 색상</div>
         <div class="settings-swatches" id="accentSwatches"></div>
@@ -367,6 +368,9 @@
           <label class="settings-custom-color">커스텀 <input type="color" id="accentCustom"></label>
           <button class="settings-reset" id="accentReset">기본값</button>
         </div>
+      </div>
+      <div class="settings-section">
+        <label class="graph-toggle"><input type="checkbox" id="darkModeToggle"> 다크모드</label>
       </div>
       <div class="settings-section">
         <div class="settings-label">글꼴</div>
@@ -380,6 +384,16 @@
           <button class="settings-reset" id="markReset">기본값</button>
         </div>
       </div>
+      <div class="settings-section">
+        <div class="settings-label">카드 글자 크기</div>
+        <select class="settings-select" id="fontSizeSelect">
+          <option value="small">축소</option>
+          <option value="normal">보통</option>
+          <option value="large">확대</option>
+        </select>
+      </div>
+
+      <div class="settings-group-title">편집</div>
       <div class="settings-section" id="writeLayoutSection">
         <div class="settings-label">쓰기 모드</div>
         <select class="settings-select" id="writeLayoutSelect">
@@ -389,22 +403,43 @@
         <label class="graph-toggle" id="previewSyncToggleRow" style="margin-top:8px;"><input type="checkbox" id="previewSyncToggle"> 편집 중 미리보기를 편집 위치와 자동 동기화</label>
       </div>
       <div class="settings-section">
-        <div class="settings-label">카드 글자 크기</div>
-        <select class="settings-select" id="fontSizeSelect">
-          <option value="small">축소</option>
-          <option value="normal">보통</option>
-          <option value="large">확대</option>
-        </select>
+        <label class="graph-toggle"><input type="checkbox" id="cevSnapDefaultToggle"> 캔버스를 열 때 격자 스냅 기본으로 켜기</label>
       </div>
+
+      <div class="settings-group-title">성능</div>
       <div class="settings-section">
-        <div class="settings-label">데이터</div>
+        <label class="graph-toggle"><input type="checkbox" id="graphIdleFloatToggle"> 그래프 유휴 애니메이션 (살짝 흔들리는 효과)</label>
+        <div class="settings-hint">저사양 기기에서 배터리를 아끼려면 꺼두세요.</div>
+      </div>
+
+      <div class="settings-group-title">데이터</div>
+      <div class="settings-section">
         <div class="settings-row">
           <button class="settings-reset" id="backupAllBtn">전체 백업 다운로드 (JSON)</button>
         </div>
         <div class="settings-hint" id="backupAllHint">모든 카드와 할 일 목록을 파일 하나로 내려받습니다.</div>
       </div>
       <div class="settings-section">
-        <div class="settings-label">계정</div>
+        <div class="settings-label">휴지통 자동 비우기</div>
+        <select class="settings-select" id="trashRetentionSelect">
+          <option value="0">사용 안 함</option>
+          <option value="7">7일 지나면 자동 비우기</option>
+          <option value="30">30일 지나면 자동 비우기</option>
+          <option value="90">90일 지나면 자동 비우기</option>
+        </select>
+        <div class="settings-hint">휴지통을 열 때마다 기준일이 지난 카드를 영구 삭제합니다.</div>
+      </div>
+
+      <div class="settings-group-title">계정</div>
+      <div class="settings-section">
+        <div class="settings-label">비밀번호 변경</div>
+        <div class="settings-row" style="flex-direction:column; align-items:stretch; gap:8px;">
+          <input type="password" id="changePassNew" class="settings-select" style="cursor:text;" placeholder="새 비밀번호 (6자 이상)" autocomplete="new-password">
+          <input type="password" id="changePassConfirm" class="settings-select" style="cursor:text;" placeholder="새 비밀번호 확인" autocomplete="new-password">
+          <button class="settings-reset" id="changePassBtn" style="align-self:flex-start;">비밀번호 변경</button>
+        </div>
+      </div>
+      <div class="settings-section">
         <div class="settings-row">
           <a href="privacy.html" target="_blank" rel="noopener" class="settings-legal-link">개인정보처리방침 · 이용약관</a>
         </div>
@@ -718,6 +753,10 @@
     el('writeLayoutSelect').value = writeOnlyEnabled() ? 'write-only' : 'split';
     el('previewSyncToggleRow').style.display = writeOnlyEnabled() ? 'none' : '';
     el('fontSizeSelect').value = localStorage.getItem('stk-font-size') || 'normal';
+    el('darkModeToggle').checked = document.documentElement.dataset.theme === 'dark';
+    el('cevSnapDefaultToggle').checked = localStorage.getItem('stk-cev-snap-default') === '1';
+    el('graphIdleFloatToggle').checked = localStorage.getItem('stk-graph-idle-float') !== '0';
+    el('trashRetentionSelect').value = localStorage.getItem('stk-trash-retention-days') || '0';
   }
 
   el('accentCustom').addEventListener('input', e => { localStorage.setItem('stk-accent-color', e.target.value); applyAccentColor(e.target.value); refreshSettingsUI(); });
@@ -736,6 +775,27 @@
     if(mode==='split') setMode('split');
   };
   el('fontSizeSelect').onchange = e => { localStorage.setItem('stk-font-size', e.target.value); applyFontSize(e.target.value); };
+  el('darkModeToggle').onchange = e => setTheme(e.target.checked ? 'dark' : 'light');
+  el('cevSnapDefaultToggle').onchange = e => { localStorage.setItem('stk-cev-snap-default', e.target.checked ? '1' : '0'); };
+  el('graphIdleFloatToggle').onchange = e => { localStorage.setItem('stk-graph-idle-float', e.target.checked ? '1' : '0'); };
+  el('trashRetentionSelect').onchange = e => { localStorage.setItem('stk-trash-retention-days', e.target.value); };
+  el('changePassBtn').onclick = async () => {
+    const btn = el('changePassBtn');
+    const pass = el('changePassNew').value, confirmPass = el('changePassConfirm').value;
+    if(!pass || pass.length < 6){ showToast('6자 이상의 비밀번호를 입력하세요.'); return; }
+    if(pass !== confirmPass){ showToast('두 비밀번호가 일치하지 않습니다.'); return; }
+    btn.disabled = true; const label = btn.textContent; btn.textContent = '변경 중…';
+    try{
+      const { error } = await sb.auth.updateUser({ password: pass });
+      if(error) throw error;
+      el('changePassNew').value = ''; el('changePassConfirm').value = '';
+      showToast('비밀번호가 변경되었습니다.');
+    }catch(e){
+      showToast('비밀번호 변경 실패: ' + (e.message || '오류가 발생했습니다'));
+    }finally{
+      btn.disabled = false; btn.textContent = label;
+    }
+  };
 
   applyAccentColor(localStorage.getItem('stk-accent-color') || '');
   applyMarkColor(localStorage.getItem('stk-mark-color') || '');
@@ -798,7 +858,21 @@
     const { data, error } = await sb.from('notes').select(NOTE_LIST_FIELDS).not('deleted_at', 'is', null).order('deleted_at', { ascending:false });
     if(error){ showToast('휴지통 불러오기 실패: ' + error.message); trashIndex = []; return; }
     trashIndex = data.map(rowToNote);
+    await purgeOldTrash();
     trashCount.textContent = trashIndex.length;
+  }
+
+  // settings-driven retention: silently hard-delete trashed notes older than the configured
+  // number of days, checked whenever the trash list loads (there's no background job, so
+  // "opened the trash view" is the trigger point instead)
+  async function purgeOldTrash(){
+    const days = parseInt(localStorage.getItem('stk-trash-retention-days') || '0', 10);
+    if(!days) return;
+    const cutoff = Date.now() - days * 86400000;
+    const stale = trashIndex.filter(m => m.deletedAt && m.deletedAt < cutoff);
+    if(!stale.length) return;
+    trashIndex = trashIndex.filter(m => !(m.deletedAt && m.deletedAt < cutoff));
+    await Promise.all(stale.map(m => hardDeleteRow(m.id)));
   }
 
   async function insertNote(note){
@@ -1795,6 +1869,7 @@
   // once a force sim settles, give it a barely-there idle drift instead of freezing solid —
   // a cheap per-node sine wobble around the settled position, far lighter than full physics.
   function startIdleFloat(sim, nodeEls, lineEls, links, isActiveFn, extraTransform){
+    if(localStorage.getItem('stk-graph-idle-float') === '0') return; // settled nodes just stay put
     sim.nodes.forEach(n => {
       n.fx = n.x; n.fy = n.y;
       n.fPhase = Math.random() * Math.PI * 2;
@@ -3744,7 +3819,7 @@
   let cevConnDrawing = null; // { fromId, startX, startY }
   let cevTempLine = null;
   let cevSelectedIds = new Set(); // multi-selection (source of truth)
-  let cevSnap = false;            // snap-to-grid toggle
+  let cevSnap = false; // snap-to-grid toggle; set from the settings default each time a canvas opens (see openCanvasEditor), session-overridable via the toolbar button
   let cevMarquee = null;          // { x0,y0 } during rubber-band select
   let cevGroupMove = null;        // { startMX,startMY, origins:[{id,x,y}] } during multi-drag
   let cevHistory = [];
@@ -5151,6 +5226,9 @@
     cevElements=parsed.elements; cevConnectors=parsed.connectors;
     cevSelected=null; cevSelectedConn=null; cevConnectingFrom=null; cevTool='select';
     cevSelectedIds.clear();
+    hideCevCtxBar(); // otherwise the previous note's floating shape toolbar stays on screen when switching cards directly
+    cevSnap = localStorage.getItem('stk-cev-snap-default') === '1';
+    const snapBtn=el('cevSnapBtn'); if(snapBtn) snapBtn.classList.toggle('active', cevSnap);
     cevPanE={x:100,y:100}; cevZoom=1;
     cevResetHistory();
     const ti=el('cevTitleInput'); if(ti) ti.value=note.title||'';
@@ -5450,7 +5528,12 @@
       const edata=cevElements.find(x=>x.id===cevResizing.id); if(!edata) return;
       const dx=(e.clientX-cevResizing.startMX)/cevZoom,dy=(e.clientY-cevResizing.startMY)/cevZoom,h=cevResizing.handle;
       if(edata.type==='circle'){
-        const dr=(h==='s'||h==='e'?1:-1)*Math.sqrt(dx*dx+dy*dy)/2; edata.r=Math.max(20,cevResizing.origR+dr);
+        // radius must track the signed drag along the handle's own axis (n/s -> dy, e/w -> dx),
+        // not the unsigned drag distance — magnitude-only growth meant dragging a handle back
+        // toward the center kept growing the circle instead of shrinking it
+        const delta=(h==='e'||h==='w')?dx:dy;
+        const sign=(h==='e'||h==='s')?1:-1;
+        edata.r=Math.max(20, cevResizing.origR + sign*delta);
       } else if(edata.type==='diamond'){
         // keep width==height so all four sides stay equal (a true rhombus). The corner/edge
         // opposite the dragged handle stays anchored; drag distance sets the new square size.

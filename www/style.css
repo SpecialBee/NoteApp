@@ -585,6 +585,8 @@
   .guide-modal-body { overflow-y:auto; padding:8px 24px 24px 24px; }
   .settings-section { padding:16px 0; border-bottom:1px solid var(--border-soft); }
   .settings-section:last-child { border-bottom:none; padding-bottom:4px; }
+  .settings-group-title { font-size:11px; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; color:var(--ink-faint); padding:18px 0 2px; }
+  .settings-group-title:first-child { padding-top:0; }
   .settings-label { font-size:13px; font-weight:700; color:var(--ink); margin-bottom:10px; }
   .settings-swatches { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
   .settings-swatch { width:26px; height:26px; border-radius:50%; border:2px solid transparent; cursor:pointer; padding:0; box-shadow:inset 0 0 0 1px rgba(0,0,0,0.08); }

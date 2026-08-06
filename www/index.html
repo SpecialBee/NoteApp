@@ -96,18 +96,22 @@
 
   <div class="mainpane">
     <div class="toolbar" id="toolbar" style="display:none;">
-      <button class="mobonly" id="mobToggle">☰</button>
-      <button class="modebtn active" id="editModeBtn">쓰기모드</button>
-      <button class="modebtn" id="previewModeBtn">읽기모드</button>
-      <button class="modebtn deskonly" id="compareBtn" title="읽기모드에서 다른 카드와 나란히 비교" style="display:none;">⧉ 비교</button>
-      <span class="submeta" id="subLine"></span>
-      <span class="submeta" id="wordCount"></span>
-      <div class="spacer"></div>
-      <button class="pinbtn" id="exportMdBtn" title="마크다운 파일로 내보내기">↓ MD</button>
-      <button class="pinbtn" id="dupBtn" title="카드 복제">⧉ 복제</button>
-      <button class="pinbtn" id="cardColorBtn" title="카드 색상 변경">🎨</button>
-      <button class="pinbtn" id="pinBtn">☆ 고정</button>
-      <button class="pinbtn" id="delBtn" style="color:var(--danger);border-color:var(--danger-soft);">삭제</button>
+      <div class="toolbar-row toolbar-row1">
+        <button class="mobonly" id="mobToggle">☰</button>
+        <button class="modebtn active" id="editModeBtn">쓰기모드</button>
+        <button class="modebtn" id="previewModeBtn">읽기모드</button>
+        <button class="modebtn deskonly" id="compareBtn" title="읽기모드에서 다른 카드와 나란히 비교" style="display:none;">⧉ 비교</button>
+      </div>
+      <div class="toolbar-row toolbar-row2">
+        <span class="submeta" id="subLine"></span>
+        <span class="submeta" id="wordCount"></span>
+        <div class="spacer"></div>
+        <button class="pinbtn" id="exportMdBtn" title="마크다운 파일로 내보내기">↓ MD</button>
+        <button class="pinbtn" id="dupBtn" title="카드 복제">⧉ 복제</button>
+        <button class="pinbtn" id="cardColorBtn" title="카드 색상 변경">🎨</button>
+        <button class="pinbtn" id="pinBtn">☆ 고정</button>
+        <button class="pinbtn" id="delBtn" style="color:var(--danger);border-color:var(--danger-soft);">삭제</button>
+      </div>
     </div>
     <div class="mobile-topbar" id="mobileTopbar">
       <button id="mobSidebarBtn" title="메뉴">☰</button>
@@ -1635,9 +1639,10 @@
   function updateWordCount(){
     const text = editorBox.value || '';
     const chars = text.replace(/\s/g, '').length;
-    if(!chars){ el('wordCount').textContent = ''; return; }
+    if(!chars){ el('wordCount').innerHTML = ''; return; }
     const mins = Math.max(1, Math.round(chars / 500));
-    el('wordCount').textContent = `· 약 ${chars}자 · 읽는 시간 ${mins}분`;
+    // reading time lives in its own span so mobile can hide just that part via CSS and keep the char count
+    el('wordCount').innerHTML = `· 약 ${chars}자 <span class="readtime-part">· 읽는 시간 ${mins}분</span>`;
   }
 
   function updatePinBtn(note){

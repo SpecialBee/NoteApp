@@ -215,6 +215,14 @@
     </div>
 
     <div id="canvasEditorView" style="display:none; flex:1; position:relative; overflow:hidden; background:var(--bg); flex-direction:column;">
+      <div class="editor-header-pad">
+        <input class="titlefield" id="cevTitleInput" placeholder="캔버스 제목" spellcheck="false">
+        <div class="titlerule"></div>
+        <div class="tagchipwrap">
+          <div class="tagchips" id="cevTagChips"></div>
+          <input class="tagchipinput" id="cevTagChipInput" placeholder="태그를 입력하세요">
+        </div>
+      </div>
       <div class="cev-toolbar" id="cevToolbar">
         <div class="cev-tools">
           <button class="cev-tool active" data-tool="select" title="선택 (V)">↖</button>
@@ -236,7 +244,6 @@
           <button class="cev-conn" data-conn="dashed-arrow">╌→</button>
         </div>
         <div class="cev-actions">
-          <input class="cev-title-input" id="cevTitleInput" placeholder="캔버스 제목" spellcheck="false">
           <button class="cev-action" id="cevUndoBtn" title="실행 취소 (Ctrl+Z)">↶</button>
           <button class="cev-action" id="cevRedoBtn" title="다시 실행 (Ctrl+Shift+Z)">↷</button>
           <button class="cev-action" id="cevSnapBtn" title="격자에 맞춤">⊞</button>
@@ -257,9 +264,17 @@
     </div>
 
     <div id="tableEditorView" style="display:none; flex:1; position:relative; overflow:hidden; background:var(--bg); flex-direction:column;">
+      <div class="editor-header-pad">
+        <input class="titlefield" id="tevTitleInput" placeholder="시트 카드 제목" spellcheck="false">
+        <div class="titlerule"></div>
+        <div class="tagchipwrap">
+          <div class="tagchips" id="tevTagChips"></div>
+          <input class="tagchipinput" id="tevTagChipInput" placeholder="태그를 입력하세요">
+        </div>
+      </div>
       <div class="tev-toolbar">
-        <input class="tev-title-input" id="tevTitleInput" placeholder="시트 카드 제목" spellcheck="false">
         <div style="flex:1"></div>
+        <button class="tev-action" id="tevFilterBtn" title="필터">🔍 필터</button>
         <button class="tev-action" id="tevImportBtn" title="CSV 가져오기">📥 가져오기</button>
         <button class="tev-action" id="tevExportBtn" title="CSV 내보내기">📤 내보내기</button>
         <input type="file" id="tevCsvFile" accept=".csv,text/csv" style="display:none">
@@ -1760,10 +1775,25 @@
     el('propSection').style.display = 'none';
   }
 
-  // writes a note's tag list from the right panel, regardless of which editor (if any) is open.
-  // normal notes route through the top tag-chip UI's own save path so the two stay in sync;
-  // canvas/table notes have no other tag UI, so flush their pending edits first and write directly
-  // (avoids pushing a stale note.content while a debounced cev/tev save is still pending).
+  // shared by the plain-note top tag-chip bar and the canvas/table top tag-chip bars — canvas
+  // and table cards have no body text to render tags into, so they render straight from note.tags
+  function renderNoteTagChips(note, chipsId){
+    const container = el(chipsId); if(!container) return;
+    container.innerHTML = '';
+    (note.tags||[]).forEach(t => {
+      const chip = document.createElement('span');
+      chip.className = 'tagchip2';
+      chip.innerHTML = `#${escapeHtml(t)} <span class="x">✕</span>`;
+      chip.querySelector('.x').onclick = () => rpRemoveTag(note, t);
+      container.appendChild(chip);
+    });
+  }
+
+  // writes a note's tag list, callable from either the right panel or a top tag-chip bar,
+  // regardless of which editor (if any) is open. Normal notes route through the top tag-chip
+  // UI's own save path so the two stay in sync; canvas/table notes flush their pending edits
+  // first and write directly (avoids pushing a stale note.content while a debounced cev/tev
+  // save is still pending), then refresh their own top tag-chip bar too.
   async function rpSetNoteTags(note, newTags){
     if(!isCanvasNote(note) && !isTableNote(note)){
       currentManualTags = newTags;
@@ -1779,6 +1809,8 @@
     await updateNote(note);
     computeAllTags(); renderTagRow(); renderCardList();
     renderRightPane(note);
+    if(cevCurrentNoteId === note.id) renderNoteTagChips(note, 'cevTagChips');
+    if(tevCurrentNoteId === note.id) renderNoteTagChips(note, 'tevTagChips');
   }
   function rpAddTag(note, raw){
     const t = raw.trim().replace(/^#/, '');
@@ -3853,6 +3885,8 @@
   let tevCurrentNoteId = null;
   let tevSortCol = null;
   let tevSortDir = 'asc';
+  let tevFilterCol = null; // colId or null; view-only state, not persisted with the card
+  let tevFilterVal = '';
   let tevSaveTimer = null;
 
   function tevFlushSave(){
@@ -3889,7 +3923,9 @@
       };
     }
     tevSortCol = null; tevSortDir = 'asc';
+    tevFilterCol = null; tevFilterVal = '';
     el('tevTitleInput').value = note.title || '';
+    renderNoteTagChips(note, 'tevTagChips');
     renderTableEditor();
   }
 
@@ -3912,13 +3948,29 @@
     return String(a??'').localeCompare(String(b??''),'ko');
   }
 
+  // view-only row filter (tevFilterCol/tevFilterVal), applied ahead of sort and shared by the
+  // row renderer and the footer aggregate so totals reflect only what's currently visible
+  function tevRowMatchesFilter(fc, row){
+    const v = fc.type==='formula' ? tevComputeFormula(fc, row) : row.cells[fc.id];
+    if(fc.type==='checkbox') return tevFilterVal==='true' ? (!!v && v!=='false') : !(v && v!=='false');
+    if(fc.type==='link') return tevFilterVal==='linked' ? !!v : !v;
+    return String(v??'').toLowerCase().includes(String(tevFilterVal).toLowerCase());
+  }
+  function tevFilteredRows(){
+    const rows = tevData.rows || [];
+    if(!tevFilterCol) return [...rows];
+    const fc = (tevData.columns||[]).find(c => c.id===tevFilterCol);
+    if(!fc) return [...rows];
+    return rows.filter(r => tevRowMatchesFilter(fc, r));
+  }
+
   function renderTableEditor(){
     const wrap = el('tevTableWrap'); if(!wrap) return;
     const data = tevData;
     const cols = data.columns || [];
 
-    // sort display rows (don't mutate data.rows)
-    let displayRows = [...(data.rows||[])];
+    // filter + sort display rows (don't mutate data.rows)
+    let displayRows = tevFilteredRows();
     if(tevSortCol){
       const sc = cols.find(c => c.id === tevSortCol);
       if(sc) displayRows.sort((a,b)=>{
@@ -3942,15 +3994,14 @@
 
     cols.forEach((col, colIdx) => {
       const th = document.createElement('th');
-      th.addEventListener('contextmenu', e => {
-        e.preventDefault();
-        tevShowCtxMenu(e.clientX, e.clientY, [
-          {label:'◀ 왼쪽에 열 삽입', action:()=>tevInsertColumn(colIdx)},
-          {label:'오른쪽에 열 삽입 ▶', action:()=>tevInsertColumn(colIdx+1)},
-          {sep:true},
-          {label:'열 삭제', danger:true, action:()=>tevDeleteColumn(col.id)}
-        ]);
-      });
+      const colCtxItems = () => [
+        {label:'◀ 왼쪽에 열 삽입', action:()=>tevInsertColumn(colIdx)},
+        {label:'오른쪽에 열 삽입 ▶', action:()=>tevInsertColumn(colIdx+1)},
+        {sep:true},
+        {label:'열 삭제', danger:true, action:()=>tevDeleteColumn(col.id)}
+      ];
+      th.addEventListener('contextmenu', e => { e.preventDefault(); tevShowCtxMenu(e.clientX, e.clientY, colCtxItems()); });
+      tevBindLongPress(th, (x,y) => tevShowCtxMenu(x, y, colCtxItems()));
 
       const inner = document.createElement('div');
       inner.className = 'tev-th-inner';
@@ -3986,16 +4037,23 @@
       });
       nameSpan.addEventListener('keydown', e => { if(e.key==='Enter'){e.preventDefault();nameSpan.blur();} e.stopPropagation(); });
 
-      const typeBadge = document.createElement('span');
+      const typeBadge = document.createElement('select');
       typeBadge.className = 'tev-th-type';
-      typeBadge.textContent = TEV_TYPE_LABELS[col.type] || 'Aa';
-      typeBadge.title = '클릭: 타입 변경 (' + col.type + ')';
-      typeBadge.addEventListener('click', e => {
-        e.stopPropagation();
+      typeBadge.title = '타입 변경';
+      TEV_TYPES.forEach(t => {
+        const op = document.createElement('option');
+        op.value = t; op.textContent = `${TEV_TYPE_LABELS[t]} ${TEV_TYPE_NAMES[t]}`;
+        if(t===col.type) op.selected = true;
+        typeBadge.appendChild(op);
+      });
+      typeBadge.addEventListener('click', e => e.stopPropagation());
+      typeBadge.addEventListener('change', () => {
+        const newType = typeBadge.value;
+        if(newType === col.type) return;
         const oldType = col.type;
         const hasData = data.rows.some(row => { const v = row.cells[col.id]; return v !== '' && v != null && v !== false; });
-        if(hasData && !confirm('열 타입을 바꾸면 기존 값 일부가 변환되거나 사라질 수 있습니다. 계속할까요?')) return;
-        col.type = TEV_TYPES[(TEV_TYPES.indexOf(col.type)+1) % TEV_TYPES.length];
+        if(hasData && !confirm('열 타입을 바꾸면 기존 값 일부가 변환되거나 사라질 수 있습니다. 계속할까요?')){ typeBadge.value = oldType; return; }
+        col.type = newType;
         if(col.type==='checkbox'){
           data.rows.forEach(row => { row.cells[col.id] = !!row.cells[col.id] && row.cells[col.id]!=='false'; });
         } else if(oldType==='checkbox'){
@@ -4007,7 +4065,17 @@
           data.rows.forEach(row => { const v=row.cells[col.id]; if(v && !seen.has(v)){ seen.add(v); } });
           col.options = Array.from(seen).filter(Boolean);
         }
+        if(col.type==='link' || oldType==='link'){
+          // a link cell holds a note id, not free text — neither direction converts meaningfully
+          data.rows.forEach(row => { row.cells[col.id] = col.type==='link' ? null : ''; });
+        }
+        if(col.type==='formula'){
+          col.formulaCols = col.formulaCols || [];
+          col.formulaAgg = col.formulaAgg || 'sum';
+        }
+        const anchorRect = typeBadge.getBoundingClientRect(); // typeBadge is replaced by the re-render below, so grab its position first
         tevSaveDebounced(); renderTableEditor();
+        if(col.type==='formula') tevOpenFormulaConfig(col, anchorRect);
       });
 
       const delBtn = document.createElement('button');
@@ -4022,6 +4090,12 @@
       inner.appendChild(sortBtn);
       inner.appendChild(nameSpan);
       inner.appendChild(typeBadge);
+      if(col.type==='formula'){
+        const cfgBtn = document.createElement('button');
+        cfgBtn.className = 'tev-th-formula-cfg'; cfgBtn.textContent = '⚙'; cfgBtn.title = '계산 설정';
+        cfgBtn.addEventListener('click', e => { e.stopPropagation(); tevOpenFormulaConfig(col, cfgBtn.getBoundingClientRect()); });
+        inner.appendChild(cfgBtn);
+      }
       inner.appendChild(delBtn);
       th.appendChild(inner);
       hr.appendChild(th);
@@ -4051,16 +4125,15 @@
       // row delete cell
       const tdDel = document.createElement('td');
       tdDel.className = 'tev-td-del';
-      tdDel.title = '우클릭: 행 삽입';
-      tdDel.addEventListener('contextmenu', e => {
-        e.preventDefault();
-        tevShowCtxMenu(e.clientX, e.clientY, [
-          {label:'▲ 위에 행 삽입', action:()=>tevInsertRow(rowIdx)},
-          {label:'▼ 아래에 행 삽입', action:()=>tevInsertRow(rowIdx+1)},
-          {sep:true},
-          {label:'행 삭제', danger:true, action:()=>tevDeleteRow(row.id)}
-        ]);
-      });
+      tdDel.title = '우클릭(길게 누르기): 행 삽입';
+      const rowCtxItems = () => [
+        {label:'▲ 위에 행 삽입', action:()=>tevInsertRow(rowIdx)},
+        {label:'▼ 아래에 행 삽입', action:()=>tevInsertRow(rowIdx+1)},
+        {sep:true},
+        {label:'행 삭제', danger:true, action:()=>tevDeleteRow(row.id)}
+      ];
+      tdDel.addEventListener('contextmenu', e => { e.preventDefault(); tevShowCtxMenu(e.clientX, e.clientY, rowCtxItems()); });
+      tevBindLongPress(tdDel, (x,y) => tevShowCtxMenu(x, y, rowCtxItems()));
       const rowDelBtn = document.createElement('button');
       rowDelBtn.className = 'tev-row-del';
       rowDelBtn.textContent = '×';
@@ -4077,14 +4150,14 @@
           const cb = document.createElement('input');
           cb.type = 'checkbox';
           cb.checked = !!row.cells[col.id] && row.cells[col.id]!=='false';
-          cb.addEventListener('change', () => { row.cells[col.id]=cb.checked; tevSaveDebounced(); renderTableFooter(table); });
+          cb.addEventListener('change', () => { row.cells[col.id]=cb.checked; tevSaveDebounced(); if(tevFilterCol===col.id) renderTableEditor(); else renderTableFooter(table); });
           cbWrap.appendChild(cb); td.appendChild(cbWrap);
         } else if(col.type==='date'){
           const inp = document.createElement('input');
           inp.type = 'date';
           inp.className = 'tev-date-cell';
           inp.value = row.cells[col.id] || '';
-          inp.addEventListener('change', () => { row.cells[col.id]=inp.value; tevSaveDebounced(); if(tevSortCol===col.id) renderTableEditor(); });
+          inp.addEventListener('change', () => { row.cells[col.id]=inp.value; tevSaveDebounced(); if(tevSortCol===col.id || tevFilterCol===col.id) renderTableEditor(); });
           td.appendChild(inp);
         } else if(col.type==='select'){
           const sel = document.createElement('select');
@@ -4092,10 +4165,16 @@
           const cur = row.cells[col.id] || '';
           const opts = col.options || [];
           const blank = document.createElement('option'); blank.value=''; blank.textContent='—'; sel.appendChild(blank);
-          opts.forEach(o => { const op=document.createElement('option'); op.value=o; op.textContent=o; sel.appendChild(op); });
-          if(cur && !opts.includes(cur)){ const op=document.createElement('option'); op.value=cur; op.textContent=cur; sel.appendChild(op); }
+          opts.forEach(o => { const op=document.createElement('option'); op.value=o; op.textContent=o; op.style.color=colorForTag(o); sel.appendChild(op); });
+          if(cur && !opts.includes(cur)){ const op=document.createElement('option'); op.value=cur; op.textContent=cur; op.style.color=colorForTag(cur); sel.appendChild(op); }
           const addOpt = document.createElement('option'); addOpt.value='__add__'; addOpt.textContent='+ 새 옵션…'; sel.appendChild(addOpt);
           sel.value = cur;
+          const paintSelect = () => {
+            // color the closed select itself, like a tag chip, so the value reads at a glance
+            sel.style.color = cur ? colorForTag(cur) : '';
+            sel.style.background = cur ? colorForTag(cur)+'22' : '';
+          };
+          paintSelect();
           sel.addEventListener('change', () => {
             if(sel.value==='__add__'){
               const nv = (prompt('새 옵션 이름')||'').trim();
@@ -4103,9 +4182,44 @@
               tevSaveDebounced(); renderTableEditor(); return;
             }
             row.cells[col.id]=sel.value; tevSaveDebounced();
-            if(tevSortCol===col.id) renderTableEditor();
+            if(tevSortCol===col.id || tevFilterCol===col.id) renderTableEditor(); else paintSelect();
           });
           td.appendChild(sel);
+        } else if(col.type==='link'){
+          const wrapDiv = document.createElement('div'); wrapDiv.className = 'tev-link-wrap';
+          const linkedId = row.cells[col.id] || null;
+          const linked = linkedId ? index.find(n => n.id===linkedId) : null;
+          const chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 'tev-link-cell' + (linked ? '' : ' empty');
+          if(linked){
+            const badge = isCanvasNote(linked)?'🎨':isTableNote(linked)?'📊':'📄';
+            chip.textContent = `${badge} ${linked.title||'제목 없음'}`;
+            // an existing link navigates there directly, like a hyperlink; the small edit
+            // button beside it is what reopens the picker to change or clear it
+            chip.addEventListener('click', e => { e.stopPropagation(); tevFlushSave(); openNote(linkedId); });
+          } else if(linkedId){
+            chip.textContent = '⚠ 카드 없음';
+            chip.addEventListener('click', e => { e.stopPropagation(); tevOpenLinkPicker(col, row, chip); });
+          } else {
+            chip.textContent = '+ 연결';
+            chip.addEventListener('click', e => { e.stopPropagation(); tevOpenLinkPicker(col, row, chip); });
+          }
+          wrapDiv.appendChild(chip);
+          if(linked){
+            const editBtn = document.createElement('button');
+            editBtn.type = 'button'; editBtn.className = 'tev-link-edit'; editBtn.textContent = '✎'; editBtn.title = '연결 변경';
+            editBtn.addEventListener('click', e => { e.stopPropagation(); tevOpenLinkPicker(col, row, chip); });
+            wrapDiv.appendChild(editBtn);
+          }
+          td.appendChild(wrapDiv);
+        } else if(col.type==='formula'){
+          const div = document.createElement('div');
+          div.className = 'tev-cell tev-formula-cell';
+          div.textContent = tevComputeFormula(col, row);
+          const srcNames = (col.formulaCols||[]).map(cid => cols.find(c=>c.id===cid)?.name).filter(Boolean).join(', ');
+          div.title = `${ROLLUP_AGG_LABEL[col.formulaAgg]||''}(${srcNames})`;
+          td.appendChild(div);
         } else {
           const div = document.createElement('div');
           div.className = 'tev-cell';
@@ -4114,8 +4228,20 @@
           div.addEventListener('input', () => {
             row.cells[col.id] = div.textContent; // store raw string; parse only for sort/aggregate
             tevSaveDebounced();
-            if(col.type==='number') renderTableFooter(table);
+            if(col.type==='number'){
+              renderTableFooter(table);
+              // keep any formula cell in this same row live without a full re-render (which
+              // would drop focus out of the cell being typed into)
+              cols.forEach((fc, fcIdx) => {
+                if(fc.type!=='formula' || !(fc.formulaCols||[]).includes(col.id)) return;
+                const fcDiv = tr.children[fcIdx+1]?.querySelector('.tev-formula-cell');
+                if(fcDiv) fcDiv.textContent = tevComputeFormula(fc, row);
+              });
+            }
           });
+          // re-filtering on every keystroke would re-render the table mid-type and drop focus;
+          // blur is the safe point to check whether this row still belongs in the filtered view
+          div.addEventListener('blur', () => { if(tevFilterCol===col.id) renderTableEditor(); });
           div.addEventListener('paste', e => {
             const cd = e.clipboardData || window.clipboardData;
             const text = cd ? cd.getData('text') : '';
@@ -4174,7 +4300,7 @@
     const fDel = document.createElement('td'); fDel.className='tev-foot-cell tev-foot-label'; fDel.textContent='Σ'; fr.appendChild(fDel);
     cols.forEach(col => {
       const td = document.createElement('td'); td.className='tev-foot-cell';
-      const rows = tevData.rows||[];
+      const rows = tevFilteredRows();
       if(col.type==='number'){
         let sum=0, cnt=0;
         rows.forEach(r=>{ const v=parseFloat(r.cells[col.id]); if(!isNaN(v)){ sum+=v; cnt++; } });
@@ -4182,6 +4308,13 @@
       } else if(col.type==='checkbox'){
         const checked = rows.filter(r=> r.cells[col.id] && r.cells[col.id]!=='false').length;
         td.textContent = rows.length ? `✓ ${checked}/${rows.length}` : '';
+      } else if(col.type==='formula'){
+        let sum=0, cnt=0;
+        rows.forEach(r=>{ const v=parseFloat(tevComputeFormula(col, r)); if(!isNaN(v)){ sum+=v; cnt++; } });
+        td.textContent = cnt ? `합 ${(+sum.toFixed(4))}` : '';
+      } else if(col.type==='link'){
+        const linked = rows.filter(r=> r.cells[col.id]).length;
+        td.textContent = linked ? `🔗 ${linked}개` : '';
       } else {
         const filled = rows.filter(r=> (r.cells[col.id]??'')!=='' ).length;
         td.textContent = filled ? `${filled}개` : '';
@@ -4196,6 +4329,145 @@
   function renderTableFooter(table){
     const tfoot = table.querySelector('tfoot'); if(!tfoot) return;
     tfoot.innerHTML=''; tfoot.appendChild(buildFooterRow(tevData.columns||[]));
+  }
+
+  // formula columns are derived, not stored — recomputed from the other columns of the same
+  // row every render, same convention as the graph-based rollup property on note cards
+  function tevComputeFormula(col, row){
+    const vals = (col.formulaCols||[]).map(cid => parseFloat(row.cells[cid])).filter(v => !isNaN(v));
+    if(!vals.length) return '';
+    if(col.formulaAgg==='count') return String(vals.length);
+    const sum = vals.reduce((a,b)=>a+b, 0);
+    if(col.formulaAgg==='avg') return String(+(sum/vals.length).toFixed(4));
+    return String(+sum.toFixed(4));
+  }
+
+  // small floating popover to pick which number columns a formula column aggregates, and how
+  function tevOpenFormulaConfig(col, anchorRect){
+    document.getElementById('tevFormulaConfig')?.remove();
+    const wrap = document.createElement('div');
+    wrap.id = 'tevFormulaConfig'; wrap.className = 'cev-card-picker';
+    const aggLabel = document.createElement('div'); aggLabel.className='tev-formula-config-label'; aggLabel.textContent='집계 방식';
+    const aggSel = document.createElement('select'); aggSel.className='settings-select';
+    Object.keys(ROLLUP_AGG_LABEL).forEach(k => { const op=document.createElement('option'); op.value=k; op.textContent=ROLLUP_AGG_LABEL[k]; if(k===col.formulaAgg) op.selected=true; aggSel.appendChild(op); });
+    aggSel.addEventListener('change', () => { col.formulaAgg = aggSel.value; tevSaveDebounced(); renderTableEditor(); });
+    const colsLabel = document.createElement('div'); colsLabel.className='tev-formula-config-label'; colsLabel.style.marginTop='10px'; colsLabel.textContent='대상 열 (숫자)';
+    const list = document.createElement('div'); list.className='cev-card-picker-list';
+    const numberCols = tevData.columns.filter(c => c.id!==col.id && c.type==='number');
+    if(!numberCols.length){ const e0=document.createElement('div'); e0.className='cev-card-picker-empty'; e0.textContent='숫자 열이 없습니다'; list.appendChild(e0); }
+    numberCols.forEach(c => {
+      const label = document.createElement('label'); label.className='graph-toggle'; label.style.padding='4px 2px';
+      const cb = document.createElement('input'); cb.type='checkbox'; cb.checked=(col.formulaCols||[]).includes(c.id);
+      cb.addEventListener('change', () => {
+        col.formulaCols = col.formulaCols || [];
+        if(cb.checked){ if(!col.formulaCols.includes(c.id)) col.formulaCols.push(c.id); }
+        else col.formulaCols = col.formulaCols.filter(id => id!==c.id);
+        tevSaveDebounced(); renderTableEditor();
+      });
+      label.appendChild(cb); label.append(' ' + c.name);
+      list.appendChild(label);
+    });
+    wrap.appendChild(aggLabel); wrap.appendChild(aggSel); wrap.appendChild(colsLabel); wrap.appendChild(list);
+    document.body.appendChild(wrap);
+    wrap.style.left = Math.min(anchorRect.left, window.innerWidth-300) + 'px';
+    wrap.style.top = Math.min(anchorRect.bottom+6, window.innerHeight-320) + 'px';
+    const close = () => { wrap.remove(); document.removeEventListener('mousedown', outside, true); document.removeEventListener('touchstart', outside, true); };
+    const outside = (e) => { if(!wrap.contains(e.target)) close(); };
+    setTimeout(() => { document.addEventListener('mousedown', outside, true); document.addEventListener('touchstart', outside, true); }, 0);
+  }
+
+  // view-only filter popover: pick one column + a value to match, narrowing displayRows and
+  // the footer aggregate without touching the saved data
+  function tevOpenFilterPopover(anchorEl){
+    document.getElementById('tevFilterPopover')?.remove();
+    const wrap = document.createElement('div');
+    wrap.id = 'tevFilterPopover'; wrap.className = 'cev-card-picker';
+    const colLabel = document.createElement('div'); colLabel.className='tev-formula-config-label'; colLabel.textContent='필터할 열';
+    const colSel = document.createElement('select'); colSel.className='settings-select';
+    const noneOpt = document.createElement('option'); noneOpt.value=''; noneOpt.textContent='필터 없음'; colSel.appendChild(noneOpt);
+    tevData.columns.forEach(c => { const op=document.createElement('option'); op.value=c.id; op.textContent=`${TEV_TYPE_LABELS[c.type]} ${c.name}`; if(c.id===tevFilterCol) op.selected=true; colSel.appendChild(op); });
+    const valHolder = document.createElement('div'); valHolder.style.marginTop='10px';
+    const renderValInput = () => {
+      valHolder.innerHTML = '';
+      const col = tevData.columns.find(c => c.id===colSel.value);
+      if(!col) return;
+      const label = document.createElement('div'); label.className='tev-formula-config-label'; label.textContent='값';
+      valHolder.appendChild(label);
+      let input;
+      if(col.type==='checkbox'){
+        input = document.createElement('select'); input.className='settings-select';
+        [['true','체크됨'],['false','체크 안 됨']].forEach(([v,l]) => { const op=document.createElement('option'); op.value=v; op.textContent=l; if(v===tevFilterVal) op.selected=true; input.appendChild(op); });
+      } else if(col.type==='link'){
+        input = document.createElement('select'); input.className='settings-select';
+        [['linked','연결됨'],['unlinked','연결 안 됨']].forEach(([v,l]) => { const op=document.createElement('option'); op.value=v; op.textContent=l; if(v===tevFilterVal) op.selected=true; input.appendChild(op); });
+      } else if(col.type==='select'){
+        input = document.createElement('select'); input.className='settings-select';
+        (col.options||[]).forEach(o => { const op=document.createElement('option'); op.value=o; op.textContent=o; if(o===tevFilterVal) op.selected=true; input.appendChild(op); });
+      } else {
+        input = document.createElement('input'); input.type='text'; input.className='settings-select'; input.style.cursor='text';
+        input.placeholder = col.type==='number' ? '포함할 숫자…' : '포함할 텍스트…';
+        input.value = tevFilterVal;
+      }
+      input.addEventListener('change', () => { tevFilterVal = input.value; applyFilter(); });
+      if(input.tagName==='INPUT') input.addEventListener('input', () => { tevFilterVal = input.value; applyFilter(); });
+      valHolder.appendChild(input);
+    };
+    const applyFilter = () => {
+      tevFilterCol = colSel.value || null;
+      const btn = el('tevFilterBtn'); if(btn) btn.classList.toggle('active', !!tevFilterCol);
+      renderTableEditor();
+    };
+    colSel.addEventListener('change', () => { tevFilterVal=''; renderValInput(); applyFilter(); });
+    wrap.appendChild(colLabel); wrap.appendChild(colSel); wrap.appendChild(valHolder);
+    document.body.appendChild(wrap);
+    if(tevFilterCol) renderValInput();
+    const r = anchorEl.getBoundingClientRect();
+    wrap.style.left = Math.min(r.left, window.innerWidth-300) + 'px';
+    wrap.style.top = Math.min(r.bottom+6, window.innerHeight-320) + 'px';
+    const close = () => { wrap.remove(); document.removeEventListener('mousedown', outside, true); document.removeEventListener('touchstart', outside, true); };
+    const outside = (e) => { if(!wrap.contains(e.target) && e.target!==anchorEl) close(); };
+    setTimeout(() => { document.addEventListener('mousedown', outside, true); document.addEventListener('touchstart', outside, true); }, 0);
+  }
+
+  // floating searchable picker to link a sheet cell to an existing card — mirrors
+  // cevOpenCardPicker (the canvas card-node picker), scoped to the table editor instead
+  function tevOpenLinkPicker(col, row, anchorEl){
+    document.getElementById('tevLinkPicker')?.remove();
+    const wrap = document.createElement('div');
+    wrap.id = 'tevLinkPicker'; wrap.className = 'cev-card-picker';
+    const inp = document.createElement('input'); inp.className='cev-card-picker-input'; inp.placeholder='카드 검색…'; inp.spellcheck=false;
+    const list = document.createElement('div'); list.className='cev-card-picker-list';
+    wrap.appendChild(inp); wrap.appendChild(list);
+    document.body.appendChild(wrap);
+    const r = anchorEl.getBoundingClientRect();
+    wrap.style.left = Math.min(r.left, window.innerWidth-300) + 'px';
+    wrap.style.top = Math.min(r.bottom+6, window.innerHeight-320) + 'px';
+    const render = () => {
+      const q = inp.value.trim().toLowerCase();
+      const items = index.filter(n => !n.deletedAt && n.id!==tevCurrentNoteId)
+        .filter(n => !q || n.title.toLowerCase().includes(q))
+        .slice(0,40);
+      list.innerHTML = '';
+      if(row.cells[col.id]){
+        const un=document.createElement('div'); un.className='cev-card-picker-item unlink'; un.textContent='✕ 연결 해제';
+        un.addEventListener('mousedown', e => { e.preventDefault(); row.cells[col.id]=null; close(); tevSaveDebounced(); renderTableEditor(); });
+        list.appendChild(un);
+      }
+      if(!items.length){ const e0=document.createElement('div'); e0.className='cev-card-picker-empty'; e0.textContent='카드 없음'; list.appendChild(e0); }
+      items.forEach(n => {
+        const it = document.createElement('div'); it.className='cev-card-picker-item';
+        const badge = isCanvasNote(n)?'🎨':isTableNote(n)?'📊':'📄';
+        it.textContent = `${badge} ${n.title||'제목 없음'}`;
+        it.addEventListener('mousedown', e => { e.preventDefault(); row.cells[col.id]=n.id; close(); tevSaveDebounced(); renderTableEditor(); });
+        list.appendChild(it);
+      });
+    };
+    const close = () => { wrap.remove(); document.removeEventListener('mousedown', outside, true); document.removeEventListener('touchstart', outside, true); };
+    const outside = (e) => { if(!wrap.contains(e.target)) close(); };
+    setTimeout(() => { document.addEventListener('mousedown', outside, true); document.addEventListener('touchstart', outside, true); }, 0);
+    inp.addEventListener('input', render);
+    inp.addEventListener('keydown', e => { if(e.key==='Escape') close(); e.stopPropagation(); });
+    render(); inp.focus();
   }
 
   // ---- insert / context menu ----
@@ -4225,8 +4497,25 @@
     tevSaveDebounced(); renderTableEditor();
   }
 
+  // touch has no contextmenu event, so a long-press is the only way to reach row/column insert
+  // on mobile — hold still for 500ms without dragging (a real scroll/drag cancels it)
+  function tevBindLongPress(el, handler){
+    let timer=null, sx=0, sy=0, moved=false;
+    el.addEventListener('touchstart', e => {
+      if(e.touches.length!==1) return;
+      const t=e.touches[0]; sx=t.clientX; sy=t.clientY; moved=false;
+      timer=setTimeout(() => { if(!moved) handler(sx, sy); }, 500);
+    }, {passive:true});
+    el.addEventListener('touchmove', e => {
+      const t=e.touches[0]; if(!t) return;
+      if(Math.abs(t.clientX-sx)>8 || Math.abs(t.clientY-sy)>8){ moved=true; clearTimeout(timer); }
+    }, {passive:true});
+    el.addEventListener('touchend', () => clearTimeout(timer));
+    el.addEventListener('touchcancel', () => clearTimeout(timer));
+  }
+
   let tevCtxMenuEl = null;
-  function tevCloseCtxMenu(){ if(tevCtxMenuEl){ tevCtxMenuEl.remove(); tevCtxMenuEl = null; document.removeEventListener('mousedown', tevCtxOutside, true); } }
+  function tevCloseCtxMenu(){ if(tevCtxMenuEl){ tevCtxMenuEl.remove(); tevCtxMenuEl = null; document.removeEventListener('mousedown', tevCtxOutside, true); document.removeEventListener('touchstart', tevCtxOutside, true); } }
   function tevCtxOutside(e){ if(tevCtxMenuEl && !tevCtxMenuEl.contains(e.target)) tevCloseCtxMenu(); }
   function tevShowCtxMenu(x, y, items){
     tevCloseCtxMenu();
@@ -4246,7 +4535,10 @@
     menu.style.left = Math.min(x, window.innerWidth - mw - 8) + 'px';
     menu.style.top = Math.min(y, window.innerHeight - mh - 8) + 'px';
     tevCtxMenuEl = menu;
-    setTimeout(() => document.addEventListener('mousedown', tevCtxOutside, true), 0);
+    setTimeout(() => {
+      document.addEventListener('mousedown', tevCtxOutside, true);
+      document.addEventListener('touchstart', tevCtxOutside, true);
+    }, 0);
   }
 
   // paste a tab/newline-delimited grid (Excel/Sheets) starting at a cell
@@ -4286,7 +4578,10 @@
     const lines = data.rows.map(row =>
       data.columns.map(col => {
         const v = row.cells[col.id];
-        return csvEscape(col.type==='checkbox' ? (v && v!=='false' ? 'true' : 'false') : v);
+        if(col.type==='checkbox') return csvEscape(v && v!=='false' ? 'true' : 'false');
+        if(col.type==='formula') return csvEscape(tevComputeFormula(col, row));
+        if(col.type==='link'){ const linked = v ? index.find(n=>n.id===v) : null; return csvEscape(linked ? (linked.title||'제목 없음') : ''); }
+        return csvEscape(v);
       }).join(',')
     );
     const csv = [header, ...lines].join('\r\n');
@@ -5235,6 +5530,7 @@
     cevPanE={x:100,y:100}; cevZoom=1;
     cevResetHistory();
     const ti=el('cevTitleInput'); if(ti) ti.value=note.title||'';
+    renderNoteTagChips(note, 'cevTagChips');
     updateCevToolButtons();
     cevRenderAll();
   }
@@ -5708,6 +6004,14 @@
     const note=index.find(m=>m.id===cevCurrentNoteId); if(!note) return;
     note.title=el('cevTitleInput').value; cevSaveDebounced(); renderCardList();
   });
+  el('cevTagChipInput').addEventListener('keydown', e => {
+    if(e.key==='Enter' || e.key===','){
+      e.preventDefault();
+      const note=index.find(m=>m.id===cevCurrentNoteId); if(!note) return;
+      const v=el('cevTagChipInput').value; el('cevTagChipInput').value='';
+      if(v.trim()) rpAddTag(note, v);
+    }
+  });
   el('cevZoomInBtn').addEventListener('click',()=>{ cevZoom=Math.min(cevZoom*1.2,4); cevApplyTransform(); });
   el('cevZoomOutBtn').addEventListener('click',()=>{ cevZoom=Math.max(cevZoom/1.2,0.15); cevApplyTransform(); });
   el('cevUndoBtn').addEventListener('click',()=>cevUndo());
@@ -5770,7 +6074,16 @@
     note.title=el('tevTitleInput').value;
     tevSaveDebounced(); renderCardList();
   });
+  el('tevTagChipInput').addEventListener('keydown', e => {
+    if(e.key==='Enter' || e.key===','){
+      e.preventDefault();
+      const note=index.find(n=>n.id===tevCurrentNoteId); if(!note) return;
+      const v=el('tevTagChipInput').value; el('tevTagChipInput').value='';
+      if(v.trim()) rpAddTag(note, v);
+    }
+  });
   el('tevExportBtn').addEventListener('click',()=>tevExportCsv());
+  el('tevFilterBtn').addEventListener('click',()=>tevOpenFilterPopover(el('tevFilterBtn')));
   el('tevImportBtn').addEventListener('click',()=>el('tevCsvFile').click());
   el('tevCsvFile').addEventListener('change',e=>{
     const f=e.target.files&&e.target.files[0]; if(!f) return;

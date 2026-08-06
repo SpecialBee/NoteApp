@@ -36,8 +36,9 @@ const ROLLUP_AGG_LABEL = { sum:'합계', avg:'평균', count:'개수' };
 
 const SEC_COLORS = ['#82C4F8','#85E09A','#FF9F9F','#FFE066','#C3B1E1','#FFB347'];
 
-const TEV_TYPES = ['text','number','checkbox','date','select'];
-const TEV_TYPE_LABELS = {text:'Aa', number:'12', checkbox:'☑', date:'📅', select:'▾'};
+const TEV_TYPES = ['text','number','checkbox','date','select','link','formula'];
+const TEV_TYPE_LABELS = {text:'Aa', number:'12', checkbox:'☑', date:'📅', select:'▾', link:'🔗', formula:'Σ'};
+const TEV_TYPE_NAMES = {text:'텍스트', number:'숫자', checkbox:'체크박스', date:'날짜', select:'선택', link:'연결', formula:'계산'};
 
 const CEV_CTX_COLORS = [null,'#FF9F9F','#FFE066','#85E09A','#82C4F8','#C3B1E1','#FFB347'];
 const CEV_TEXT_COLORS = ['#3D3929','#DC2626','#2563EB','#16A34A','#CA8A04','#7C3AED','#ffffff'];

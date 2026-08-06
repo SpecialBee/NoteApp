@@ -479,6 +479,10 @@
 
   /* --- Canvas Editor (FigJam-style) --- */
   #canvasEditorView { display:none; flex-direction:column; }
+  /* top strip mirrors the plain note's outer .toolbar (exit/back on the left, action buttons on
+     the right) — sits above the title/tags, separate from the shape/connector toolbox below */
+  .cev-topbar, .tev-topbar { display:flex; align-items:center; gap:6px; padding:10px 16px; padding-top:calc(10px + env(safe-area-inset-top)); border-bottom:1px solid var(--border-soft); flex-shrink:0; flex-wrap:wrap; }
+  .cev-topbar .spacer, .tev-topbar .spacer { flex:1; min-width:4px; }
   .cev-toolbar { display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:1px solid var(--border-soft); background:var(--bg-panel); flex-shrink:0; flex-wrap:wrap; }
   .cev-tools { display:flex; align-items:center; gap:2px; }
   .cev-tool { font-family:var(--sans); font-size:15px; line-height:1; background:none; border:none; color:var(--ink-soft); padding:6px 9px; border-radius:7px; cursor:pointer; transition:background .12s; }
@@ -488,8 +492,6 @@
   .cev-conn-types { display:flex; align-items:center; gap:4px; }
   .cev-conn { font-family:var(--sans); font-size:13px; background:var(--bg-card); border:1px solid var(--border); color:var(--ink-soft); padding:4px 10px; border-radius:6px; cursor:pointer; }
   .cev-conn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
-  .cev-actions { display:flex; align-items:center; gap:6px; margin-left:auto; }
-  @media (max-width:640px){ .cev-actions{ flex-wrap:wrap; margin-left:0; } }
   .cev-action { font-family:var(--sans); font-size:12px; font-weight:600; background:var(--bg-card); color:var(--ink-soft); border:1px solid var(--border); border-radius:7px; padding:5px 10px; cursor:pointer; }
   .cev-action:hover { background:var(--accent-soft); color:var(--accent); }
   .cev-el { position:absolute; cursor:move; user-select:none; box-sizing:border-box; touch-action:none; }
@@ -832,3 +834,22 @@
   .dash-hero-markerhint .mk-dot.recent { transform-origin:center; animation:dashNodePulse 2.2s ease-in-out infinite; }
   .dash-hero-markerhint .mk-dot.stale { opacity:0.3; }
   .dash-hero-markerhint .mk-dot.pinned { box-shadow:0 0 0 2px var(--warn); }
+
+  /* mobile: canvas/table stack 3 header rows (top actions, title/tags, toolbox) above the
+     content, on top of a narrow viewport — left at desktop sizing this ate roughly half the
+     screen. Shrink each row and let button rows scroll sideways instead of wrapping to extra
+     lines, which was the actual height cost, not any single row's own padding.
+     Placed at the very end of the file on purpose: .cev-topbar/.cev-toolbar/.tev-toolbar's own
+     (non-media) rules live further up and were winning the cascade by source order alone,
+     silently no-oping this block the first time it was written right after .editor-header-pad. */
+  @media (max-width:640px){
+    #canvasEditorView .editor-header-pad, #tableEditorView .editor-header-pad{ padding:6px clamp(12px,4%,40px) 0; }
+    #canvasEditorView .editor-header-pad .titlefield, #tableEditorView .editor-header-pad .titlefield{ font-size:15px; }
+    #canvasEditorView .editor-header-pad .titlerule, #tableEditorView .editor-header-pad .titlerule{ width:32px; height:3px; margin:4px 0 6px; }
+    #canvasEditorView .editor-header-pad .tagchipwrap, #tableEditorView .editor-header-pad .tagchipwrap{ padding-bottom:6px; margin-bottom:0; gap:5px; }
+    .cev-topbar, .tev-topbar{ padding:4px 10px; padding-top:calc(4px + env(safe-area-inset-top)); flex-wrap:nowrap; overflow-x:auto; gap:4px; }
+    .cev-toolbar, .tev-toolbar{ padding:4px 10px; flex-wrap:nowrap; overflow-x:auto; gap:6px; }
+    .cev-topbar .cev-action, .tev-topbar .tev-action{ padding:4px 8px; }
+    .cev-topbar #cevExitBtn, .tev-topbar #tevExitBtn{ font-size:0; padding:4px 8px; } /* icon-only "←" on mobile — the full label was the widest single item forcing a wrap */
+    .cev-topbar #cevExitBtn::before, .tev-topbar #tevExitBtn::before{ content:'←'; font-size:14px; }
+  }

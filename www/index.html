@@ -215,6 +215,18 @@
     </div>
 
     <div id="canvasEditorView" style="display:none; flex:1; position:relative; overflow:hidden; background:var(--bg); flex-direction:column;">
+      <div class="cev-topbar">
+        <button class="cev-action" id="cevExitBtn">← GRAPHIDEA로 돌아가기</button>
+        <div class="spacer"></div>
+        <button class="cev-action" id="cevUndoBtn" title="실행 취소 (Ctrl+Z)">↶</button>
+        <button class="cev-action" id="cevRedoBtn" title="다시 실행 (Ctrl+Shift+Z)">↷</button>
+        <button class="cev-action" id="cevSnapBtn" title="격자에 맞춤">⊞</button>
+        <button class="cev-action" id="cevFitBtn" title="전체 보기">⤢</button>
+        <button class="cev-action" id="cevZoomOutBtn" title="축소">−</button>
+        <button class="cev-action" id="cevZoomInBtn" title="확대">+</button>
+        <button class="cev-action" id="cevCardColorBtn" title="카드 색상">🎨</button>
+        <button class="cev-action" id="cevDeleteBtn" title="선택 삭제">🗑</button>
+      </div>
       <div class="editor-header-pad">
         <input class="titlefield" id="cevTitleInput" placeholder="캔버스 제목" spellcheck="false">
         <div class="titlerule"></div>
@@ -243,17 +255,6 @@
           <button class="cev-conn" data-conn="dashed">╌</button>
           <button class="cev-conn" data-conn="dashed-arrow">╌→</button>
         </div>
-        <div class="cev-actions">
-          <button class="cev-action" id="cevUndoBtn" title="실행 취소 (Ctrl+Z)">↶</button>
-          <button class="cev-action" id="cevRedoBtn" title="다시 실행 (Ctrl+Shift+Z)">↷</button>
-          <button class="cev-action" id="cevSnapBtn" title="격자에 맞춤">⊞</button>
-          <button class="cev-action" id="cevFitBtn" title="전체 보기">⤢</button>
-          <button class="cev-action" id="cevZoomOutBtn" title="축소">−</button>
-          <button class="cev-action" id="cevZoomInBtn" title="확대">+</button>
-          <button class="cev-action" id="cevCardColorBtn" title="카드 색상">🎨</button>
-          <button class="cev-action" id="cevDeleteBtn" title="선택 삭제">🗑</button>
-          <button class="cev-action" id="cevExitBtn">← GRAPHIDEA로 돌아가기</button>
-        </div>
       </div>
       <div id="cevCanvas" style="position:relative; flex:1; overflow:hidden; cursor:default; touch-action:none;">
         <div id="cevInner" style="position:absolute; top:0; left:0; transform-origin:0 0; will-change:transform;">
@@ -264,6 +265,13 @@
     </div>
 
     <div id="tableEditorView" style="display:none; flex:1; position:relative; overflow:hidden; background:var(--bg); flex-direction:column;">
+      <div class="tev-topbar">
+        <button class="tev-action" id="tevExitBtn">← GRAPHIDEA로 돌아가기</button>
+        <div class="spacer"></div>
+        <button class="tev-action" id="tevImportBtn" title="CSV 가져오기">📥 가져오기</button>
+        <button class="tev-action" id="tevExportBtn" title="CSV 내보내기">📤 내보내기</button>
+        <input type="file" id="tevCsvFile" accept=".csv,text/csv" style="display:none">
+      </div>
       <div class="editor-header-pad">
         <input class="titlefield" id="tevTitleInput" placeholder="시트 카드 제목" spellcheck="false">
         <div class="titlerule"></div>
@@ -273,12 +281,7 @@
         </div>
       </div>
       <div class="tev-toolbar">
-        <div style="flex:1"></div>
         <button class="tev-action" id="tevFilterBtn" title="필터">🔍 필터</button>
-        <button class="tev-action" id="tevImportBtn" title="CSV 가져오기">📥 가져오기</button>
-        <button class="tev-action" id="tevExportBtn" title="CSV 내보내기">📤 내보내기</button>
-        <input type="file" id="tevCsvFile" accept=".csv,text/csv" style="display:none">
-        <button class="tev-action" id="tevExitBtn">← GRAPHIDEA로 돌아가기</button>
       </div>
       <div class="tev-table-wrap" id="tevTableWrap"></div>
     </div>

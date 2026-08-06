@@ -3182,8 +3182,11 @@
   // the OS (no page "unload" happens, the process is just suspended/frozen), so the
   // pending debounced save could be lost entirely. visibilitychange is the standard,
   // more reliable signal for "about to go away" on both mobile browsers and app webviews.
+  // note/table/canvas editors each debounce saves independently (separate timers), so
+  // "flush everything pending" has to hit all three, not just the plain-note one
+  function flushAllSaves(){ flushSave(); tevFlushSave(); cevFlushSave(); }
   document.addEventListener('visibilitychange', () => {
-    if(document.visibilityState === 'hidden') flushSave();
+    if(document.visibilityState === 'hidden') flushAllSaves();
   });
   // Android back (hardware button / gesture): unwind one UI layer at a time instead of the
   // default "kill the whole app". Returns true if it consumed the back press.
@@ -3199,9 +3202,7 @@
     if(appEl.classList.contains('show-sidebar')){ appEl.classList.remove('show-sidebar'); return true; }
     // 4. a content view is open -> flush pending edits and return to the home list
     if(currentView !== 'empty'){
-      if(cevCurrentNoteId) cevFlushSave();
-      if(tevCurrentNoteId) tevFlushSave();
-      flushSave();
+      flushAllSaves();
       showView('empty');
       appEl.classList.add('show-sidebar'); // reveal the card list so they can pick another
       return true;
@@ -3214,8 +3215,8 @@
   // pause/appStateChange events fire even in cases visibilitychange might not catch.
   if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App){
     const CapApp = window.Capacitor.Plugins.App;
-    CapApp.addListener('pause', () => flushSave());
-    CapApp.addListener('appStateChange', (state) => { if(!state.isActive) flushSave(); });
+    CapApp.addListener('pause', () => flushAllSaves());
+    CapApp.addListener('appStateChange', (state) => { if(!state.isActive) flushAllSaves(); });
     CapApp.addListener('backButton', () => { if(!handleBackNav()) CapApp.minimizeApp(); });
   }
 

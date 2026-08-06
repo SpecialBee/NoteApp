@@ -11,14 +11,6 @@ create table if not exists notes (
   updated_at timestamptz not null default now()
 );
 
--- every query is implicitly filtered by the RLS policies below (user_id = auth.uid()), but
--- Postgres doesn't auto-index a plain FK column — without this, that filter is a sequential
--- scan of the whole table once there's more than one user's worth of rows in it. Matches the
--- app's actual hot-path query shape (loadAll: user_id + deleted_at is null, ordered by
--- updated_at desc) so it also satisfies the ORDER BY without a separate sort step.
-create index if not exists notes_user_id_deleted_at_updated_at_idx
-  on notes (user_id, deleted_at, updated_at desc);
-
 -- keep updated_at fresh automatically
 create or replace function set_updated_at() returns trigger as $$
 begin
@@ -53,6 +45,16 @@ create policy "delete own notes" on notes
 
 -- soft-delete support (trash / restore)
 alter table notes add column if not exists deleted_at timestamptz;
+
+-- every query is implicitly filtered by the RLS policies above (user_id = auth.uid()), but
+-- Postgres doesn't auto-index a plain FK column — without this, that filter is a sequential
+-- scan of the whole table once there's more than one user's worth of rows in it. Matches the
+-- app's actual hot-path query shape (loadAll: user_id + deleted_at is null, ordered by
+-- updated_at desc) so it also satisfies the ORDER BY without a separate sort step. Must come
+-- after the deleted_at column is added above, not before — this file is meant to run start to
+-- finish on a brand-new Supabase project.
+create index if not exists notes_user_id_deleted_at_updated_at_idx
+  on notes (user_id, deleted_at, updated_at desc);
 
 -- properties: ordered array of { id, name, type, value, options? }
 alter table notes add column if not exists properties jsonb not null default '[]';

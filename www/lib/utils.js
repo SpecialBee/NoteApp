@@ -3,7 +3,9 @@
 // colorForTag/depthOf/depthBucket depend on constants.js, so load this AFTER that file.
 // Pulled out of index.html as part of splitting the single-file app into pieces.
 
-function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+// escapes both text-node and attribute-value special chars (", ') so this is safe to use
+// anywhere the result lands in an HTML string, including quoted attributes like data-link="..."
+function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 function serialOf(idx){ return '#' + String(idx+1).padStart(4,'0'); }
 function escapeRegExp(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 

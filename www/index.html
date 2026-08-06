@@ -1577,7 +1577,7 @@
   async function openNote(id){
     if(currentId && currentId !== id){ saveCursorPos(); await flushSave(); }
     if(tevCurrentNoteId) tevFlushSave();
-    if(cevCurrentNoteId) cevFlushSave();
+    if(cevCurrentNoteId){ cevFlushSave(); hideCevCtxBar(); } // otherwise the floating shape toolbar survives a switch to a non-canvas card, since openCanvasEditor (which also clears it) never runs in that case
     currentId = id;
     const note = index.find(m => m.id === id);
     if(!note){ showToast('카드를 찾을 수 없습니다'); return; }
@@ -4925,7 +4925,10 @@
 
   function cevAddHandles(div,edata){
     if(edata.type==='text') return;
-    const handles=edata.type==='circle'?['n','e','s','w']:['nw','n','ne','e','se','s','sw','w'];
+    // circles used to get only the 4 edge handles, which sit exactly on top of the connection
+    // anchors (see .cev-anchor CSS) and were effectively unreachable — corner handles (like
+    // every other shape gets) give a resize grab point that never competes with an anchor
+    const handles=['nw','n','ne','e','se','s','sw','w'];
     handles.forEach(h=>{
       const hDiv=document.createElement('div'); hDiv.className='cev-handle'; hDiv.dataset.h=h;
       const startResize=(clientX,clientY)=>{
@@ -5528,12 +5531,14 @@
       const edata=cevElements.find(x=>x.id===cevResizing.id); if(!edata) return;
       const dx=(e.clientX-cevResizing.startMX)/cevZoom,dy=(e.clientY-cevResizing.startMY)/cevZoom,h=cevResizing.handle;
       if(edata.type==='circle'){
-        // radius must track the signed drag along the handle's own axis (n/s -> dy, e/w -> dx),
-        // not the unsigned drag distance — magnitude-only growth meant dragging a handle back
-        // toward the center kept growing the circle instead of shrinking it
-        const delta=(h==='e'||h==='w')?dx:dy;
-        const sign=(h==='e'||h==='s')?1:-1;
-        edata.r=Math.max(20, cevResizing.origR + sign*delta);
+        // radius must track the signed drag along the handle's own axis, not the unsigned drag
+        // distance (magnitude-only growth meant dragging a handle back toward the center kept
+        // growing the circle instead of shrinking it). Corner handles (nw/ne/se/sw) combine both
+        // axes and take whichever moved the drag further outward, same convention diamond uses.
+        const signX = h.includes('e') ? 1 : (h.includes('w') ? -1 : 0);
+        const signY = h.includes('s') ? 1 : (h.includes('n') ? -1 : 0);
+        const delta = (signX && signY) ? Math.max(signX*dx, signY*dy) : (signX ? signX*dx : signY*dy);
+        edata.r=Math.max(20, cevResizing.origR + delta);
       } else if(edata.type==='diamond'){
         // keep width==height so all four sides stay equal (a true rhombus). The corner/edge
         // opposite the dragged handle stays anchored; drag distance sets the new square size.

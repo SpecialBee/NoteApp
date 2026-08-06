@@ -554,13 +554,23 @@
     position:absolute; width:12px; height:12px; border-radius:50%;
     background:var(--accent); border:2px solid #fff;
     box-shadow:0 0 0 1.5px var(--accent);
-    opacity:0; pointer-events:all; cursor:crosshair; z-index:30;
+    /* pointer-events must track opacity — anchors sit at the same n/e/s/w points as the resize
+       handles (.cev-handle, z-index:20 vs this z-index:30), so an always-on hit area here
+       silently ate every resize-handle click even while invisible */
+    opacity:0; pointer-events:none; cursor:crosshair; z-index:30;
     transition:opacity .12s, transform .1s;
     transform:translate(-50%,-50%) scale(1);
   }
   .cev-el:hover > .cev-anchor { opacity:1; pointer-events:auto; }
   .cev-anchor:hover { transform:translate(-50%,-50%) scale(1.4); }
   .cev-connecting .cev-anchor { opacity:1; pointer-events:auto; }
+  /* mouse/trackpad: once a shape is selected its resize handles (.cev-handle) sit at the same
+     n/e/s/w points as these anchors — let the handle win there instead of the anchor swallowing
+     the drag. Connecting is still done by hovering an *unselected* shape, which never has
+     handles. Left untouched on touch, where selecting is how anchors get revealed at all. */
+  @media (pointer:fine){
+    .cev-el.selected > .cev-anchor { pointer-events:none; }
+  }
   /* touch devices have no :hover, so the anchors would stay invisible/unusable — reveal them on
      the selected shape (tap to select first) and make them finger-sized */
   @media (pointer:coarse){

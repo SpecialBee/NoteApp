@@ -852,11 +852,17 @@
   // called from onAuthStateChange right after the OAuth redirect lands back in the app —
   // provider_refresh_token is only ever present on that one event, never on a normal reload
   async function saveDriveRefreshTokenFromSession(session){
-    if(!session || !session.provider_refresh_token || !session.user) return;
+    if(!session || !session.user) return;
+    if(!session.provider_refresh_token){
+      console.log('[drive] onAuthStateChange fired without provider_refresh_token — not a post-linkIdentity redirect, ignoring');
+      return;
+    }
     const { error } = await sb.from('user_drive_tokens').upsert({
       user_id: session.user.id, refresh_token: session.provider_refresh_token,
     });
-    if(!error){ showToast('구글 드라이브 연결 완료'); refreshDriveConnectUI(); }
+    if(error){ showToast('구글 드라이브 토큰 저장 실패: ' + error.message); console.error('[drive] upsert failed', error); return; }
+    showToast('구글 드라이브 연결 완료');
+    refreshDriveConnectUI();
   }
 
   async function refreshDriveConnectUI(){

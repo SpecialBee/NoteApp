@@ -993,10 +993,9 @@
     return `https://drive.google.com/thumbnail?id=${fileId}&sz=w2000`;
   }
 
-  async function handleImageFileSelected(e){
-    const file = e.target.files && e.target.files[0];
-    el('imageFileInput').value = ''; // otherwise re-picking the same file wouldn't fire 'change'
-    if(!file) return;
+  // shared by the 🖼 file-picker button and Ctrl+V clipboard paste — both just need to hand
+  // this a File/Blob at whatever cursor position is current
+  async function insertUploadedImage(file, displayName){
     const ta = editorBox;
     const start = ta.selectionStart, end = ta.selectionEnd;
     // a nonce keeps this placeholder findable-by-content even if the user keeps typing (which
@@ -1007,7 +1006,7 @@
     try{
       const url = await uploadImageToDrive(file);
       const idx = ta.value.indexOf(placeholder);
-      const md = `![${file.name}](${url})`;
+      const md = `![${displayName || file.name || '이미지'}](${url})`;
       if(idx !== -1) replaceEditorRange(idx, idx + placeholder.length, md, idx + md.length);
       else showToast('이미지 업로드는 완료됐지만 자동 삽입에 실패했습니다: ' + url);
     }catch(err){
@@ -1016,6 +1015,28 @@
       showToast('이미지 업로드 실패: ' + (err.message || '알 수 없는 오류') + (err.needsReconnect ? ' — 설정에서 다시 연결해주세요' : ''));
     }
   }
+
+  async function handleImageFileSelected(e){
+    const file = e.target.files && e.target.files[0];
+    el('imageFileInput').value = ''; // otherwise re-picking the same file wouldn't fire 'change'
+    if(!file) return;
+    insertUploadedImage(file);
+  }
+
+  // clipboard paste of a screenshot/copied image — clipboardData carries it as an image/* item
+  // with no filename, so this only intercepts the paste when one is actually present; a normal
+  // text paste falls through untouched
+  editorBox.addEventListener('paste', (e) => {
+    const items = e.clipboardData && e.clipboardData.items;
+    if(!items) return;
+    const imageItem = Array.from(items).find(it => it.type && it.type.startsWith('image/'));
+    if(!imageItem) return;
+    const file = imageItem.getAsFile();
+    if(!file) return;
+    e.preventDefault();
+    const ext = (imageItem.type.split('/')[1] || 'png').split('+')[0];
+    insertUploadedImage(file, `붙여넣은 이미지-${Date.now().toString(36)}.${ext}`);
+  });
 
   applyAccentColor(localStorage.getItem('stk-accent-color') || '');
   applyMarkColor(localStorage.getItem('stk-mark-color') || '');

@@ -322,6 +322,8 @@
         <span class="fmtsep"></span>
         <button class="fmtbtn" id="fmtQuote" title="인용">"</button>
         <button class="fmtbtn" id="fmtLink" title="링크">🔗</button>
+        <button class="fmtbtn" id="fmtImage" title="이미지 삽입 (구글 드라이브)">🖼</button>
+        <input type="file" id="imageFileInput" accept="image/*" style="display:none">
         <button class="fmtbtn" id="fmtCode" title="코드">&lt;/&gt;</button>
         <button class="fmtbtn" id="fmtTable" title="표">▦</button>
         <span class="fmtsep"></span>
@@ -460,6 +462,14 @@
           <input type="password" id="changePassConfirm" class="settings-select" style="cursor:text;" placeholder="새 비밀번호 확인" autocomplete="new-password">
           <button class="settings-reset" id="changePassBtn" style="align-self:flex-start;">비밀번호 변경</button>
         </div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-label">구글 드라이브 연결 (이미지 저장용)</div>
+        <div class="settings-row">
+          <button class="settings-reset" id="driveConnectBtn">연결하기</button>
+          <span class="settings-hint" id="driveConnectStatus"></span>
+        </div>
+        <div class="settings-hint">연결하면 노트에 삽입하는 이미지가 본인 구글 드라이브에 저장됩니다.</div>
       </div>
       <div class="settings-section">
         <div class="settings-row">
@@ -779,6 +789,7 @@
     el('cevSnapDefaultToggle').checked = localStorage.getItem('stk-cev-snap-default') === '1';
     el('graphIdleFloatToggle').checked = localStorage.getItem('stk-graph-idle-float') !== '0';
     el('trashRetentionSelect').value = localStorage.getItem('stk-trash-retention-days') || '0';
+    refreshDriveConnectUI();
   }
 
   el('accentCustom').addEventListener('input', e => { localStorage.setItem('stk-accent-color', e.target.value); applyAccentColor(e.target.value); refreshSettingsUI(); });
@@ -819,6 +830,136 @@
     }
   };
 
+  // ---------------- Google Drive image storage ----------------
+  // Images live in the user's own Drive (not Supabase Storage) — see IMAGE-STORAGE-PLAN.md.
+  // Google's identity is *linked* to the existing email/password account (auth.linkIdentity),
+  // not used as a separate login method, so this only ever grants Drive access.
+  let driveAccessToken = null, driveAccessTokenExpiry = 0; // in-memory cache; never persisted
+
+  function connectGoogleDrive(){
+    return sb.auth.linkIdentity({
+      provider: 'google',
+      options: {
+        scopes: 'https://www.googleapis.com/auth/drive.file',
+        // offline+consent forces Google to hand back a refresh token even if this browser
+        // already granted access before — without both, only an access token comes back
+        queryParams: { access_type: 'offline', prompt: 'consent' },
+        redirectTo: SITE_URL,
+      },
+    });
+  }
+
+  // called from onAuthStateChange right after the OAuth redirect lands back in the app —
+  // provider_refresh_token is only ever present on that one event, never on a normal reload
+  async function saveDriveRefreshTokenFromSession(session){
+    if(!session || !session.provider_refresh_token || !session.user) return;
+    const { error } = await sb.from('user_drive_tokens').upsert({
+      user_id: session.user.id, refresh_token: session.provider_refresh_token,
+    });
+    if(!error){ showToast('구글 드라이브 연결 완료'); refreshDriveConnectUI(); }
+  }
+
+  async function refreshDriveConnectUI(){
+    const btn = el('driveConnectBtn'), status = el('driveConnectStatus');
+    if(!btn) return;
+    const { data } = await sb.from('user_drive_tokens').select('updated_at').maybeSingle();
+    if(data){ btn.textContent = '연결 해제'; status.textContent = '연결됨 · ' + new Date(data.updated_at).toLocaleDateString('ko-KR'); }
+    else { btn.textContent = '연결하기'; status.textContent = ''; }
+  }
+
+  el('driveConnectBtn').onclick = async () => {
+    const btn = el('driveConnectBtn');
+    const { data } = await sb.from('user_drive_tokens').select('updated_at').maybeSingle();
+    if(data){
+      if(!confirm('구글 드라이브 연결을 해제할까요? 이미 삽입된 이미지는 그대로 유지되지만, 새 이미지는 업로드할 수 없게 됩니다.')) return;
+      await sb.from('user_drive_tokens').delete().eq('user_id', (await sb.auth.getUser()).data.user.id);
+      const { data: idData } = await sb.auth.getUserIdentities();
+      const googleIdentity = (idData?.identities || []).find(i => i.provider === 'google');
+      if(googleIdentity) await sb.auth.unlinkIdentity(googleIdentity);
+      driveAccessToken = null; driveAccessTokenExpiry = 0;
+      refreshDriveConnectUI();
+      return;
+    }
+    btn.disabled = true;
+    const { error } = await connectGoogleDrive();
+    if(error){ showToast('구글 연결 실패: ' + error.message); btn.disabled = false; }
+    // on success the page navigates away to Google's consent screen, so no need to re-enable here
+  };
+
+  // mints (or reuses a cached, still-valid) Drive access token via the refresh-drive-token
+  // Edge Function — the refresh token itself never reaches the client, only short-lived
+  // access tokens that are fine to hold in memory
+  async function ensureDriveAccessToken(){
+    if(driveAccessToken && Date.now() < driveAccessTokenExpiry - 30000) return driveAccessToken;
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/refresh-drive-token`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const data = await res.json();
+    if(!res.ok){ const err = new Error(data.error || '드라이브 토큰 갱신 실패'); err.needsReconnect = !!data.needsReconnect; throw err; }
+    driveAccessToken = data.access_token;
+    driveAccessTokenExpiry = Date.now() + data.expires_in * 1000;
+    return driveAccessToken;
+  }
+
+  // Drive's "multipart" upload endpoint wants multipart/related (metadata JSON part + raw file
+  // part joined by a boundary) — NOT the browser's native multipart/form-data (FormData), which
+  // Drive's API silently rejects the shape of.
+  async function uploadImageToDrive(file){
+    const token = await ensureDriveAccessToken();
+    const metadata = { name: file.name || ('image-' + Date.now()), mimeType: file.type || 'application/octet-stream' };
+    const boundary = 'graphidea-' + Math.random().toString(36).slice(2);
+    const fileBuf = await file.arrayBuffer();
+    const enc = new TextEncoder();
+    const head = enc.encode(
+      `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n` +
+      `--${boundary}\r\nContent-Type: ${metadata.mimeType}\r\n\r\n`
+    );
+    const tail = enc.encode(`\r\n--${boundary}--`);
+    const body = new Blob([head, fileBuf, tail]);
+    const uploadRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
+      body,
+    });
+    const uploadData = await uploadRes.json();
+    if(!uploadRes.ok) throw new Error(uploadData.error?.message || '드라이브 업로드 실패');
+    const fileId = uploadData.id;
+    // drive.file scope files aren't shared with anyone by default — without this, the <img> src
+    // below would 404 for anyone (including this same account in another browser) without an
+    // Authorization header, which a plain <img> tag can't send
+    await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: 'reader', type: 'anyone' }),
+    });
+    return `https://drive.google.com/thumbnail?id=${fileId}&sz=w2000`;
+  }
+
+  async function handleImageFileSelected(e){
+    const file = e.target.files && e.target.files[0];
+    el('imageFileInput').value = ''; // otherwise re-picking the same file wouldn't fire 'change'
+    if(!file) return;
+    const ta = editorBox;
+    const start = ta.selectionStart, end = ta.selectionEnd;
+    // a nonce keeps this placeholder findable-by-content even if the user keeps typing (which
+    // shifts offsets) while the upload is still in flight, and disambiguates two uploads at once
+    const nonce = Date.now().toString(36);
+    const placeholder = `![업로드 중 ${nonce}...]()`;
+    replaceEditorRange(start, end, placeholder, start + placeholder.length);
+    try{
+      const url = await uploadImageToDrive(file);
+      const idx = ta.value.indexOf(placeholder);
+      const md = `![${file.name}](${url})`;
+      if(idx !== -1) replaceEditorRange(idx, idx + placeholder.length, md, idx + md.length);
+      else showToast('이미지 업로드는 완료됐지만 자동 삽입에 실패했습니다: ' + url);
+    }catch(err){
+      const idx = ta.value.indexOf(placeholder);
+      if(idx !== -1) replaceEditorRange(idx, idx + placeholder.length, '', idx);
+      showToast('이미지 업로드 실패: ' + (err.message || '알 수 없는 오류') + (err.needsReconnect ? ' — 설정에서 다시 연결해주세요' : ''));
+    }
+  }
+
   applyAccentColor(localStorage.getItem('stk-accent-color') || '');
   applyMarkColor(localStorage.getItem('stk-mark-color') || '');
   applyFont(localStorage.getItem('stk-font') || '');
@@ -840,6 +981,7 @@
     if(session && session.user){
       loginWrap.style.display = 'none';
       appEl.classList.add('ready');
+      saveDriveRefreshTokenFromSession(session);
       boot();
     }else{
       loginWrap.style.display = 'flex';
@@ -1041,6 +1183,11 @@
       const cls = exists ? 'wikilink' : 'wikilink missing';
       return `<span class="${cls}" data-link="${escapeHtml(title.trim())}">${escapeHtml(title.trim())}</span>`;
     });
+
+    // must run before the plain link regex below — without consuming the leading "!", that
+    // regex would still match the "[alt](url)" part of an image and turn it into a link with a
+    // stray "!" left in front of it
+    s = s.replace(/!\[([^\]\n]*)\]\((https?:\/\/[^\s)]+)\)/g, (full, alt, url) => `<img src="${url}" alt="${alt}" loading="lazy" class="md-img">`);
 
     s = s.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, (full, text, url) => `<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`);
 
@@ -1382,6 +1529,8 @@
   el('fmtHighlight').onclick = () => wrapSelection('==');
   el('fmtQuote').onclick = () => insertLinePrefix('> ');
   el('fmtLink').onclick = () => insertLink();
+  el('fmtImage').onclick = () => el('imageFileInput').click();
+  el('imageFileInput').addEventListener('change', handleImageFileSelected);
   el('fmtCode').onclick = () => insertCode();
   el('fmtIndent').onclick = () => indentSelection();
   el('fmtOutdent').onclick = () => outdentSelection();

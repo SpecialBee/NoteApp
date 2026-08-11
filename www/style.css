@@ -295,6 +295,7 @@
   .preview h1{ font-size:1.53em; } .preview h2{ font-size:1.29em; } .preview h3{ font-size:1.06em; } .preview h4{ font-size:0.91em; }
   .preview p{ margin:0 0 16px 0; } .preview ul,.preview ol{ margin:0 0 16px 22px; padding:0; } .preview li{ margin-bottom:6px; }
   .preview ul ul, .preview ul ol, .preview ol ul, .preview ol ol{ margin:6px 0 0 22px; }
+  .md-img{ max-width:100%; height:auto; display:block; margin:12px 0; border-radius:8px; border:1px solid var(--border-soft); }
   .preview strong{ color:var(--ink); font-weight:700; }
   .preview del{ color:var(--ink-faint); }
   .preview mark{ background:var(--mark-bg, var(--mark-bg-default)); color:var(--mark-ink); padding:0 2px; border-radius:3px; }

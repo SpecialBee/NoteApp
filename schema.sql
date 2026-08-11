@@ -110,3 +110,38 @@ create policy "update own checklist items" on checklist_items
 drop policy if exists "delete own checklist items" on checklist_items;
 create policy "delete own checklist items" on checklist_items
   for delete using (auth.uid() = user_id);
+
+-- Google Drive image storage: holds the long-lived OAuth refresh token needed to mint fresh
+-- Drive access tokens (those expire in ~1hr) without asking the user to reconnect every time.
+-- The refresh token itself is only ever read by the refresh-drive-token Edge Function (service
+-- role, bypasses RLS) — the client's own select policy below is scoped to auth.uid() = user_id
+-- like every other table here, so it can technically read its own refresh_token back, but the
+-- app only ever selects `updated_at` from it (settings screen "connected since" status).
+create table if not exists user_drive_tokens (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  refresh_token text not null,
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists user_drive_tokens_set_updated_at on user_drive_tokens;
+create trigger user_drive_tokens_set_updated_at
+  before update on user_drive_tokens
+  for each row execute function set_updated_at();
+
+alter table user_drive_tokens enable row level security;
+
+drop policy if exists "select own drive token" on user_drive_tokens;
+create policy "select own drive token" on user_drive_tokens
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "insert own drive token" on user_drive_tokens;
+create policy "insert own drive token" on user_drive_tokens
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "update own drive token" on user_drive_tokens;
+create policy "update own drive token" on user_drive_tokens
+  for update using (auth.uid() = user_id);
+
+drop policy if exists "delete own drive token" on user_drive_tokens;
+create policy "delete own drive token" on user_drive_tokens
+  for delete using (auth.uid() = user_id);

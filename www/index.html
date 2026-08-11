@@ -322,7 +322,7 @@
         <span class="fmtsep"></span>
         <button class="fmtbtn" id="fmtQuote" title="인용">"</button>
         <button class="fmtbtn" id="fmtLink" title="링크">🔗</button>
-        <button class="fmtbtn" id="fmtImage" title="이미지 삽입 (구글 드라이브)">🖼</button>
+        <button class="fmtbtn" id="fmtImage" title="이미지 삽입 (구글 드라이브)" style="display:none;">🖼</button>
         <input type="file" id="imageFileInput" accept="image/*" style="display:none">
         <button class="fmtbtn" id="fmtCode" title="코드">&lt;/&gt;</button>
         <button class="fmtbtn" id="fmtTable" title="표">▦</button>
@@ -881,7 +881,11 @@
     const btn = el('driveConnectBtn'), status = el('driveConnectStatus');
     if(!btn) return;
     const { googleIdentity, tokenRow } = await getDriveConnectState();
-    if(googleIdentity && tokenRow){
+    const fullyConnected = !!(googleIdentity && tokenRow);
+    // the 🖼 insert button only makes sense once there's somewhere to actually upload to —
+    // stays hidden rather than visible-but-guaranteed-to-error for a not-yet-connected account
+    const imgBtn = el('fmtImage'); if(imgBtn) imgBtn.style.display = fullyConnected ? '' : 'none';
+    if(fullyConnected){
       btn.textContent = '연결 해제';
       status.textContent = '연결됨 · ' + new Date(tokenRow.updated_at).toLocaleDateString('ko-KR');
     } else if(googleIdentity && !tokenRow){
@@ -6926,6 +6930,7 @@ GRAPHIDEA는 흩어진 생각을 **연결해 하나의 그래프로 잇는** 개
     renderCardList();
     if(!currentId) openDashboard();
     maybeShowGuideOnce();
+    refreshDriveConnectUI();
   }
 
   // resume existing session on page load

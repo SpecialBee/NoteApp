@@ -19,6 +19,15 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Google's OAuth consent screen has to open in an external browser (embedded
+                 WebViews are blocked outright), so the flow needs a way back into the app —
+                 this custom scheme is where Supabase redirects to once linking finishes. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="graphidea" android:host="drive-callback" />
+            </intent-filter>
         </activity>
 
         <provider

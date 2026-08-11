@@ -836,17 +836,31 @@
   // not used as a separate login method, so this only ever grants Drive access.
   let driveAccessToken = null, driveAccessTokenExpiry = 0; // in-memory cache; never persisted
 
-  function connectGoogleDrive(){
-    return sb.auth.linkIdentity({
+  // native app scheme Supabase redirects back to once Google linking finishes there — see the
+  // matching intent-filter in AndroidManifest.xml and the appUrlOpen listener further down
+  const DRIVE_NATIVE_REDIRECT = 'graphidea://drive-callback';
+
+  async function connectGoogleDrive(){
+    // Google refuses to run its OAuth consent screen inside an embedded WebView at all (shows
+    // "This browser or app may not be secure") — native has to open it in a real external
+    // browser (skipBrowserRedirect + Capacitor's Browser plugin) and come back via deep link
+    // instead of just navigating the WebView the way the web version does.
+    const isNative = !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform());
+    const { data, error } = await sb.auth.linkIdentity({
       provider: 'google',
       options: {
         scopes: 'https://www.googleapis.com/auth/drive.file',
         // offline+consent forces Google to hand back a refresh token even if this browser
         // already granted access before — without both, only an access token comes back
         queryParams: { access_type: 'offline', prompt: 'consent' },
-        redirectTo: SITE_URL,
+        redirectTo: isNative ? DRIVE_NATIVE_REDIRECT : SITE_URL,
+        skipBrowserRedirect: isNative,
       },
     });
+    if(!error && isNative && data && data.url && window.Capacitor.Plugins.Browser){
+      await window.Capacitor.Plugins.Browser.open({ url: data.url });
+    }
+    return { error };
   }
 
   // called from onAuthStateChange right after the OAuth redirect lands back in the app —
@@ -3564,6 +3578,22 @@
     CapApp.addListener('pause', () => flushAllSaves());
     CapApp.addListener('appStateChange', (state) => { if(!state.isActive) flushAllSaves(); });
     CapApp.addListener('backButton', () => { if(!handleBackNav()) CapApp.minimizeApp(); });
+    // fires when the external browser (opened for Google's OAuth consent screen, see
+    // connectGoogleDrive) redirects to our custom scheme and Android hands control back to the
+    // app. Supabase's PKCE flow puts an exchange code in the query string here — the auto
+    // detectSessionInUrl handling only watches real page loads, not this event, so the exchange
+    // has to happen by hand. A successful exchange fires onAuthStateChange, which is what
+    // actually saves the Drive refresh token (saveDriveRefreshTokenFromSession).
+    CapApp.addListener('appUrlOpen', async (data) => {
+      if(!data || !data.url || !data.url.startsWith(DRIVE_NATIVE_REDIRECT)) return;
+      if(window.Capacitor.Plugins.Browser) window.Capacitor.Plugins.Browser.close().catch(() => {});
+      const code = new URL(data.url).searchParams.get('code');
+      const oauthError = new URL(data.url).searchParams.get('error_description');
+      if(oauthError){ showToast('구글 연결 실패: ' + oauthError); return; }
+      if(!code){ showToast('구글 연결 실패: 인증 코드가 없습니다'); return; }
+      const { error } = await sb.auth.exchangeCodeForSession(code);
+      if(error) showToast('구글 연결 실패: ' + error.message);
+    });
   }
 
   // ---------------- resizable panels ----------------

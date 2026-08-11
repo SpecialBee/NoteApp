@@ -7,6 +7,44 @@
 
 ---
 
+## 2026-08-11 작업 요약
+
+**앱의 정체성을 "개인용으로 완전히 확정"** — 출시용 트랙은 사용자가 직접 폴더를 복사해 별도로 시작하기로 하고(git 브랜치 제안은 했으나 폴더 복사를 선택), 이 저장소는 이제부터 개인 사용을 위한 고도화에만 집중. 그 첫 작업으로 지난번 보류해뒀던 **구글 드라이브 이미지 저장 기능**을 처음부터 끝까지 구현했다.
+
+### 기능별 구현 기록서 신설
+- `PROJECT-RECORD.md` 추가 — `CHANGELOG.md`(날짜순 일지)와 달리 기능/영역별로 "무엇인지 → 왜 이렇게 만들었는지 → 어떻게 구현했는지"를 정리. 폴더를 분리하기 전 전체 맥락을 한 번에 넘겨줄 참고 자료 용도.
+
+### 구글 드라이브 이미지 저장 — 구현
+- **왜 드라이브인가**: Supabase 무료 저장 용량(1GB)보다 개인 구글 드라이브(15GB)가 크고 무료. 이미지 실물은 드라이브에, DB엔 링크만 저장 — Supabase 사용량(egress·storage)엔 거의 영향 없음(실측: 파일 스토리지 0GB 유지, egress는 토큰 갱신 요청만큼만 미미하게 증가).
+- **계정 연결 방식**: 이메일/비번 계정은 그대로 두고 `supabase.auth.linkIdentity()`로 구글 계정을 "추가 연결"만 함(로그인 수단 교체 아님). `access_type=offline`+`prompt=consent`로 리프레시 토큰까지 확보.
+- **`user_drive_tokens` 테이블 신설**: 계정당 리프레시 토큰 하나 저장, RLS로 본인 행만 조회/쓰기/삭제 가능.
+- **`refresh-drive-token` Edge Function 신설**: 호출자 JWT 검증 후, 저장된 리프레시 토큰으로 구글 토큰 엔드포인트에서 단기(약 1시간) 액세스 토큰 발급. 클라이언트 시크릿은 Edge Function 환경변수로만 존재.
+- **업로드**: Drive의 `multipart` 업로드는 브라우저 기본 `FormData`(=`multipart/form-data`)가 아니라 `multipart/related`를 요구 — 메타데이터(JSON)+파일 바이트를 boundary로 직접 이어붙여 구현. 업로드 후 "링크 있는 사람 보기" 권한 자동 부여, `drive.google.com/thumbnail?id=...` 형태로 `<img>` 삽입.
+- **전용 폴더 정리**: 처음엔 "내 드라이브" 최상위에 그냥 쌓였는데, `GRAPHIDEA 이미지` 폴더를 찾거나 없으면 생성해서 그 안에 업로드하도록 수정(폴더 id는 `localStorage`에 캐시).
+- **에디터 통합**: 쓰기모드 도구상자에 🖼 버튼(파일 선택) + **클립보드 붙여넣기(Ctrl+V)** 둘 다 지원, 업로드 파이프라인 공통화(`insertUploadedImage`). `renderMarkdown`에 `![alt](url)` 렌더링 추가(기존엔 이미지 문법 자체가 없었음) — 일반 링크 정규식보다 먼저 처리해야 `!`가 링크에 붙어버리는 걸 방지.
+- **UX 마감**: 미연결 상태에선 🖼 버튼 자체를 숨김(눌러서 실패 토스트 보는 대신). 설정 → 계정에 연결 상태 표시 + 연결/해제 버튼.
+
+### 구글 드라이브 연동 — 디버깅 과정에서 발견한 실제 버그들
+같이 화면 보면서 붙어서 고친 세션이라 시행착오가 그대로 기록에 남는다:
+- **"Manual linking is disabled"**: Supabase 프로젝트 설정에서 계정 수동 연결이 기본 꺼져 있어서 발생 — 대시보드에서 켜서 해결(코드 문제 아님).
+- **구글 403 "테스터만 액세스 가능"**: OAuth 동의 화면이 테스트 모드라 테스트 사용자로 등록 안 된 계정은 아예 막힘 — 본인 이메일을 테스트 사용자로 추가.
+- **localhost로 리다이렉트되며 연결 거부**: `redirectTo`는 배포 URL로 맞춰뒀는데, 로컬(`localhost`) 탭에서 시도해서 발생한 착시였음 — 실제로는 Supabase Site URL/Redirect URLs 설정 자체는 처음부터 정상이었고, 배포된 사이트에서 재시도하니 해결.
+- **"구글 드라이브가 연결되어 있지 않습니다" (연결됐다고 나왔는데도)**: `user_drive_tokens` 테이블이 실제로는 비어 있었음(Table Editor로 직접 확인) — 원인은 리프레시 토큰 저장(`saveDriveRefreshTokenFromSession`)이 실패해도 조용히 넘어가던 것. 토스트+콘솔 로그로 실패를 드러내게 고치고 나서 콘솔에서 **"already linked" 에러**를 확인 — 구글 identity는 이미 연결됐는데 토큰 저장만 실패한 "반쯤 연결된" 상태였고, Supabase는 이미 연결된 identity라 재시도해도 동의 화면을 다시 안 띄우고 에러만 냈던 것. 연결 상태 판정을 "토큰 테이블에 행이 있는지"가 아니라 "실제 구글 identity 연결 여부"까지 같이 보도록 고쳐서, 반쯤 연결된 상태면 "연결 해제 후 재시도" 버튼이 뜨게 해 스스로 복구 가능하게 만듦.
+- **Edge Function Secrets 이름 실수**: `GOOGLE_CLIENT_ID`를 Name이 아니라 Value 자리에 잘못 넣어서(Name 칸에 클라이언트 ID 값 자체가 들어감) Edge Function이 환경변수를 못 읽던 문제 — 재등록으로 해결.
+
+### 안드로이드 이식
+- **구글 OAuth는 앱 내장 웹뷰에서 아예 차단됨**(구글이 보안상 막음) — `@capacitor/browser` 플러그인을 추가해 `skipBrowserRedirect`로 외부 브라우저(크롬)를 띄우고, 커스텀 스킴(`graphidea://drive-callback`)으로 앱에 돌아오면 `appUrlOpen` 이벤트에서 인증 코드를 받아 `exchangeCodeForSession()`으로 세션을 완성하도록 구현. `AndroidManifest.xml`에 해당 스킴 intent-filter 추가.
+- **이미지 삽입(갤러리 업로드)은 추가 작업 없이 이미 동작**: 안드로이드 웹뷰가 `<input type=file accept="image/*">`를 만나면 시스템 사진 선택창(갤러리·카메라 포함)을 자동으로 띄워줘서, 웹과 동일한 코드로 실기기에서 확인 완료.
+- Supabase Redirect URLs에 `graphidea://drive-callback` 추가는 사용자가 대시보드에서 직접 등록.
+
+### 참고
+- **스키마 변경**: `user_drive_tokens` 테이블 신설(리프레시 토큰 저장, select/insert/update/delete 전부 본인 행 한정 RLS). 실 DB에도 반영 완료.
+- **새 인프라**: Supabase Edge Function `refresh-drive-token` (대시보드에서 직접 배포), Edge Function Secrets `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`.
+- 구글 드라이브 연동은 OAuth 동의 화면이 아직 **테스트 모드**라 등록된 테스트 사용자만 쓸 수 있음(현재 본인 계정만) — 다른 사람 추가하려면 Google Cloud Console에서 테스트 사용자로 등록하면 됨(최대 100명), 심사(verification)는 필요 없음.
+- 이미지 화질은 `sz=w2000` 썸네일로 고정 — 모바일 데이터로 사진 많은 노트를 스크롤하면 그만큼 데이터가 나갈 수 있음(노트 단위 지연 로딩 + `loading="lazy"`로 어느 정도 완화는 되어 있음). 필요하면 해상도를 낮추는 것도 가능.
+
+---
+
 ## 2026-08-06 작업 요약
 
 캔버스·시트 카드를 중심으로 버그 근본 원인 추적, 시트 카드 기능 고도화, 세 에디터(노트·캔버스·시트)의 상단 레이아웃 통일·모바일 최적화까지 이어진 하루. 웹 기준 전부 반영·푸시, 안드로이드도 매 단계 `cap sync`+재빌드+실기기 확인 후 반영.

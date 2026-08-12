@@ -494,6 +494,12 @@
   .cev-tool { font-family:var(--sans); font-size:15px; line-height:1; background:none; border:none; color:var(--ink-soft); padding:6px 9px; border-radius:7px; cursor:pointer; transition:background .12s; }
   .cev-tool:hover { background:var(--border-soft); color:var(--ink); }
   .cev-tool.active { background:var(--accent); color:#fff; }
+  /* same look as .cev-tool but a direct action (opens a file picker) rather than a
+     click-canvas-to-place mode, so it's deliberately not in the .cev-tool query/click-handler */
+  .cev-tool-btn { font-family:var(--sans); font-size:15px; line-height:1; background:none; border:none; color:var(--ink-soft); padding:6px 9px; border-radius:7px; cursor:pointer; transition:background .12s; }
+  .cev-tool-btn:hover { background:var(--border-soft); color:var(--ink); }
+  .cev-image-el { overflow:hidden; border-radius:6px; border:1px solid var(--border); background:var(--bg-panel); }
+  .cev-image-el img { width:100%; height:100%; object-fit:cover; display:block; pointer-events:none; user-select:none; }
   .cev-sep { width:1px; height:20px; background:var(--border); margin:0 4px; flex-shrink:0; }
   .cev-conn-types { display:flex; align-items:center; gap:4px; }
   .cev-conn { font-family:var(--sans); font-size:13px; background:var(--bg-card); border:1px solid var(--border); color:var(--ink-soft); padding:4px 10px; border-radius:6px; cursor:pointer; }

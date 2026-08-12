@@ -251,6 +251,9 @@
           <span class="cev-sep"></span>
           <button class="cev-tool" data-tool="section" title="섹션 컨테이너">⊡</button>
           <button class="cev-tool" data-tool="card" title="카드 노드 (기존 카드 연결)">📇</button>
+          <span class="cev-sep"></span>
+          <button class="cev-tool-btn" id="cevImageBtn" title="이미지 삽입 (구글 드라이브)" style="display:none;">🖼</button>
+          <input type="file" id="cevImageFileInput" accept="image/*" style="display:none">
         </div>
         <span class="cev-sep"></span>
         <div class="cev-conn-types" id="cevConnTypes">
@@ -899,6 +902,7 @@
     // the 🖼 insert button only makes sense once there's somewhere to actually upload to —
     // stays hidden rather than visible-but-guaranteed-to-error for a not-yet-connected account
     const imgBtn = el('fmtImage'); if(imgBtn) imgBtn.style.display = fullyConnected ? '' : 'none';
+    const cevImgBtn = el('cevImageBtn'); if(cevImgBtn) cevImgBtn.style.display = fullyConnected ? '' : 'none';
     if(fullyConnected){
       btn.textContent = '연결 해제';
       status.textContent = '연결됨 · ' + new Date(tokenRow.updated_at).toLocaleDateString('ko-KR');
@@ -1054,6 +1058,45 @@
     e.preventDefault();
     const ext = (imageItem.type.split('/')[1] || 'png').split('+')[0];
     insertUploadedImage(file, `붙여넣은 이미지-${Date.now().toString(36)}.${ext}`);
+  });
+
+  // shared with the note editor's image insert — reads the file's real dimensions so a freshly
+  // dropped image starts at a sane, proportional size instead of a fixed square
+  function getImageDimensions(file){
+    return new Promise((resolve) => {
+      const img = new Image();
+      const objUrl = URL.createObjectURL(file);
+      img.onload = () => { URL.revokeObjectURL(objUrl); resolve({ w: img.naturalWidth || 240, h: img.naturalHeight || 180 }); };
+      img.onerror = () => { URL.revokeObjectURL(objUrl); resolve({ w: 240, h: 180 }); };
+      img.src = objUrl;
+    });
+  }
+
+  // canvas images are a plain element type (x/y/w/h/src) that reuses the generic rect-style
+  // free-resize already implemented for sticky/rect/section — no special-casing needed there
+  async function insertImageIntoCanvas(file){
+    if(!cevCurrentNoteId) return;
+    showToast('이미지 업로드 중…');
+    try{
+      const [url, dims] = await Promise.all([uploadImageToDrive(file), getImageDimensions(file)]);
+      const maxW = 320;
+      const scale = Math.min(1, maxW / dims.w);
+      const w = Math.max(60, Math.round(dims.w * scale)), h = Math.max(40, Math.round(dims.h * scale));
+      const rect = el('cevCanvas').getBoundingClientRect();
+      const cx = (rect.width/2 - cevPanE.x) / cevZoom, cy = (rect.height/2 - cevPanE.y) / cevZoom;
+      const newEl = { id: cevGenId('img'), type:'image', x: Math.round(cx - w/2), y: Math.round(cy - h/2), w, h, src: url };
+      cevElements.push(newEl);
+      cevRenderAll(); cevSelectElement(newEl.id); cevCommit();
+    }catch(err){
+      showToast('이미지 업로드 실패: ' + (err.message || '알 수 없는 오류') + (err.needsReconnect ? ' — 설정에서 다시 연결해주세요' : ''));
+    }
+  }
+
+  el('cevImageBtn').onclick = () => el('cevImageFileInput').click();
+  el('cevImageFileInput').addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    el('cevImageFileInput').value = '';
+    if(file) insertImageIntoCanvas(file);
   });
 
   applyAccentColor(localStorage.getItem('stk-accent-color') || '');
@@ -5283,7 +5326,7 @@
     const isShape = ['sticky','rect','circle','diamond'].includes(edata.type);
     const hasText = isShape || edata.type==='text';
 
-    if(edata.type!=='text'){
+    if(edata.type!=='text' && edata.type!=='image'){
       bar.appendChild(cevCtxColorRow(edata.color??null, CEV_CTX_COLORS, color=>{ edata.color=color||undefined; cevRenderAll(); cevApplySelection(); cevCommit(); }));
     }
     if(edata.type==='card'){
@@ -5753,6 +5796,14 @@
       cevBindElDrag(div, edata, lbl);
       inner.insertBefore(div, inner.firstChild);
       return;
+    } else if(edata.type==='image'){
+      const w=edata.w||240, h=edata.h||180;
+      div.style.cssText=`left:${edata.x}px;top:${edata.y}px;width:${w}px;height:${h}px;`;
+      div.classList.add('cev-image-el');
+      const img=document.createElement('img'); img.src=edata.src||''; img.draggable=false; img.alt='';
+      div.appendChild(img);
+      cevBindElDrag(div, edata, null);
+      cevAddAnchors(div, edata); inner.appendChild(div); return;
     }
 
     // fallback (sticky handled above without early return)

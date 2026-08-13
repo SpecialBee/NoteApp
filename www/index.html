@@ -365,6 +365,7 @@
     <div class="rp-section" id="canvasBacklinkSection" style="display:none;"><div class="rp-title">캔버스 보드</div><div id="canvasBacklinkList"></div></div>
     <div class="rp-section"><div class="rp-title">태그</div><div id="tagList" class="tag-list"><span class="rp-empty">태그 없음</span></div></div>
     <div class="rp-section"><div class="rp-title">연결 지도</div><svg class="graphmini" id="graphMini" viewBox="0 0 240 150"></svg></div>
+    <div class="rp-section" id="tocSection" style="display:none;"><div class="rp-title">목차</div><div id="tocList"></div></div>
   </div>
 </div>
 
@@ -2117,6 +2118,52 @@
     rpSetNoteTags(note, (note.tags||[]).filter(x => x !== t));
   }
 
+  // ---------------- table of contents (right panel, note cards only) ----------------
+  // mirrors renderMarkdown()'s own header regex (# / ## / ### / ####, ATX-style) exactly, so the
+  // list here stays in the same order and count as the h1-h4 elements it actually renders —
+  // that's what lets a preview-mode jump match TOC entries to rendered headings by plain index.
+  function extractHeadings(content){
+    const heads = [];
+    let pos = 0;
+    (content || '').split('\n').forEach(line => {
+      const m = line.match(/^(#{1,4})\s+(.*)$/);
+      if(m) heads.push({ level: m[1].length, text: (m[2] || '').trim() || '(제목 없음)', pos });
+      pos += line.length + 1; // +1 for the '\n' split() ate
+    });
+    return heads;
+  }
+
+  function renderToc(content){
+    const section = el('tocSection');
+    const heads = (currentView === 'note') ? extractHeadings(content) : [];
+    if(heads.length === 0){ section.style.display = 'none'; return; }
+    section.style.display = 'block';
+    const list = el('tocList');
+    list.innerHTML = '';
+    heads.forEach((h, i) => {
+      const btn = document.createElement('button');
+      btn.className = `toc-item toc-h${h.level}`;
+      btn.textContent = h.text;
+      btn.onclick = () => jumpToHeading(h.pos, i);
+      list.appendChild(btn);
+    });
+  }
+
+  function jumpToHeading(pos, headingIndex){
+    if(mode === 'preview'){
+      const hEls = previewBox.querySelectorAll('h1,h2,h3,h4');
+      if(hEls[headingIndex]) hEls[headingIndex].scrollIntoView({ block:'start', behavior:'smooth' });
+      return;
+    }
+    editorBox.focus();
+    editorBox.setSelectionRange(pos, pos);
+    // setSelectionRange alone won't reliably scroll a long textarea in every browser, so nudge
+    // the scroll position using the same caret-measuring trick the wikilink popup relies on
+    const coords = getCaretCoordinates(editorBox, pos);
+    const rect = editorBox.getBoundingClientRect();
+    editorBox.scrollTop = Math.max(0, editorBox.scrollTop + (coords.top - rect.top) - 24);
+  }
+
   function renderRightPane(note){
     const back = index.filter(m => m.id !== note.id && (m.links||[]).some(l => l.toLowerCase() === (note.title||'').toLowerCase()));
     backlinkList.innerHTML = '';
@@ -2163,6 +2210,7 @@
     });
     tagList.appendChild(addInput);
     drawGraph(note);
+    renderToc(note.content);
     el('propSection').style.display = 'block';
     renderPropertiesPane(note);
   }
@@ -2273,6 +2321,13 @@
 
     const lineEls = [...graphMini.querySelectorAll('#graphMiniLines line')];
     const nodeEls = [...graphMini.querySelectorAll('#graphMiniNodes .gnode')];
+
+    // paint the starting layout immediately — otherwise these <g>/<line> elements sit at the
+    // SVG's default (0,0) origin (the viewBox's top-left corner) for the one frame before the
+    // simulation's first requestAnimationFrame tick fires, which looks like a handful of nodes
+    // flashing outside the panel right as it opens
+    nodeEls.forEach((g,i) => { g.setAttribute('transform', `translate(${nodes[i].x.toFixed(1)},${nodes[i].y.toFixed(1)})`); });
+    lineEls.forEach((ln,i) => { const [a,b]=links[i]; ln.setAttribute('x1',nodes[a].x.toFixed(1)); ln.setAttribute('y1',nodes[a].y.toFixed(1)); ln.setAttribute('x2',nodes[b].x.toFixed(1)); ln.setAttribute('y2',nodes[b].y.toFixed(1)); });
 
     const k = 50, MX = 14, MY = 18;
     const REP = 0.9, SPR = 0.03, DAMP = 0.86, VMAX = 20;
@@ -2583,6 +2638,7 @@
   editorBox.addEventListener('input', queueSave);
   editorBox.addEventListener('input', updateWordCount);
   editorBox.addEventListener('input', queueCursorSave);
+  editorBox.addEventListener('input', () => renderToc(editorBox.value)); // keep the TOC live as headers are typed/removed
   editorBox.addEventListener('click', queueCursorSave);
   editorBox.addEventListener('keyup', queueCursorSave);
   editorBox.addEventListener('scroll', queueCursorSave);

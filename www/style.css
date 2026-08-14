@@ -4,6 +4,7 @@
     --bg-card: #FFFFFF;
     --border: #E5E3D8;
     --border-soft: #EDEBE1;
+    --graph-line: var(--border); /* dark mode brightens this on its own — see the dark theme block */
     --ink: #3D3929;
     --ink-soft: #6B6A64;
     --ink-faint: #A6A48F;
@@ -37,6 +38,7 @@
     --bg-card: #2C2A25;
     --border: #3D3A33;
     --border-soft: #333029;
+    --graph-line: var(--ink-faint); /* --border is too close to the dark background to read as a graph edge; reuse the faint-ink tone instead */
     --ink: #EDE9DD;
     --ink-soft: #B8B4A6;
     --ink-faint: #7D7A6C;
@@ -357,7 +359,7 @@
   .graphmini{ width:100%; height:150px; touch-action:none; }
   .graphmini circle{ fill:var(--accent); }
   .graphmini circle.self{ fill:var(--ink); }
-  .graphmini line{ stroke:var(--border); stroke-width:1; }
+  .graphmini line{ stroke:var(--graph-line); stroke-width:1; }
   .graphmini text{ font-family:var(--sans); font-size:9px; fill:var(--ink-faint); }
   .graphmini .gnode{ cursor:grab; }
   .graphmini.grabbing, .graphmini.grabbing .gnode{ cursor:grabbing; }
@@ -429,7 +431,7 @@
   .graph-canvas .gnode:hover text{ opacity:1; font-weight:600; fill:var(--ink); }
   .graph-canvas .gnode.dim circle{ opacity:0.15; }
   .graph-canvas .gnode.dim text{ opacity:0.2; }
-  .graph-canvas line{ stroke:var(--border); stroke-width:1; transition:opacity .15s ease; }
+  .graph-canvas line{ stroke:var(--graph-line); stroke-width:1; transition:opacity .15s ease; }
   .graph-canvas line.dim{ opacity:0.08; }
 
   /* --- Properties panel --- */

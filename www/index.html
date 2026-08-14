@@ -431,6 +431,15 @@
         <label class="graph-toggle" id="previewSyncToggleRow" style="margin-top:8px;"><input type="checkbox" id="previewSyncToggle"> 편집 중 미리보기를 편집 위치와 자동 동기화</label>
       </div>
       <div class="settings-section">
+        <div class="settings-label">목차에 표시할 제목 단계</div>
+        <select class="settings-select" id="tocMaxLevelSelect">
+          <option value="1"># (H1)까지</option>
+          <option value="2">## (H2)까지</option>
+          <option value="3">### (H3)까지</option>
+          <option value="4">#### (H4)까지</option>
+        </select>
+      </div>
+      <div class="settings-section">
         <label class="graph-toggle"><input type="checkbox" id="cevSnapDefaultToggle"> 캔버스를 열 때 격자 스냅 기본으로 켜기</label>
       </div>
 
@@ -789,6 +798,7 @@
     el('writeLayoutSelect').value = writeOnlyEnabled() ? 'write-only' : 'split';
     el('previewSyncToggleRow').style.display = writeOnlyEnabled() ? 'none' : '';
     el('fontSizeSelect').value = localStorage.getItem('stk-font-size') || 'normal';
+    el('tocMaxLevelSelect').value = String(tocMaxLevel());
     el('darkModeToggle').checked = document.documentElement.dataset.theme === 'dark';
     el('cevSnapDefaultToggle').checked = localStorage.getItem('stk-cev-snap-default') === '1';
     el('graphIdleFloatToggle').checked = localStorage.getItem('stk-graph-idle-float') !== '0';
@@ -812,6 +822,7 @@
     if(mode==='split') setMode('split');
   };
   el('fontSizeSelect').onchange = e => { localStorage.setItem('stk-font-size', e.target.value); applyFontSize(e.target.value); };
+  el('tocMaxLevelSelect').onchange = e => { localStorage.setItem('stk-toc-max-level', e.target.value); if(currentView === 'note') renderToc(editorBox.value); };
   el('darkModeToggle').onchange = e => setTheme(e.target.checked ? 'dark' : 'light');
   el('cevSnapDefaultToggle').onchange = e => { localStorage.setItem('stk-cev-snap-default', e.target.checked ? '1' : '0'); };
   el('graphIdleFloatToggle').onchange = e => { localStorage.setItem('stk-graph-idle-float', e.target.checked ? '1' : '0'); };
@@ -2133,9 +2144,12 @@
     return heads;
   }
 
+  function tocMaxLevel(){ return parseInt(localStorage.getItem('stk-toc-max-level') || '4', 10); }
+
   function renderToc(content){
     const section = el('tocSection');
-    const heads = (currentView === 'note') ? extractHeadings(content) : [];
+    const maxLevel = tocMaxLevel();
+    const heads = (currentView === 'note') ? extractHeadings(content).filter(h => h.level <= maxLevel) : [];
     if(heads.length === 0){ section.style.display = 'none'; return; }
     section.style.display = 'block';
     const list = el('tocList');

@@ -100,7 +100,7 @@
         <button class="mobonly" id="mobToggle">☰</button>
         <button class="modebtn active" id="editModeBtn">쓰기모드</button>
         <button class="modebtn" id="previewModeBtn">읽기모드</button>
-        <button class="modebtn deskonly" id="compareBtn" title="읽기모드에서 다른 카드와 나란히 비교" style="display:none;">⧉ 비교</button>
+        <button class="modebtn deskonly" id="compareBtn" title="다른 카드를 나란히 열어 함께 보거나 편집" style="display:none;">⧉ 비교</button>
       </div>
       <div class="toolbar-row toolbar-row2">
         <span class="submeta" id="subLine"></span>
@@ -341,13 +341,31 @@
         <textarea class="editorbox" id="editorBox" placeholder="당신의 이야기를 적어보세요… [[카드 제목]]으로 다른 카드와 연결할 수 있어요."></textarea>
         <div class="split-divider" id="splitDivider" title="드래그해서 크기 조절"></div>
         <div class="preview" id="previewBox" style="display:none;"></div>
-        <div class="compare-divider" id="compareDivider" title="드래그해서 크기 조절" style="display:none;"></div>
-        <div class="compare-pane" id="comparePane" style="display:none;">
+        <div class="compare-divider" id="compareDivider1" title="드래그해서 크기 조절" style="display:none;"></div>
+        <div class="compare-pane" id="comparePane1" style="display:none;">
           <div class="compare-head">
-            <button class="compare-pick-btn" id="comparePickBtn">카드 선택 ▾</button>
-            <button class="compare-close" id="compareCloseBtn" title="비교 닫기">✕</button>
+            <button class="compare-pick-btn" id="comparePickBtn1">카드 선택 ▾</button>
+            <div class="compare-mode-group">
+              <button class="compare-mode-btn" id="compareWriteBtn1" title="쓰기 모드로 전환">✎ 쓰기</button>
+              <button class="compare-mode-btn active" id="compareReadBtn1" title="읽기 모드로 전환">👁 읽기</button>
+            </div>
+            <button class="compare-close" id="compareCloseBtn1" title="닫기">✕</button>
           </div>
-          <div class="preview compare-preview" id="previewBox2"></div>
+          <textarea class="editorbox compare-editorbox" id="compareEditorBox1" style="display:none;" placeholder="본문을 입력하세요…"></textarea>
+          <div class="preview compare-preview" id="comparePreviewBox1"></div>
+        </div>
+        <div class="compare-divider" id="compareDivider2" title="드래그해서 크기 조절" style="display:none;"></div>
+        <div class="compare-pane" id="comparePane2" style="display:none;">
+          <div class="compare-head">
+            <button class="compare-pick-btn" id="comparePickBtn2">카드 선택 ▾</button>
+            <div class="compare-mode-group">
+              <button class="compare-mode-btn" id="compareWriteBtn2" title="쓰기 모드로 전환">✎ 쓰기</button>
+              <button class="compare-mode-btn active" id="compareReadBtn2" title="읽기 모드로 전환">👁 읽기</button>
+            </div>
+            <button class="compare-close" id="compareCloseBtn2" title="닫기">✕</button>
+          </div>
+          <textarea class="editorbox compare-editorbox" id="compareEditorBox2" style="display:none;" placeholder="본문을 입력하세요…"></textarea>
+          <div class="preview compare-preview" id="comparePreviewBox2"></div>
         </div>
       </div>
     </div>
@@ -438,6 +456,14 @@
           <option value="3">### (H3)까지</option>
           <option value="4">#### (H4)까지</option>
         </select>
+      </div>
+      <div class="settings-section">
+        <div class="settings-label">동시 편집 패널 개수 (⧉ 비교)</div>
+        <select class="settings-select" id="comparePanelCountSelect">
+          <option value="2">2개 (기본 + 1개)</option>
+          <option value="3">3개 (기본 + 2개)</option>
+        </select>
+        <div class="settings-hint">각 패널은 읽기/쓰기 모드를 따로 켤 수 있어요.</div>
       </div>
       <div class="settings-section">
         <label class="graph-toggle"><input type="checkbox" id="cevSnapDefaultToggle"> 캔버스를 열 때 격자 스냅 기본으로 켜기</label>
@@ -548,8 +574,11 @@
   let showingTrash = false;
   let currentId = null;
   let mode = 'edit';
-  let compareOpen = false;   // read-mode side-by-side two-card compare (desktop/tablet only)
-  let compareId = null;      // note id shown in the right compare pane
+  let compareOpen = false;   // side-by-side multi-panel compare/co-edit (desktop/tablet only)
+  // one entry per extra panel (slot 1 and slot 2); slot 2 only renders when the "동시 편집
+  // 패널 개수" setting is 3. Each panel independently shows read (preview) or write (editable).
+  let comparePanels = [ { id:null, mode:'read' }, { id:null, mode:'read' } ];
+  const comparePanelSaveTimers = {};
   let saveTimer = null;
   let allTags = [];
   let authMode = 'login'; // 'login' | 'signup' | 'forgot'
@@ -799,6 +828,7 @@
     el('previewSyncToggleRow').style.display = writeOnlyEnabled() ? 'none' : '';
     el('fontSizeSelect').value = localStorage.getItem('stk-font-size') || 'normal';
     el('tocMaxLevelSelect').value = String(tocMaxLevel());
+    el('comparePanelCountSelect').value = String(comparePanelCount());
     el('darkModeToggle').checked = document.documentElement.dataset.theme === 'dark';
     el('cevSnapDefaultToggle').checked = localStorage.getItem('stk-cev-snap-default') === '1';
     el('graphIdleFloatToggle').checked = localStorage.getItem('stk-graph-idle-float') !== '0';
@@ -823,6 +853,12 @@
   };
   el('fontSizeSelect').onchange = e => { localStorage.setItem('stk-font-size', e.target.value); applyFontSize(e.target.value); };
   el('tocMaxLevelSelect').onchange = e => { localStorage.setItem('stk-toc-max-level', e.target.value); if(currentView === 'note') renderToc(editorBox.value); };
+  el('comparePanelCountSelect').onchange = async e => {
+    // shrinking from 3->2 would hide slot 2 while it may still hold unsaved write-mode edits — flush first
+    await flushComparePanelSave(2);
+    localStorage.setItem('stk-compare-panel-count', e.target.value);
+    applyComparePanels();
+  };
   el('darkModeToggle').onchange = e => setTheme(e.target.checked ? 'dark' : 'light');
   el('cevSnapDefaultToggle').onchange = e => { localStorage.setItem('stk-cev-snap-default', e.target.checked ? '1' : '0'); };
   el('graphIdleFloatToggle').onchange = e => { localStorage.setItem('stk-graph-idle-float', e.target.checked ? '1' : '0'); };
@@ -1900,6 +1936,10 @@
     if(currentId && currentId !== id){ saveCursorPos(); await flushSave(); }
     if(tevCurrentNoteId) tevFlushSave();
     if(cevCurrentNoteId){ cevFlushSave(); hideCevCtxBar(); } // otherwise the floating shape toolbar survives a switch to a non-canvas card, since openCanvasEditor (which also clears it) never runs in that case
+    // if a compare panel happens to already have this same card open, clear it — editing the
+    // same note from two independent, independently-autosaving textareas at once is a recipe
+    // for one of them silently clobbering the other's edits
+    comparePanels.forEach((p, i) => { if(p.id === id){ flushComparePanelSave(i+1); p.id = null; } });
     currentId = id;
     const note = index.find(m => m.id === id);
     if(!note){ showToast('카드를 찾을 수 없습니다'); return; }
@@ -1974,59 +2014,120 @@
     } else {
       editorBox.style.flexBasis = '';
     }
-    // read-mode compare: split the reading area into current-note (left) | picked-note (right)
-    const showCompare = (m==='preview') && compareOpen && !mobile;
-    split.classList.toggle('compare', showCompare);
-    el('compareBtn').style.display = (m==='preview' && !mobile) ? '' : 'none';
-    el('compareBtn').classList.toggle('active', showCompare);
-    el('comparePane').style.display = showCompare ? 'flex' : 'none';
-    el('compareDivider').style.display = showCompare ? 'block' : 'none';
-    if(showCompare){
-      const cr = parseFloat(localStorage.getItem('stk-compare-ratio')) || 0.5;
-      previewBox.style.flexBasis = (Math.min(0.8,Math.max(0.2,cr))*100) + '%';
-      renderComparePane();
-    } else {
-      previewBox.style.flexBasis = '';
-    }
     previewBox.innerHTML = renderMarkdown(editorBox.value);
     localStorage.setItem('stk-editor-mode', m);
+    applyComparePanels(); // independent of primary read/write mode — just re-checks the mobile breakpoint
   }
 
-  // ---------------- read-mode two-card compare ----------------
-  async function renderComparePane(){
-    const pv2 = el('previewBox2'), pick = el('comparePickBtn');
-    if(!compareId){
+  // ---------------- multi-panel compare / co-edit (up to 2 extra panels, desktop/tablet only) ----------------
+  // Each extra panel can independently show a different card in read (preview) or write (live,
+  // autosaving textarea) mode — this is what lets you keep one card open for reference while
+  // editing another, or edit two at once alongside the primary card.
+  function comparePanelCount(){ const n = parseInt(localStorage.getItem('stk-compare-panel-count') || '2', 10); return n === 3 ? 3 : 2; }
+
+  function applyComparePanels(){
+    const mobile = window.innerWidth <= 640;
+    const extraCount = (compareOpen && !mobile) ? (comparePanelCount() - 1) : 0;
+    const split = el('editorSplit');
+    split.classList.toggle('compare', extraCount > 0);
+    el('compareBtn').style.display = mobile ? 'none' : '';
+    el('compareBtn').classList.toggle('active', extraCount > 0);
+    previewBox.style.flexBasis = extraCount > 0 ? ((Math.min(0.7,Math.max(0.15, parseFloat(localStorage.getItem('stk-compare-ratio-1')) || 0.5))*100) + '%') : '';
+    for(let slot=1; slot<=2; slot++){
+      const show = slot <= extraCount;
+      el('comparePane'+slot).style.display = show ? 'flex' : 'none';
+      el('compareDivider'+slot).style.display = show ? 'block' : 'none';
+      if(show) renderComparePanel(slot);
+    }
+    // slot 1's own width (as the target of divider 2, between slot 1 and slot 2) only matters once slot 2 is showing
+    el('comparePane1').style.flexBasis = (extraCount === 2) ? ((Math.min(0.7,Math.max(0.15, parseFloat(localStorage.getItem('stk-compare-ratio-2')) || 0.5))*100) + '%') : '';
+  }
+
+  async function renderComparePanel(slot){
+    const panel = comparePanels[slot-1];
+    const pick = el('comparePickBtn'+slot);
+    const editorEl = el('compareEditorBox'+slot);
+    const previewEl = el('comparePreviewBox'+slot);
+    el('compareWriteBtn'+slot).classList.toggle('active', panel.mode === 'write');
+    el('compareReadBtn'+slot).classList.toggle('active', panel.mode === 'read');
+    if(!panel.id){
       pick.textContent = '카드 선택 ▾';
-      pv2.innerHTML = '<div class="rp-empty" style="padding:24px 0;">비교할 카드를 선택하세요.</div>';
+      editorEl.style.display = 'none';
+      previewEl.style.display = 'block';
+      previewEl.innerHTML = '<div class="rp-empty" style="padding:24px 0;">비교할 카드를 선택하세요.</div>';
       return;
     }
-    const note = index.find(m => m.id === compareId);
+    const note = index.find(m => m.id === panel.id);
     if(!note){
-      compareId = null; pick.textContent = '카드 선택 ▾';
-      pv2.innerHTML = '<div class="rp-empty" style="padding:24px 0;">카드를 찾을 수 없습니다.</div>';
+      panel.id = null; pick.textContent = '카드 선택 ▾';
+      editorEl.style.display = 'none'; previewEl.style.display = 'block';
+      previewEl.innerHTML = '<div class="rp-empty" style="padding:24px 0;">카드를 찾을 수 없습니다.</div>';
       return;
     }
     pick.textContent = (note.title || '제목 없음') + ' ▾';
     await ensureContentLoaded(note);
-    pv2.innerHTML = renderMarkdown(note.content || '');
+    if(panel.mode === 'write'){
+      editorEl.style.display = 'block';
+      previewEl.style.display = 'none';
+      if(editorEl.dataset.noteId !== note.id){ editorEl.value = note.content || ''; editorEl.dataset.noteId = note.id; } // don't clobber in-progress typing on a re-render for the same note
+    } else {
+      editorEl.style.display = 'none';
+      previewEl.style.display = 'block';
+      previewEl.innerHTML = renderMarkdown(note.content || '');
+    }
   }
 
-  // popover list of note-type cards to pick the compare target
-  function openComparePicker(anchorEl){
+  // debounced, per-slot save for a compare panel in write mode — deliberately lighter than doSave():
+  // extra panels are a quick-edit surface for body text only, not a full title/tags/properties editor
+  function queueComparePanelSave(slot){
+    clearTimeout(comparePanelSaveTimers[slot]);
+    comparePanelSaveTimers[slot] = setTimeout(() => saveComparePanel(slot), 600);
+  }
+  async function flushComparePanelSave(slot){
+    if(!comparePanelSaveTimers[slot]) return;
+    clearTimeout(comparePanelSaveTimers[slot]);
+    comparePanelSaveTimers[slot] = null;
+    await saveComparePanel(slot);
+  }
+  async function saveComparePanel(slot){
+    const panel = comparePanels[slot-1];
+    if(!panel || !panel.id) return;
+    const note = index.find(m => m.id === panel.id);
+    if(!note) return;
+    note.content = el('compareEditorBox'+slot).value;
+    note.links = extractLinks(note.content);
+    note.updated = Date.now();
+    await updateNote(note);
+    renderCardList();
+    if(currentId === note.id) renderRightPane(note); // being edited as primary elsewhere too — keep that view in sync
+  }
+
+  // popover list of note-type cards to pick a compare-panel target; excludes the primary card
+  // and whatever's already picked in either slot, so you can't point two panels at the same card
+  function openComparePicker(anchorEl, slot){
     document.querySelector('.compare-picker')?.remove();
     const pop = document.createElement('div'); pop.className = 'compare-picker';
     const inp = document.createElement('input'); inp.className = 'compare-picker-input'; inp.placeholder = '카드 검색…'; inp.spellcheck = false;
     const list = document.createElement('div'); list.className = 'compare-picker-list';
     pop.appendChild(inp); pop.appendChild(list);
+    const otherSlot = slot === 1 ? 2 : 1;
+    const otherId = comparePanels[otherSlot-1].id;
     const render = (q) => {
       list.innerHTML = '';
       const ql = (q||'').toLowerCase();
-      const items = index.filter(n => !isCanvasNote(n) && !isTableNote(n) && n.id !== currentId && n.id !== compareId
+      const thisId = comparePanels[slot-1].id;
+      const items = index.filter(n => !isCanvasNote(n) && !isTableNote(n) && n.id !== currentId && n.id !== thisId && n.id !== otherId
         && (!ql || (n.title||'').toLowerCase().includes(ql))).slice(0, 60);
       if(!items.length){ const e0 = document.createElement('div'); e0.className = 'compare-picker-empty'; e0.textContent = '카드 없음'; list.appendChild(e0); return; }
       items.forEach(n => {
         const it = document.createElement('div'); it.className = 'compare-picker-item'; it.textContent = n.title || '제목 없음';
-        it.onmousedown = (e) => { e.preventDefault(); compareId = n.id; renderComparePane(); pop.remove(); };
+        it.onmousedown = async (e) => {
+          e.preventDefault();
+          await flushComparePanelSave(slot); // don't lose in-progress edits when switching this panel to a different card
+          comparePanels[slot-1].id = n.id;
+          renderComparePanel(slot);
+          pop.remove();
+        };
         list.appendChild(it);
       });
     };
@@ -2636,17 +2737,25 @@
   el('previewModeBtn').onclick = () => setMode('preview');
   el('compareBtn').onclick = () => {
     compareOpen = !compareOpen;
-    setMode('preview'); // compare only exists in read mode; re-apply layout
-    if(compareOpen && !compareId) openComparePicker(el('comparePickBtn'));
+    applyComparePanels(); // works in either read or write mode now — no mode switch needed
+    if(compareOpen && !comparePanels[0].id) openComparePicker(el('comparePickBtn1'), 1);
   };
-  el('comparePickBtn').onclick = () => openComparePicker(el('comparePickBtn'));
-  el('compareCloseBtn').onclick = () => { compareOpen = false; setMode('preview'); };
-  // wikilinks inside the compare pane load that card into the same (right) pane
-  el('previewBox2').addEventListener('click', (e) => {
-    const t = e.target.closest('.wikilink'); if(!t) return;
-    const found = index.find(m => m.title.toLowerCase() === t.dataset.link.toLowerCase());
-    if(found){ compareId = found.id; renderComparePane(); }
-  });
+  for(let slot=1; slot<=2; slot++){
+    const s = slot; // capture per-iteration for the closures below
+    el('comparePickBtn'+s).onclick = () => openComparePicker(el('comparePickBtn'+s), s);
+    el('compareWriteBtn'+s).onclick = () => { comparePanels[s-1].mode = 'write'; renderComparePanel(s); };
+    el('compareReadBtn'+s).onclick = async () => { await flushComparePanelSave(s); comparePanels[s-1].mode = 'read'; renderComparePanel(s); };
+    // ✕ closes the whole multi-panel view (matches the ⧉ 비교 toggle), not just this one slot —
+    // last-picked cards and modes are remembered for next time, same as before this feature grew a 2nd slot
+    el('compareCloseBtn'+s).onclick = async () => { await flushComparePanelSave(1); await flushComparePanelSave(2); compareOpen = false; applyComparePanels(); };
+    // wikilinks inside a compare panel's preview load that card into the same panel
+    el('comparePreviewBox'+s).addEventListener('click', (e) => {
+      const t = e.target.closest('.wikilink'); if(!t) return;
+      const found = index.find(m => m.title.toLowerCase() === t.dataset.link.toLowerCase());
+      if(found){ comparePanels[s-1].id = found.id; renderComparePanel(s); }
+    });
+    el('compareEditorBox'+s).addEventListener('input', () => queueComparePanelSave(s));
+  }
   titleField.addEventListener('input', queueSave);
   titleField.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); editorBox.focus(); editorBox.setSelectionRange(0, 0); } });
   editorBox.addEventListener('input', queueSave);
@@ -2848,18 +2957,22 @@
     window.addEventListener('touchend', stop);
     window.addEventListener('touchcancel', stop);
   })();
-  // draggable divider between the two compare panes (read-mode two-card view)
-  (function(){
-    const divider=el('compareDivider'), split=el('editorSplit');
-    let dragging=false;
-    const start=()=>{ dragging=true; divider.classList.add('dragging'); document.body.style.userSelect='none'; document.body.style.cursor='col-resize'; };
+  // draggable dividers between compare panels — divider N resizes the panel immediately to its
+  // left (previewBox for divider 1, comparePane1 for divider 2), matching the split-divider's
+  // own convention above. Measuring the target's own left edge at drag-start (rather than
+  // assuming it starts at editorSplit's left edge) keeps the ratio correct no matter what else
+  // is visible to its left (editorBox, previewBox in split mode, etc.).
+  function wireCompareDivider(dividerId, targetEl, storageKey){
+    const divider=el(dividerId), split=el('editorSplit');
+    let dragging=false, targetLeft=0;
+    const start=()=>{ dragging=true; targetLeft=targetEl.getBoundingClientRect().left; divider.classList.add('dragging'); document.body.style.userSelect='none'; document.body.style.cursor='col-resize'; };
     const move=(clientX)=>{
       if(!dragging) return;
       const rect=split.getBoundingClientRect();
-      let ratio=(clientX-rect.left)/rect.width;
-      ratio=Math.min(0.8, Math.max(0.2, ratio));
-      previewBox.style.flexBasis=(ratio*100)+'%';
-      localStorage.setItem('stk-compare-ratio', ratio);
+      let ratio=(clientX-targetLeft)/rect.width;
+      ratio=Math.min(0.7, Math.max(0.15, ratio));
+      targetEl.style.flexBasis=(ratio*100)+'%';
+      localStorage.setItem(storageKey, ratio);
     };
     const stop=()=>{ if(dragging){ dragging=false; divider.classList.remove('dragging'); document.body.style.userSelect=''; document.body.style.cursor=''; } };
     divider.addEventListener('mousedown', e => { start(); e.preventDefault(); });
@@ -2869,7 +2982,9 @@
     window.addEventListener('touchmove', e => { if(dragging && e.touches.length===1){ move(e.touches[0].clientX); e.preventDefault(); } }, {passive:false});
     window.addEventListener('touchend', stop);
     window.addEventListener('touchcancel', stop);
-  })();
+  }
+  wireCompareDivider('compareDivider1', previewBox, 'stk-compare-ratio-1');
+  wireCompareDivider('compareDivider2', el('comparePane1'), 'stk-compare-ratio-2');
   searchInput.addEventListener('input', (e) => { searchQuery = e.target.value; renderCardList(); });
   el('dupBtn').onclick = () => { if(currentId) duplicateNote(currentId); };
   el('exportMdBtn').onclick = () => { if(currentId) exportNoteAsMarkdown(currentId); };
@@ -3657,7 +3772,7 @@
   // more reliable signal for "about to go away" on both mobile browsers and app webviews.
   // note/table/canvas editors each debounce saves independently (separate timers), so
   // "flush everything pending" has to hit all three, not just the plain-note one
-  function flushAllSaves(){ flushSave(); tevFlushSave(); cevFlushSave(); }
+  function flushAllSaves(){ flushSave(); tevFlushSave(); cevFlushSave(); flushComparePanelSave(1); flushComparePanelSave(2); }
   document.addEventListener('visibilitychange', () => {
     if(document.visibilityState === 'hidden') flushAllSaves();
   });

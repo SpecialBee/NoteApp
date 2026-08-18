@@ -406,122 +406,136 @@
 </div>
 
 <div id="settingsModal" class="guide-modal">
-  <div class="guide-modal-box" style="width:min(440px,100%);">
+  <div class="guide-modal-box settings-modal-box" style="width:min(680px,95vw);">
     <div class="guide-modal-head">
       <span class="guide-modal-title">⚙️ 설정</span>
       <button class="guide-modal-close" id="settingsModalClose" title="닫기">✕</button>
     </div>
-    <div class="guide-modal-body">
-      <div class="settings-group-title">화면</div>
-      <div class="settings-section">
-        <div class="settings-label">테마 색상</div>
-        <div class="settings-swatches" id="accentSwatches"></div>
-        <div class="settings-row">
-          <label class="settings-custom-color">커스텀 <input type="color" id="accentCustom"></label>
-          <button class="settings-reset" id="accentReset">기본값</button>
+    <div class="settings-layout">
+      <div class="settings-nav" id="settingsNav">
+        <button class="settings-nav-btn" data-tab="screen">화면</button>
+        <button class="settings-nav-btn" data-tab="edit">편집</button>
+        <button class="settings-nav-btn" data-tab="perf">성능</button>
+        <button class="settings-nav-btn" data-tab="data">데이터</button>
+        <button class="settings-nav-btn" data-tab="account">계정</button>
+      </div>
+      <div class="settings-panes guide-modal-body">
+        <div class="settings-pane" data-pane="screen">
+          <div class="settings-section">
+            <div class="settings-label">테마 색상</div>
+            <div class="settings-swatches" id="accentSwatches"></div>
+            <div class="settings-row">
+              <label class="settings-custom-color">커스텀 <input type="color" id="accentCustom"></label>
+              <button class="settings-reset" id="accentReset">기본값</button>
+            </div>
+          </div>
+          <div class="settings-section">
+            <label class="graph-toggle"><input type="checkbox" id="darkModeToggle"> 다크모드</label>
+          </div>
+          <div class="settings-section">
+            <div class="settings-label">글꼴</div>
+            <select class="settings-select" id="fontSelect"></select>
+          </div>
+          <div class="settings-section">
+            <div class="settings-label">마크다운 하이라이트 색상</div>
+            <div class="settings-swatches" id="markSwatches"></div>
+            <div class="settings-row">
+              <label class="settings-custom-color">커스텀 <input type="color" id="markCustom"></label>
+              <button class="settings-reset" id="markReset">기본값</button>
+            </div>
+          </div>
+          <div class="settings-section">
+            <div class="settings-label">카드 글자 크기</div>
+            <select class="settings-select" id="fontSizeSelect">
+              <option value="small">축소</option>
+              <option value="normal">보통</option>
+              <option value="large">확대</option>
+            </select>
+          </div>
         </div>
-      </div>
-      <div class="settings-section">
-        <label class="graph-toggle"><input type="checkbox" id="darkModeToggle"> 다크모드</label>
-      </div>
-      <div class="settings-section">
-        <div class="settings-label">글꼴</div>
-        <select class="settings-select" id="fontSelect"></select>
-      </div>
-      <div class="settings-section">
-        <div class="settings-label">마크다운 하이라이트 색상</div>
-        <div class="settings-swatches" id="markSwatches"></div>
-        <div class="settings-row">
-          <label class="settings-custom-color">커스텀 <input type="color" id="markCustom"></label>
-          <button class="settings-reset" id="markReset">기본값</button>
-        </div>
-      </div>
-      <div class="settings-section">
-        <div class="settings-label">카드 글자 크기</div>
-        <select class="settings-select" id="fontSizeSelect">
-          <option value="small">축소</option>
-          <option value="normal">보통</option>
-          <option value="large">확대</option>
-        </select>
-      </div>
 
-      <div class="settings-group-title">편집</div>
-      <div class="settings-section" id="writeLayoutSection">
-        <div class="settings-label">쓰기 모드</div>
-        <select class="settings-select" id="writeLayoutSelect">
-          <option value="split">쓰기모드 + 미리보기</option>
-          <option value="write-only">쓰기모드만</option>
-        </select>
-        <label class="graph-toggle" id="previewSyncToggleRow" style="margin-top:8px;"><input type="checkbox" id="previewSyncToggle"> 편집 중 미리보기를 편집 위치와 자동 동기화</label>
-      </div>
-      <div class="settings-section">
-        <div class="settings-label">목차에 표시할 제목 단계</div>
-        <select class="settings-select" id="tocMaxLevelSelect">
-          <option value="1"># (H1)까지</option>
-          <option value="2">## (H2)까지</option>
-          <option value="3">### (H3)까지</option>
-          <option value="4">#### (H4)까지</option>
-        </select>
-      </div>
-      <div class="settings-section">
-        <div class="settings-label">동시 편집 패널 개수 (⧉ 비교)</div>
-        <select class="settings-select" id="comparePanelCountSelect">
-          <option value="2">2개 (기본 + 1개)</option>
-          <option value="3">3개 (기본 + 2개)</option>
-        </select>
-        <div class="settings-hint">각 패널은 읽기/쓰기 모드를 따로 켤 수 있어요.</div>
-      </div>
-      <div class="settings-section">
-        <label class="graph-toggle"><input type="checkbox" id="cevSnapDefaultToggle"> 캔버스를 열 때 격자 스냅 기본으로 켜기</label>
-      </div>
+        <div class="settings-pane" data-pane="edit">
+          <div class="settings-section" id="writeLayoutSection">
+            <div class="settings-label">쓰기 모드</div>
+            <select class="settings-select" id="writeLayoutSelect">
+              <option value="split">쓰기모드 + 미리보기</option>
+              <option value="write-only">쓰기모드만</option>
+            </select>
+            <label class="graph-toggle" id="previewSyncToggleRow" style="margin-top:8px;"><input type="checkbox" id="previewSyncToggle"> 편집 중 미리보기를 편집 위치와 자동 동기화</label>
+          </div>
+          <div class="settings-section">
+            <div class="settings-label">목차에 표시할 제목 단계</div>
+            <select class="settings-select" id="tocMaxLevelSelect">
+              <option value="1"># (H1)까지</option>
+              <option value="2">## (H2)까지</option>
+              <option value="3">### (H3)까지</option>
+              <option value="4">#### (H4)까지</option>
+            </select>
+          </div>
+          <div class="settings-section">
+            <div class="settings-label">동시 편집 패널 개수 (⧉ 비교)</div>
+            <select class="settings-select" id="comparePanelCountSelect">
+              <option value="2">2개 (기본 + 1개)</option>
+              <option value="3">3개 (기본 + 2개)</option>
+            </select>
+            <div class="settings-hint">각 패널은 읽기/쓰기 모드를 따로 켤 수 있어요.</div>
+          </div>
+          <div class="settings-section">
+            <label class="graph-toggle"><input type="checkbox" id="cevSnapDefaultToggle"> 캔버스를 열 때 격자 스냅 기본으로 켜기</label>
+          </div>
+        </div>
 
-      <div class="settings-group-title">성능</div>
-      <div class="settings-section">
-        <label class="graph-toggle"><input type="checkbox" id="graphIdleFloatToggle"> 그래프 유휴 애니메이션 (살짝 흔들리는 효과)</label>
-        <div class="settings-hint">저사양 기기에서 배터리를 아끼려면 꺼두세요.</div>
-      </div>
+        <div class="settings-pane" data-pane="perf">
+          <div class="settings-section">
+            <label class="graph-toggle"><input type="checkbox" id="graphIdleFloatToggle"> 그래프 유휴 애니메이션 (살짝 흔들리는 효과)</label>
+            <div class="settings-hint">저사양 기기에서 배터리를 아끼려면 꺼두세요.</div>
+          </div>
+        </div>
 
-      <div class="settings-group-title">데이터</div>
-      <div class="settings-section">
-        <div class="settings-row">
-          <button class="settings-reset" id="backupAllBtn">전체 백업 다운로드 (JSON)</button>
+        <div class="settings-pane" data-pane="data">
+          <div class="settings-section">
+            <div class="settings-row">
+              <button class="settings-reset" id="backupAllBtn">전체 백업 다운로드 (JSON)</button>
+            </div>
+            <div class="settings-hint" id="backupAllHint">모든 카드와 할 일 목록을 파일 하나로 내려받습니다.</div>
+          </div>
+          <div class="settings-section">
+            <div class="settings-label">휴지통 자동 비우기</div>
+            <select class="settings-select" id="trashRetentionSelect">
+              <option value="0">사용 안 함</option>
+              <option value="7">7일 지나면 자동 비우기</option>
+              <option value="30">30일 지나면 자동 비우기</option>
+              <option value="90">90일 지나면 자동 비우기</option>
+            </select>
+            <div class="settings-hint">휴지통을 열 때마다 기준일이 지난 카드를 영구 삭제합니다.</div>
+          </div>
         </div>
-        <div class="settings-hint" id="backupAllHint">모든 카드와 할 일 목록을 파일 하나로 내려받습니다.</div>
-      </div>
-      <div class="settings-section">
-        <div class="settings-label">휴지통 자동 비우기</div>
-        <select class="settings-select" id="trashRetentionSelect">
-          <option value="0">사용 안 함</option>
-          <option value="7">7일 지나면 자동 비우기</option>
-          <option value="30">30일 지나면 자동 비우기</option>
-          <option value="90">90일 지나면 자동 비우기</option>
-        </select>
-        <div class="settings-hint">휴지통을 열 때마다 기준일이 지난 카드를 영구 삭제합니다.</div>
-      </div>
 
-      <div class="settings-group-title">계정</div>
-      <div class="settings-section">
-        <div class="settings-label">비밀번호 변경</div>
-        <div class="settings-row" style="flex-direction:column; align-items:stretch; gap:8px;">
-          <input type="password" id="changePassNew" class="settings-select" style="cursor:text;" placeholder="새 비밀번호 (6자 이상)" autocomplete="new-password">
-          <input type="password" id="changePassConfirm" class="settings-select" style="cursor:text;" placeholder="새 비밀번호 확인" autocomplete="new-password">
-          <button class="settings-reset" id="changePassBtn" style="align-self:flex-start;">비밀번호 변경</button>
-        </div>
-      </div>
-      <div class="settings-section">
-        <div class="settings-label">구글 드라이브 연결 (이미지 저장용)</div>
-        <div class="settings-row">
-          <button class="settings-reset" id="driveConnectBtn">연결하기</button>
-          <span class="settings-hint" id="driveConnectStatus"></span>
-        </div>
-        <div class="settings-hint">연결하면 노트에 삽입하는 이미지가 본인 구글 드라이브에 저장됩니다.</div>
-      </div>
-      <div class="settings-section">
-        <div class="settings-row">
-          <a href="privacy.html" target="_blank" rel="noopener" class="settings-legal-link">개인정보처리방침 · 이용약관</a>
-        </div>
-        <div class="settings-row" style="margin-top:12px;">
-          <button class="settings-danger-btn" id="deleteAccountBtn">회원 탈퇴</button>
+        <div class="settings-pane" data-pane="account">
+          <div class="settings-section">
+            <div class="settings-label">비밀번호 변경</div>
+            <div class="settings-row" style="flex-direction:column; align-items:stretch; gap:8px;">
+              <input type="password" id="changePassNew" class="settings-select" style="cursor:text;" placeholder="새 비밀번호 (6자 이상)" autocomplete="new-password">
+              <input type="password" id="changePassConfirm" class="settings-select" style="cursor:text;" placeholder="새 비밀번호 확인" autocomplete="new-password">
+              <button class="settings-reset" id="changePassBtn" style="align-self:flex-start;">비밀번호 변경</button>
+            </div>
+          </div>
+          <div class="settings-section">
+            <div class="settings-label">구글 드라이브 연결 (이미지 저장용)</div>
+            <div class="settings-row">
+              <button class="settings-reset" id="driveConnectBtn">연결하기</button>
+              <span class="settings-hint" id="driveConnectStatus"></span>
+            </div>
+            <div class="settings-hint">연결하면 노트에 삽입하는 이미지가 본인 구글 드라이브에 저장됩니다.</div>
+          </div>
+          <div class="settings-section">
+            <div class="settings-row">
+              <a href="privacy.html" target="_blank" rel="noopener" class="settings-legal-link">개인정보처리방침 · 이용약관</a>
+            </div>
+            <div class="settings-row" style="margin-top:12px;">
+              <button class="settings-danger-btn" id="deleteAccountBtn">회원 탈퇴</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1158,11 +1172,20 @@
   applyFont(localStorage.getItem('stk-font') || '');
   applyFontSize(localStorage.getItem('stk-font-size') || 'normal');
 
-  function openSettingsModal(){ refreshSettingsUI(); el('settingsModal').style.display = 'flex'; }
+  function openSettingsModal(){ refreshSettingsUI(); setSettingsTab(localStorage.getItem('stk-settings-tab') || 'screen'); el('settingsModal').style.display = 'flex'; }
   function closeSettingsModal(){ el('settingsModal').style.display = 'none'; }
   el('settingsBtn').addEventListener('click', openSettingsModal);
   el('settingsModalClose').addEventListener('click', closeSettingsModal);
   el('settingsModal').addEventListener('click', e => { if(e.target === el('settingsModal')) closeSettingsModal(); });
+
+  // settings: left topic nav + right detail pane, instead of one long scrolling list
+  function setSettingsTab(tab){
+    document.querySelectorAll('.settings-nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.settings-pane').forEach(p => p.classList.toggle('active', p.dataset.pane === tab));
+    el('settingsNav').closest('.settings-layout').querySelector('.settings-panes').scrollTop = 0;
+    localStorage.setItem('stk-settings-tab', tab);
+  }
+  document.querySelectorAll('.settings-nav-btn').forEach(b => b.addEventListener('click', () => setSettingsTab(b.dataset.tab)));
   document.addEventListener('keydown', e => { if(e.key==='Escape' && el('settingsModal').style.display==='flex') closeSettingsModal(); });
 
   sb.auth.onAuthStateChange((event, session) => {

@@ -494,10 +494,17 @@
 
         <div class="settings-pane" data-pane="data">
           <div class="settings-section">
-            <div class="settings-row">
-              <button class="settings-reset" id="backupAllBtn">전체 백업 다운로드 (JSON)</button>
+            <div class="settings-label">백업</div>
+            <div class="settings-row" style="flex-direction:column; align-items:stretch; gap:12px;">
+              <div>
+                <button class="settings-reset" id="exportAllMdBtn">마크다운 폴더로 내보내기 (.zip)</button>
+                <div class="settings-hint" id="exportAllMdHint">노트 카드마다 .md 파일로 담아 zip으로 내려받습니다(캔버스·시트 카드 제외). 다른 메모 앱에서도 그대로 열리는, 사람이 읽을 수 있는 백업이에요.</div>
+              </div>
+              <div>
+                <button class="settings-reset" id="backupAllBtn">전체 백업 다운로드 (JSON)</button>
+                <div class="settings-hint" id="backupAllHint">모든 카드(캔버스·시트 포함)와 할 일 목록까지 전부 담은, 이 앱으로 복원할 때 쓰는 백업이에요.</div>
+              </div>
             </div>
-            <div class="settings-hint" id="backupAllHint">모든 카드와 할 일 목록을 파일 하나로 내려받습니다.</div>
           </div>
           <div class="settings-section">
             <div class="settings-label">휴지통 자동 비우기</div>
@@ -731,6 +738,7 @@
     await sb.auth.signOut();
   };
 
+  el('exportAllMdBtn').onclick = exportAllNotesAsMarkdownZip;
   el('backupAllBtn').onclick = async () => {
     const btn = el('backupAllBtn');
     const hint = el('backupAllHint');
@@ -2611,6 +2619,123 @@
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(url);
     showToast('마크다운 파일로 내보냈습니다');
+  }
+
+  // ---------------- minimal ZIP writer (store/no-compression) for the markdown-folder backup ----------------
+  // Note bodies are small plain text, so skipping DEFLATE entirely keeps this to a page of code
+  // instead of pulling in a compression library just to save a few KB.
+  function crc32(bytes){
+    let crc = 0xFFFFFFFF;
+    for(let i = 0; i < bytes.length; i++){
+      let c = (crc ^ bytes[i]) & 0xFF;
+      for(let j = 0; j < 8; j++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      crc = (crc >>> 8) ^ c;
+    }
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+  }
+
+  // files: [{ name: string, data: Uint8Array }] -> Blob (a valid, minimal .zip)
+  function buildZip(files){
+    const encoder = new TextEncoder();
+    const localParts = [];
+    const centralParts = [];
+    let offset = 0;
+    const now = new Date();
+    const dosTime = (now.getHours()<<11) | (now.getMinutes()<<5) | (now.getSeconds()>>1);
+    const dosDate = ((now.getFullYear()-1980)<<9) | ((now.getMonth()+1)<<5) | now.getDate();
+
+    files.forEach(f => {
+      const nameBytes = encoder.encode(f.name);
+      const data = f.data;
+      const crc = crc32(data);
+
+      const local = new DataView(new ArrayBuffer(30));
+      local.setUint32(0, 0x04034b50, true);
+      local.setUint16(4, 20, true);        // version needed
+      local.setUint16(6, 0x0800, true);    // flags: UTF-8 filename
+      local.setUint16(8, 0, true);         // method: stored
+      local.setUint16(10, dosTime, true);
+      local.setUint16(12, dosDate, true);
+      local.setUint32(14, crc, true);
+      local.setUint32(18, data.length, true);
+      local.setUint32(22, data.length, true);
+      local.setUint16(26, nameBytes.length, true);
+      local.setUint16(28, 0, true);        // extra field length
+      localParts.push(new Uint8Array(local.buffer), nameBytes, data);
+
+      const central = new DataView(new ArrayBuffer(46));
+      central.setUint32(0, 0x02014b50, true);
+      central.setUint16(4, 20, true);      // version made by
+      central.setUint16(6, 20, true);      // version needed
+      central.setUint16(8, 0x0800, true);
+      central.setUint16(10, 0, true);
+      central.setUint16(12, dosTime, true);
+      central.setUint16(14, dosDate, true);
+      central.setUint32(16, crc, true);
+      central.setUint32(20, data.length, true);
+      central.setUint32(24, data.length, true);
+      central.setUint16(28, nameBytes.length, true);
+      central.setUint16(30, 0, true);      // extra length
+      central.setUint16(32, 0, true);      // comment length
+      central.setUint16(34, 0, true);      // disk number start
+      central.setUint16(36, 0, true);      // internal attrs
+      central.setUint32(38, 0, true);      // external attrs
+      central.setUint32(42, offset, true); // offset of local header
+      centralParts.push(new Uint8Array(central.buffer), nameBytes);
+
+      offset += 30 + nameBytes.length + data.length;
+    });
+
+    const centralStart = offset;
+    const centralSize = centralParts.reduce((n, p) => n + p.length, 0);
+
+    const end = new DataView(new ArrayBuffer(22));
+    end.setUint32(0, 0x06054b50, true);
+    end.setUint16(4, 0, true);
+    end.setUint16(6, 0, true);
+    end.setUint16(8, files.length, true);
+    end.setUint16(10, files.length, true);
+    end.setUint32(12, centralSize, true);
+    end.setUint32(16, centralStart, true);
+    end.setUint16(20, 0, true);
+
+    return new Blob([...localParts, ...centralParts, new Uint8Array(end.buffer)], { type:'application/zip' });
+  }
+
+  // portable, human-readable alternative to the JSON backup: one .md file per note card (canvas
+  // and table cards are skipped — their content is a JSON blob, not markdown, so there's nothing
+  // meaningful to write as one), zipped up client-side with no server round trip beyond the fetch.
+  async function exportAllNotesAsMarkdownZip(){
+    const btn = el('exportAllMdBtn');
+    const hint = el('exportAllMdHint');
+    btn.disabled = true; const label = btn.textContent; btn.textContent = '내보내는 중…';
+    try{
+      const { data, error } = await sb.from('notes').select('title,content')
+        .is('deleted_at', null).eq('type', 'note').order('created_at', { ascending:true });
+      if(error) throw error;
+      const encoder = new TextEncoder();
+      const usedNames = new Set();
+      const files = data.map(n => {
+        const base = (n.title || '제목 없음').replace(/[\\/:*?"<>|]/g, '_').trim() || '제목 없음';
+        let name = base, i = 2;
+        while(usedNames.has(name)) name = `${base} (${i++})`; // same title on two cards would otherwise silently clobber one file
+        usedNames.add(name);
+        const md = `# ${n.title || '제목 없음'}\n\n${n.content || ''}`;
+        return { name: `${name}.md`, data: encoder.encode(md) };
+      });
+      const blob = buildZip(files);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const dateStr = new Date().toISOString().slice(0,10);
+      a.href = url; a.download = `graphidea-markdown-${dateStr}.zip`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      hint.textContent = `노트 카드 ${files.length}개를 마크다운으로 내보냄`;
+    }catch(e){
+      showToast('내보내기 실패: ' + (e.message || '오류가 발생했습니다'));
+    }finally{
+      btn.disabled = false; btn.textContent = label;
+    }
   }
 
   function refreshOpenNoteView(){

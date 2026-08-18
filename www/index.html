@@ -106,6 +106,7 @@
         <span class="submeta" id="subLine"></span>
         <span class="submeta" id="wordCount"></span>
         <div class="spacer"></div>
+        <button class="pinbtn" id="exportPdfBtn" title="PDF로 저장 (인쇄 대화상자에서 대상을 'PDF로 저장'으로 선택하세요)">🖨 PDF</button>
         <button class="pinbtn" id="exportMdBtn" title="마크다운 파일로 내보내기">↓ MD</button>
         <button class="pinbtn" id="dupBtn" title="카드 복제">⧉ 복제</button>
         <button class="pinbtn" id="cardColorBtn" title="카드 색상 변경">🎨</button>
@@ -388,6 +389,11 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- populated just before window.print() and hidden the rest of the time — @media print hides
+     everything else in body, so printing/saving-as-PDF always shows just this, regardless of
+     whatever view/mode the app happens to be in underneath -->
+<div id="printArea"></div>
 
 <div id="guideModal" class="guide-modal">
   <div class="guide-modal-box">
@@ -2988,6 +2994,21 @@
   searchInput.addEventListener('input', (e) => { searchQuery = e.target.value; renderCardList(); });
   el('dupBtn').onclick = () => { if(currentId) duplicateNote(currentId); };
   el('exportMdBtn').onclick = () => { if(currentId) exportNoteAsMarkdown(currentId); };
+  el('exportPdfBtn').onclick = () => {
+    if(!currentId || currentView !== 'note') return;
+    const title = titleField.value.trim() || '제목 없음';
+    const area = el('printArea');
+    // built from editorBox.value (not note.content) so unsaved in-progress edits print too, same
+    // as what's currently on screen
+    area.innerHTML = `<div class="print-title">${escapeHtml(title)}</div>`
+      + `<div class="print-meta">GRAPHIDEA · ${new Date().toLocaleDateString('ko-KR')}</div>`
+      + renderMarkdown(editorBox.value);
+    const prevTitle = document.title; // most browsers default the saved PDF's filename to the tab title
+    document.title = title;
+    window.print();
+    const restoreTitle = () => { document.title = prevTitle; window.removeEventListener('afterprint', restoreTitle); };
+    window.addEventListener('afterprint', restoreTitle);
+  };
   el('cardColorBtn').onclick = (e) => {
     if(!currentId) return;
     const note = index.find(m => m.id === currentId);

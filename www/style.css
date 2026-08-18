@@ -906,3 +906,30 @@
     .toolbar{ flex-direction:column; align-items:stretch; gap:6px; }
     .toolbar-row{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
   }
+
+/* ---------- PDF export (읽기모드 문서를 브라우저 인쇄 대화상자로 PDF 저장) ----------
+   #printArea is populated with a title + the rendered markdown right before window.print() is
+   called, and is the ONLY thing shown on the print stylesheet — simpler and far more robust than
+   trying to selectively hide every piece of app chrome (sidebar/toolbar/right panel/whatever
+   view happens to be open underneath). Colors are hardcoded rather than reading CSS vars, since
+   printed output should be legible on paper regardless of the app's current light/dark theme. */
+#printArea{ display:none; }
+@media print{
+  body > *:not(#printArea){ display:none !important; }
+  #printArea{
+    display:block !important; max-width:720px; margin:0 auto; padding:0;
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    color:#1a1a1a; background:#fff; font-size:12.5pt; line-height:1.6;
+    print-color-adjust:exact; -webkit-print-color-adjust:exact; /* otherwise browsers drop the code/quote background tints by default */
+  }
+  #printArea .print-title{ font-size:22pt; font-weight:800; margin:0 0 4pt; }
+  #printArea .print-meta{ font-size:9pt; color:#777; margin:0 0 18pt; }
+  #printArea h1, #printArea h2, #printArea h3, #printArea h4{ break-after:avoid; color:#1a1a1a; }
+  #printArea table, #printArea pre, #printArea blockquote, #printArea .callout, #printArea img{ break-inside:avoid; }
+  #printArea img{ max-width:100%; }
+  #printArea a{ color:#1a1a1a; text-decoration:underline; }
+  #printArea .wikilink{ color:#1a1a1a; font-weight:600; }
+  #printArea code{ background:#f0efe9; padding:1px 4px; border-radius:3px; }
+  #printArea pre{ background:#f0efe9; padding:10px 12px; border-radius:6px; overflow-wrap:break-word; }
+  #printArea blockquote{ border-left:3px solid #ccc; margin:0 0 12pt; padding:2pt 0 2pt 12pt; color:#444; }
+}

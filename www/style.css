@@ -915,6 +915,10 @@
    printed output should be legible on paper regardless of the app's current light/dark theme. */
 #printArea{ display:none; }
 @media print{
+  /* the app shell locks html/body to exactly one viewport height with overflow:hidden (so the
+     app's own panes scroll internally instead of the whole page) — left alone, that also clips
+     print output to a single page's worth of height. Let it flow across as many pages as needed. */
+  html, body{ height:auto !important; overflow:visible !important; }
   body > *:not(#printArea){ display:none !important; }
   #printArea{
     display:block !important; max-width:720px; margin:0 auto; padding:0;

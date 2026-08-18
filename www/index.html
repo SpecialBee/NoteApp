@@ -2994,7 +2994,24 @@
   searchInput.addEventListener('input', (e) => { searchQuery = e.target.value; renderCardList(); });
   el('dupBtn').onclick = () => { if(currentId) duplicateNote(currentId); };
   el('exportMdBtn').onclick = () => { if(currentId) exportNoteAsMarkdown(currentId); };
-  el('exportPdfBtn').onclick = () => {
+  // window.print() snapshots whatever's on screen right now — if a <img src="drive-url"> was
+  // just inserted via innerHTML, the print engine can fire before the image has actually
+  // downloaded, so the PDF comes out with that image blank. Wait for every image to settle
+  // (loaded or errored, whichever first, capped so one stuck request can't hang printing forever).
+  function waitForImages(container){
+    const imgs = [...container.querySelectorAll('img')];
+    return Promise.all(imgs.map(img => {
+      if(img.complete) return Promise.resolve();
+      return new Promise(resolve => {
+        const done = () => { clearTimeout(t); resolve(); };
+        img.addEventListener('load', done, { once:true });
+        img.addEventListener('error', done, { once:true });
+        const t = setTimeout(done, 8000);
+      });
+    }));
+  }
+
+  el('exportPdfBtn').onclick = async () => {
     if(!currentId || currentView !== 'note') return;
     const title = titleField.value.trim() || '제목 없음';
     const area = el('printArea');
@@ -3003,6 +3020,7 @@
     area.innerHTML = `<div class="print-title">${escapeHtml(title)}</div>`
       + `<div class="print-meta">GRAPHIDEA · ${new Date().toLocaleDateString('ko-KR')}</div>`
       + renderMarkdown(editorBox.value);
+    await waitForImages(area);
     const prevTitle = document.title; // most browsers default the saved PDF's filename to the tab title
     document.title = title;
     window.print();

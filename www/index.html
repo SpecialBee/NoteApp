@@ -3658,6 +3658,13 @@
     const p = m[1].split(',');
     return 'rgba(' + p[0].trim() + ',' + p[1].trim() + ',' + p[2].trim() + ',' + a + ')';
   }
+  // linear-blend two rgb() strings (t: 0 -> a, 1 -> b). used for the depth atmospheric fade.
+  function mix(rgbA, rgbB, t){
+    const a = rgbA.match(/\d+(?:\.\d+)?/g), b = rgbB.match(/\d+(?:\.\d+)?/g);
+    if(!a || !b) return rgbA;
+    const c = i => Math.round(+a[i] + (+b[i] - +a[i]) * t);
+    return 'rgb(' + c(0) + ',' + c(1) + ',' + c(2) + ')';
+  }
 
   function isGraphOpen(){ return globalGraphView.style.display === 'flex'; }
   function stopGlobalSim(){ if(globalSim){ cancelAnimationFrame(globalSim.raf); cancelAnimationFrame(globalSim.idleRaf); globalSim.running=false; } }
@@ -3800,8 +3807,16 @@
       const tag = (m.tags && m.tags[0]) || '';
       let fill = colorForTag(tag);
       fill = (fill[0] === 'v') ? graphColors.inkFaint : toRgb(fill); // untagged returns var(--ink-faint)
+      // Stage 3 depth cue: atmospheric perspective — far nodes (low z) recede by fading toward the
+      // background colour and shrinking; near nodes stay saturated/large. cheaper and steadier than
+      // the old per-node gaussian blur, and reads as real depth rather than just "faint".
+      let depthAlpha = 1;
+      if(depth3dEnabled){
+        fill = mix(fill, graphColors.bg, (1 - z) * 0.62);
+        depthAlpha = 0.82 + 0.18 * depth.opacity; // keep edges readable; the colour fade does the work
+      }
       return { src:m, id:m.id, r, x, y, vx:0, vy:0, fixed:false, z,
-               depthScale:depth.scale, depthOpacity:depth.opacity,
+               depthScale:depth3dEnabled ? depth.scale : 1, depthAlpha,
                fill, tag, pinned:!!m.pinned, isHub:(deg >= hubThreshold), label:(m.title||'').slice(0,18) };
     });
     const links = [];
@@ -3930,11 +3945,9 @@
       else if(hoverId) dim = (n.id !== hoverId && !(hoverNbr && hoverNbr.has(n.id)));
       else dim = false;
 
-      // depth cue = opacity + size (Stage 1 dropped the SVG per-node gaussian blur; too costly on canvas)
-      const dScale = depth3dEnabled ? n.depthScale : 1;
-      const dOpac  = depth3dEnabled ? n.depthOpacity : 1;
-      n._rw = n.r * dScale; // cache scaled radius for the label pass
-      const alpha = dOpac * (dim ? 0.15 : 1);
+      // depth cue precomputed in the node build (atmospheric fade + size); see Stage 3 notes there
+      n._rw = n.r * n.depthScale; // cache scaled radius for the label pass
+      const alpha = n.depthAlpha * (dim ? 0.15 : 1);
 
       gctx.beginPath(); gctx.arc(n.x, n.y, n._rw, 0, Math.PI*2);
       gctx.fillStyle = withAlpha(n.fill, alpha); gctx.fill();

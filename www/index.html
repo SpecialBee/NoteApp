@@ -3648,8 +3648,8 @@
   function renderGlobalGraph(){
     stopGlobalSim();
     const rect = globalGraphSvg.getBoundingClientRect();
-    const W = Math.max(400, Math.round(rect.width));
-    const H = Math.max(300, Math.round(rect.height));
+    const baseW = Math.max(400, Math.round(rect.width));
+    const baseH = Math.max(300, Math.round(rect.height));
 
     const edgeSet = new Set();
     const edges = [];
@@ -3669,6 +3669,14 @@
     });
 
     const shownNotes = showIsolatedNodes ? index : index.filter(m => degree[m.id] > 0);
+
+    // a fixed-size canvas packs nodes tighter and tighter as more join — grow the simulation's
+    // virtual canvas (and the viewBox showing it) with node count instead, so density per node
+    // stays roughly constant. sqrt() keeps this gentle (4x the nodes -> 2x the canvas side, not
+    // 4x); below ~16 nodes growth clamps to 1 and behaves exactly as before.
+    const growth = Math.max(1, Math.sqrt(shownNotes.length / 16));
+    const W = Math.round(baseW * growth);
+    const H = Math.round(baseH * growth);
 
     globalGraphSvg.setAttribute('viewBox', `0 0 ${W} ${H}`);
     resetGraphView();

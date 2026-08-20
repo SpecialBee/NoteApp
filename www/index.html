@@ -1223,6 +1223,16 @@
   document.querySelectorAll('.settings-nav-btn').forEach(b => b.addEventListener('click', () => setSettingsTab(b.dataset.tab)));
   document.addEventListener('keydown', e => { if(e.key==='Escape' && el('settingsModal').style.display==='flex') closeSettingsModal(); });
 
+  // boot() must run once per sign-in, but several signals carry a session: getSession() on load,
+  // the INITIAL_SESSION event, and — crucially — TOKEN_REFRESHED / USER_UPDATED which fire while
+  // you're already using the app (hourly token refresh). Without this guard the app booted twice on
+  // open (getSession + INITIAL_SESSION) and re-loaded everything on every token refresh.
+  let bootedUserId = null;
+  function bootOnce(user){
+    if(!user || bootedUserId === user.id) return;
+    bootedUserId = user.id;
+    boot(user);
+  }
   sb.auth.onAuthStateChange((event, session) => {
     if(event === 'PASSWORD_RECOVERY'){
       loginWrap.style.display = 'none';
@@ -1233,10 +1243,11 @@
       loginWrap.style.display = 'none';
       appEl.classList.add('ready');
       saveDriveRefreshTokenFromSession(session);
-      boot();
+      bootOnce(session.user);
     }else{
       loginWrap.style.display = 'flex';
       appEl.classList.remove('ready');
+      bootedUserId = null;
       teardownRealtime();
     }
   });
@@ -1918,8 +1929,10 @@
     setTimeout(()=>document.addEventListener('mousedown', close), 0);
   }
 
-  function buildCardEl(m, i, sameOrder){
-    const origIdx = index.findIndex(x => x.id === m.id);
+  function buildCardEl(m, i, sameOrder, posMap){
+    // position in the full index (document serial number). posMap makes this O(1); the fallback
+    // keeps any stray caller working, but renderCardList always passes the prebuilt map.
+    const origIdx = posMap ? posMap.get(m.id) : index.findIndex(x => x.id === m.id);
     const card = document.createElement('div');
     card.className = 'card-tab' + (m.id === currentId ? ' active' : '') + (sameOrder ? ' no-anim' : '');
     card.style.animationDelay = (i * 0.02) + 's';
@@ -1988,8 +2001,14 @@
     const sameOrder = !!lastCardListIds && currentIds.length === lastCardListIds.length && currentIds.every((id,i) => id === lastCardListIds[i]);
     lastCardListIds = currentIds;
 
+    // build the id->index map once (was an index.findIndex() per card => O(n^2)), and assemble into
+    // a DocumentFragment so the whole list hits the live DOM in a single reflow instead of N.
+    const posMap = new Map(index.map((m, i) => [m.id, i]));
+    const frag = document.createDocumentFragment();
+
     if(!cardGroupMode){
-      filtered.forEach((m, i) => cardList.appendChild(buildCardEl(m, i, sameOrder)));
+      filtered.forEach((m, i) => frag.appendChild(buildCardEl(m, i, sameOrder, posMap)));
+      cardList.appendChild(frag);
       return;
     }
 
@@ -2006,13 +2025,14 @@
     let i = 0;
     [...groups.keys()].sort((a,b) => a.localeCompare(b, 'ko')).forEach(tag => {
       const cards = groups.get(tag);
-      cardList.appendChild(buildGroupHeaderEl(tag, '#' + escapeHtml(tag), cards.length));
-      if(!collapsedGroups.has(tag)) cards.forEach(m => cardList.appendChild(buildCardEl(m, i++, sameOrder)));
+      frag.appendChild(buildGroupHeaderEl(tag, '#' + escapeHtml(tag), cards.length));
+      if(!collapsedGroups.has(tag)) cards.forEach(m => frag.appendChild(buildCardEl(m, i++, sameOrder, posMap)));
     });
     if(untagged.length){
-      cardList.appendChild(buildGroupHeaderEl(UNTAGGED_GROUP_KEY, '태그 없음', untagged.length));
-      if(!collapsedGroups.has(UNTAGGED_GROUP_KEY)) untagged.forEach(m => cardList.appendChild(buildCardEl(m, i++, sameOrder)));
+      frag.appendChild(buildGroupHeaderEl(UNTAGGED_GROUP_KEY, '태그 없음', untagged.length));
+      if(!collapsedGroups.has(UNTAGGED_GROUP_KEY)) untagged.forEach(m => frag.appendChild(buildCardEl(m, i++, sameOrder, posMap)));
     }
+    cardList.appendChild(frag);
   }
 
   // ---------------- open / edit ----------------
@@ -7894,11 +7914,11 @@ GRAPHIDEA는 흩어진 생각을 **연결해 하나의 그래프로 잇는** 개
   // ---------------- boot ----------------
   loadUserPresets();
   applyPanelState();
-  async function boot(){
-    const { data: { user } } = await sb.auth.getUser();
+  async function boot(user){
+    // user comes from the session we already have (getSession / onAuthStateChange) — no extra
+    // getUser() round-trip. loadAll + loadChecklist are independent, so fetch them in parallel.
     if(user) setupRealtime(user.id);
-    await loadAll();
-    await loadChecklist();
+    await Promise.all([loadAll(), loadChecklist()]);
     if(index.length === 0){
       await createNote('GRAPHIDEA 사용법');
       const w = index.find(m => m.id === currentId);
@@ -7911,8 +7931,10 @@ GRAPHIDEA는 흩어진 생각을 **연결해 하나의 그래프로 잇는** 개
     }
     computeAllTags();
     renderTagRow();
-    renderCardList();
+    // openDashboard() already renders the card list, so only render it here when we're NOT opening
+    // the dashboard — otherwise the whole list DOM gets built twice on every app open
     if(!currentId) openDashboard();
+    else renderCardList();
     maybeShowGuideOnce();
     refreshDriveConnectUI();
   }
@@ -7922,7 +7944,7 @@ GRAPHIDEA는 흩어진 생각을 **연결해 하나의 그래프로 잇는** 개
     if(data.session){
       loginWrap.style.display = 'none';
       appEl.classList.add('ready');
-      boot();
+      bootOnce(data.session.user);
     }
   });
 

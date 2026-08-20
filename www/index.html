@@ -81,6 +81,7 @@
       <button class="sortbtn" data-sort="title">제목순</button>
       <button class="sortbtn" data-sort="created">생성순</button>
       <button class="sortbtn density-btn" id="cardDensityBtn" title="카드 목록 밀도 전환">☰</button>
+      <button class="sortbtn density-btn" id="cardGroupBtn" title="태그별로 묶어보기">📁</button>
     </div>
     <div class="tagrow" id="tagRow"></div>
     <div class="cardlist" id="cardList"></div>
@@ -559,6 +560,16 @@
 
 <div id="wikiLinkPopup" class="wikilink-popup"></div>
 
+<div id="importTagPopup" class="import-tag-popup" style="display:none;">
+  <div class="import-tag-popup-label">이번에 가져올 파일 전체에 태그를 붙일까요? (선택)</div>
+  <input type="text" id="importTagInput" class="compare-picker-input" placeholder="태그 이름 (비워두면 안 붙임)" list="importTagDatalist" autocomplete="off">
+  <datalist id="importTagDatalist"></datalist>
+  <div class="import-tag-popup-actions">
+    <button id="importTagCancelBtn" class="settings-reset">취소</button>
+    <button id="importTagGoBtn" class="import-tag-go-btn">파일 선택 →</button>
+  </div>
+</div>
+
 <div id="cevCtxBar"></div>
 
 <div id="cevColorPalette">
@@ -613,6 +624,8 @@
   let currentManualTags = []; // tag chips for the currently open note
   let sortMode = localStorage.getItem('cardCatalogSortMode') || 'updated'; // 'updated' | 'title' | 'created'
   let cardDensity = localStorage.getItem('stk-card-density') || 'normal'; // 'normal' | 'compact'
+  let cardGroupMode = localStorage.getItem('stk-card-group-mode') === '1'; // flat list vs. tag-grouped sidebar
+  let collapsedGroups = new Set(JSON.parse(localStorage.getItem('stk-collapsed-groups') || '[]'));
   let lastCardListIds = null; // ids (in order) from the previous renderCardList() call; skips the fade-in when unchanged
 
   const el = (id) => document.getElementById(id);
@@ -1893,6 +1906,59 @@
     setTimeout(()=>document.addEventListener('mousedown', close), 0);
   }
 
+  function buildCardEl(m, i, sameOrder){
+    const origIdx = index.findIndex(x => x.id === m.id);
+    const card = document.createElement('div');
+    card.className = 'card-tab' + (m.id === currentId ? ' active' : '') + (sameOrder ? ' no-anim' : '');
+    card.style.animationDelay = (i * 0.02) + 's';
+    const cardColor = noteColor(m);
+    if(cardColor) card.style.borderLeft = '3px solid ' + cardColor;
+    const dot = `<span class="card-color-dot" style="background:${cardColor||'transparent'};${cardColor?'':'border-style:dashed;border-color:var(--border);'}" title="카드 색상 변경"></span>`;
+    if(cardDensity === 'compact'){
+      const kindIcon = isCanvasNote(m) ? '<span class="kind-icon">🎨</span>' : isTableNote(m) ? '<span class="kind-icon">📊</span>' : '';
+      card.innerHTML = `
+        <button class="delbtn" title="삭제">✕</button>
+        <div class="ctab-row">
+          ${dot}
+          ${m.pinned ? '<span class="pinmark">★</span>' : ''}
+          ${kindIcon}
+          <span class="ttl">${escapeHtml(m.title || '제목 없음')}</span>
+        </div>
+      `;
+    } else {
+      card.innerHTML = `
+        <button class="delbtn" title="삭제">✕</button>
+        <div class="serial">${serialOf(origIdx)}${m.pinned ? ' <span class="pinmark">★</span>' : ''}${isCanvasNote(m) ? ' <span class="canvas-badge">canvas</span>' : ''}${isTableNote(m) ? ' <span class="table-badge">sheet</span>' : ''}</div>
+        <div class="ttl">${escapeHtml(m.title || '제목 없음')}</div>
+        <div class="meta" style="display:flex;align-items:center;gap:4px;">
+          ${dot}
+          <span class="updated">${formatDate(m.updated)}</span>
+        </div>
+      `;
+    }
+    card.querySelector('.card-color-dot').addEventListener('click', e => { e.stopPropagation(); showCardColorPalette(m, e); });
+    card.onclick = (e) => { if(e.target.classList.contains('delbtn')) return; openNote(m.id); };
+    card.querySelector('.delbtn').onclick = async (e) => {
+      e.stopPropagation();
+      if(confirm(`"${m.title || '제목 없음'}" 카드를 삭제할까요? 되돌릴 수 없습니다.`)) await removeNote(m.id);
+    };
+    return card;
+  }
+
+  const UNTAGGED_GROUP_KEY = '__untagged__';
+  function buildGroupHeaderEl(key, label, count){
+    const collapsed = collapsedGroups.has(key);
+    const header = document.createElement('div');
+    header.className = 'card-group-header' + (collapsed ? ' collapsed' : '');
+    header.innerHTML = `<span class="card-group-chevron">${collapsed ? '▸' : '▾'}</span><span class="card-group-name">${label}</span><span class="card-group-count">${count}</span>`;
+    header.onclick = () => {
+      if(collapsedGroups.has(key)) collapsedGroups.delete(key); else collapsedGroups.add(key);
+      localStorage.setItem('stk-collapsed-groups', JSON.stringify([...collapsedGroups]));
+      renderCardList();
+    };
+    return header;
+  }
+
   function renderCardList(){
     if(showingTrash){ renderTrashList(); return; }
     const filtered = visibleCards();
@@ -1909,44 +1975,32 @@
     const currentIds = filtered.map(m => m.id);
     const sameOrder = !!lastCardListIds && currentIds.length === lastCardListIds.length && currentIds.every((id,i) => id === lastCardListIds[i]);
     lastCardListIds = currentIds;
-    filtered.forEach((m, i) => {
-      const origIdx = index.findIndex(x => x.id === m.id);
-      const card = document.createElement('div');
-      card.className = 'card-tab' + (m.id === currentId ? ' active' : '') + (sameOrder ? ' no-anim' : '');
-      card.style.animationDelay = (i * 0.02) + 's';
-      const cardColor = noteColor(m);
-      if(cardColor) card.style.borderLeft = '3px solid ' + cardColor;
-      const dot = `<span class="card-color-dot" style="background:${cardColor||'transparent'};${cardColor?'':'border-style:dashed;border-color:var(--border);'}" title="카드 색상 변경"></span>`;
-      if(cardDensity === 'compact'){
-        const kindIcon = isCanvasNote(m) ? '<span class="kind-icon">🎨</span>' : isTableNote(m) ? '<span class="kind-icon">📊</span>' : '';
-        card.innerHTML = `
-          <button class="delbtn" title="삭제">✕</button>
-          <div class="ctab-row">
-            ${dot}
-            ${m.pinned ? '<span class="pinmark">★</span>' : ''}
-            ${kindIcon}
-            <span class="ttl">${escapeHtml(m.title || '제목 없음')}</span>
-          </div>
-        `;
-      } else {
-        card.innerHTML = `
-          <button class="delbtn" title="삭제">✕</button>
-          <div class="serial">${serialOf(origIdx)}${m.pinned ? ' <span class="pinmark">★</span>' : ''}${isCanvasNote(m) ? ' <span class="canvas-badge">canvas</span>' : ''}${isTableNote(m) ? ' <span class="table-badge">sheet</span>' : ''}</div>
-          <div class="ttl">${escapeHtml(m.title || '제목 없음')}</div>
-          <div class="meta" style="display:flex;align-items:center;gap:4px;">
-            ${dot}
-            <span class="updated">${formatDate(m.updated)}</span>
-          </div>
-        `;
-      }
-      card.querySelector('.card-color-dot').addEventListener('click', e => { e.stopPropagation(); showCardColorPalette(m, e); });
-      card.onclick = (e) => { if(e.target.classList.contains('delbtn')) return; openNote(m.id); };
-      card.querySelector('.delbtn').onclick = async (e) => {
-        e.stopPropagation();
-        if(confirm(`"${m.title || '제목 없음'}" 카드를 삭제할까요? 되돌릴 수 없습니다.`)) await removeNote(m.id);
-      };
-      cardList.appendChild(card);
+
+    if(!cardGroupMode){
+      filtered.forEach((m, i) => cardList.appendChild(buildCardEl(m, i, sameOrder)));
+      return;
+    }
+
+    // grouped view: one collapsible section per tag — a card with several tags shows up in
+    // each of them, same loose multi-group model the tag filter chips already use — plus a
+    // trailing section for untagged cards. Meant for sorting a large batch (e.g. right after a
+    // bulk markdown import) into browsable groups without needing real folders.
+    const groups = new Map(); // tag -> cards[]
+    const untagged = [];
+    filtered.forEach(m => {
+      if(!m.tags || !m.tags.length){ untagged.push(m); return; }
+      m.tags.forEach(t => { if(!groups.has(t)) groups.set(t, []); groups.get(t).push(m); });
     });
+    let i = 0;
+    [...groups.keys()].sort((a,b) => a.localeCompare(b, 'ko')).forEach(tag => {
+      const cards = groups.get(tag);
+      cardList.appendChild(buildGroupHeaderEl(tag, '#' + escapeHtml(tag), cards.length));
+      if(!collapsedGroups.has(tag)) cards.forEach(m => cardList.appendChild(buildCardEl(m, i++, sameOrder)));
+    });
+    if(untagged.length){
+      cardList.appendChild(buildGroupHeaderEl(UNTAGGED_GROUP_KEY, '태그 없음', untagged.length));
+      if(!collapsedGroups.has(UNTAGGED_GROUP_KEY)) untagged.forEach(m => cardList.appendChild(buildCardEl(m, i++, sameOrder)));
+    }
   }
 
   // ---------------- open / edit ----------------
@@ -3242,6 +3296,19 @@
     renderCardList();
   };
   applyCardDensity();
+
+  function applyCardGroupMode(){
+    const btn = el('cardGroupBtn');
+    btn.classList.toggle('active', cardGroupMode);
+    btn.title = cardGroupMode ? '태그별 묶기 끄기' : '태그별로 묶어보기';
+  }
+  el('cardGroupBtn').onclick = () => {
+    cardGroupMode = !cardGroupMode;
+    localStorage.setItem('stk-card-group-mode', cardGroupMode ? '1' : '0');
+    applyCardGroupMode();
+    renderCardList();
+  };
+  applyCardGroupMode();
 
   // ---------------- keyboard navigation ----------------
   function navigateCard(delta){
@@ -6723,14 +6790,19 @@
   el('newCanvasItem').addEventListener('click',()=>{ el('newBtnMenu').style.display='none'; createCanvasNote(); });
   el('newTableItem').addEventListener('click',()=>{ el('newBtnMenu').style.display='none'; createTableNote(); });
 
-  async function importMarkdownFiles(files){
+  // batchTag: an optional single tag applied to every file in this import — since a bulk import
+  // usually arrives as one flat batch with no folder structure to preserve, tagging the whole
+  // batch at import time (rather than re-tagging each card afterward) is the cheap substitute
+  // for "putting them in a folder"; combine with cardGroupMode's tag-grouped sidebar to browse it.
+  async function importMarkdownFiles(files, batchTag){
     const list = [...files].filter(f => /\.md$/i.test(f.name) || f.type==='text/markdown');
     if(!list.length) return;
     let lastCreated = null, count = 0;
     for(const file of list){
       const text = await file.text();
       const title = file.name.replace(/\.md$/i, '').trim() || '제목 없음';
-      const draft = { title, content:text, tags:extractTags(text), links:extractLinks(text), pinned:false, properties:[] };
+      const tags = Array.from(new Set([...(batchTag ? [batchTag] : []), ...extractTags(text)]));
+      const draft = { title, content:text, tags, links:extractLinks(text), pinned:false, properties:[] };
       const created = await insertNote(draft);
       if(!created) continue;
       index.unshift(created); lastCreated = created; count++;
@@ -6740,11 +6812,33 @@
     if(lastCreated) await openNote(lastCreated.id);
     showToast(`마크다운 카드 ${count}개를 불러왔습니다`);
   }
-  el('importMdItem').addEventListener('click',()=>{ el('newBtnMenu').style.display='none'; el('importMdFile').click(); });
+
+  // small popover asking for an optional "tag the whole batch" name before the file picker opens
+  function openImportTagPopup(anchorEl){
+    const pop = el('importTagPopup');
+    const input = el('importTagInput');
+    el('importTagDatalist').innerHTML = allTags.map(t => `<option value="${escapeHtml(t)}">`).join('');
+    input.value = '';
+    pop.style.display = 'block';
+    const rect = anchorEl.getBoundingClientRect();
+    pop.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - pop.offsetWidth - 8)) + 'px';
+    pop.style.top = (rect.bottom + 6) + 'px';
+    input.focus();
+    const closePopup = () => { pop.style.display = 'none'; document.removeEventListener('mousedown', outsideClose); };
+    const go = () => { closePopup(); pendingImportTag = input.value.trim() || null; el('importMdFile').click(); };
+    el('importTagGoBtn').onclick = go;
+    el('importTagCancelBtn').onclick = closePopup;
+    input.onkeydown = (e) => { if(e.key === 'Enter'){ e.preventDefault(); go(); } else if(e.key === 'Escape') closePopup(); };
+    const outsideClose = (ev) => { if(!pop.contains(ev.target) && ev.target !== anchorEl) closePopup(); };
+    setTimeout(() => document.addEventListener('mousedown', outsideClose), 0);
+  }
+  let pendingImportTag = null;
+  el('importMdItem').addEventListener('click',()=>{ el('newBtnMenu').style.display='none'; openImportTagPopup(el('newBtnWrap')); });
   el('importMdFile').addEventListener('change', async (e) => {
     const files = Array.from(e.target.files || []);
     e.target.value = '';
-    if(files.length) await importMarkdownFiles(files);
+    const tag = pendingImportTag; pendingImportTag = null;
+    if(files.length) await importMarkdownFiles(files, tag);
   });
   el('databaseBtn').addEventListener('click',()=>openDatabaseView());
   el('dbViewExitBtn').addEventListener('click',()=>exitDatabaseView());

@@ -187,6 +187,11 @@
   @keyframes fanin{ from{ opacity:0; transform: translateY(-4px); } to{ opacity:1; transform: translateY(0); } }
   .cardlist.compact{ gap:2px; }
   .cardlist.compact .card-tab{ padding:6px 10px; }
+  .card-group-header{ display:flex; align-items:center; gap:6px; padding:7px 8px; cursor:pointer; border-radius:6px; flex-shrink:0; }
+  .card-group-header:hover{ background:var(--bg-panel); }
+  .card-group-chevron{ font-size:10px; color:var(--ink-faint); width:10px; text-align:center; flex-shrink:0; }
+  .card-group-name{ flex:1; min-width:0; font-size:12px; font-weight:700; color:var(--ink-soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .card-group-count{ font-size:10.5px; color:var(--ink-faint); background:var(--bg-panel); border-radius:10px; padding:1px 7px; flex-shrink:0; }
   .ctab-row{ display:flex; align-items:center; gap:7px; min-width:0; }
   .ctab-row .card-color-dot{ flex-shrink:0; }
   .ctab-row .ttl{ flex:1; min-width:0; font-weight:600; font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--ink); }
@@ -288,6 +293,12 @@
   .compare-picker-item{ padding:8px 10px; border-radius:6px; cursor:pointer; font-size:13.5px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .compare-picker-item:hover{ background:var(--accent-soft); }
   .compare-picker-empty{ padding:12px 10px; color:var(--ink-faint); font-size:13px; text-align:center; }
+
+  .import-tag-popup{ position:fixed; z-index:210; width:280px; max-width:88vw; background:var(--bg-card); border:1px solid var(--border); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.18); padding:12px; }
+  .import-tag-popup-label{ font-size:12.5px; color:var(--ink); margin-bottom:8px; line-height:1.5; }
+  .import-tag-popup-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:10px; }
+  .import-tag-go-btn{ font-family:var(--sans); font-size:12.5px; font-weight:600; color:#fff; background:var(--accent); border:none; border-radius:6px; padding:6px 12px; cursor:pointer; }
+  .import-tag-go-btn:hover{ background:var(--accent-hover); }
   /* two-card compare can't fit a phone; the 비교 button is hidden on mobile too (setMode) */
   @media (max-width:640px){
     .editor-split.compare > .compare-pane, .editor-split.compare > .compare-divider{ display:none; }

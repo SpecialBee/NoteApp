@@ -446,6 +446,13 @@
   .graph-canvas .gnode circle{ transition:opacity .15s ease; }
   .graph-canvas .gnode text{ font-family:var(--sans); font-size:11px; fill:var(--ink-soft); pointer-events:none; opacity:0.9; transition:opacity .12s ease; }
   .graph-canvas .gnode:hover text{ opacity:1; font-weight:600; fill:var(--ink); }
+  /* full global graph only (not the dashboard's small, pre-capped-at-16 hero preview, which was
+     already designed to stay label-readable): with many nodes, dozens of always-on titles
+     overlapping is what actually reads as "cluttered", independent of node spacing itself.
+     Pinned notes keep a permanent label as scan-able anchors; everything else reveals on hover. */
+  #globalGraphSvg .gnode text{ opacity:0; }
+  #globalGraphSvg .gnode.pinned text{ opacity:0.85; }
+  #globalGraphSvg .gnode.pinned:hover text{ opacity:1; font-weight:600; fill:var(--ink); } /* pinned rule above otherwise outranks the shared :hover rule */
   .graph-canvas .gnode.dim circle{ opacity:0.15; }
   .graph-canvas .gnode.dim text{ opacity:0.2; }
   .graph-canvas line{ stroke:var(--graph-line); stroke-width:1; transition:opacity .15s ease; }

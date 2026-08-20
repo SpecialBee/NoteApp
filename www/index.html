@@ -3732,7 +3732,7 @@
       const fill = colorForTag(tag);
       const ring = src.pinned ? ` stroke="var(--ink)" stroke-width="2"` : '';
       const depthAttrs = depth3dEnabled ? ` opacity="${n.depthOpacity}"${n.blurId ? ` filter="url(#${n.blurId})"` : ''}` : '';
-      inner += `<g class="gnode" data-id="${n.id}"${depthAttrs}>`;
+      inner += `<g class="gnode${src.pinned ? ' pinned' : ''}" data-id="${n.id}"${depthAttrs}>`;
       inner += `<circle r="${n.r}" fill="${fill}"${ring}></circle>`;
       inner += `<text y="${-(n.r+7)}" text-anchor="middle">${escapeHtml((src.title||'').slice(0,18))}</text>`;
       inner += `</g>`;
@@ -3757,7 +3757,11 @@
     // live force simulation — same alpha-cooldown model as the dashboard hero graph
     const k = Math.sqrt((W*H) / Math.max(nodes.length, 1)) * 0.55;
     const cx = W/2, cy = H/2;
-    const REP=0.9, SPR=0.02, GRAV=0.012, DAMP=0.86, VMAX=28;
+    // GRAV this low is just enough to stop the whole graph drifting off-center over time — the
+    // boundary clamp below already keeps nodes on-canvas, so a strong center-pull isn't needed
+    // to "contain" the layout, and was the real reason nodes still balled up into one clump in
+    // the middle even after the canvas itself was made bigger.
+    const REP=0.9, SPR=0.02, GRAV=0.0025, DAMP=0.86, VMAX=28;
     const ALPHA_DECAY=0.975, ALPHA_MIN=0.02;
 
     function step(){

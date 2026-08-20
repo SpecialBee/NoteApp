@@ -352,7 +352,6 @@
   .preview .wikilink{ color:var(--accent); cursor:pointer; border-bottom:1px solid var(--accent); }
   .preview .wikilink:hover{ color:var(--accent-hover); }
   .preview .wikilink.missing{ color:var(--ink-soft); border-bottom:1px dashed var(--ink-faint); }
-  .preview .tagpill{ color:var(--accent-hover); }
   .emptymain{ flex:1; display:flex; align-items:center; justify-content:center; flex-direction:column; color:var(--ink-faint); text-align:center; gap:14px; padding:40px; }
   .emptymain .big{ font-size:14.5px; color:var(--ink-soft); max-width:340px; line-height:1.8; }
   .emptymain code{ font-family:var(--mono); background:var(--border-soft); padding:1px 5px; border-radius:4px; color:var(--accent-hover); }
@@ -453,6 +452,14 @@
   #globalGraphSvg .gnode text{ opacity:0; }
   #globalGraphSvg .gnode.pinned text{ opacity:0.85; }
   #globalGraphSvg .gnode.pinned:hover text{ opacity:1; font-weight:600; fill:var(--ink); } /* pinned rule above otherwise outranks the shared :hover rule */
+  /* zoomed in far enough that overlap stops being the problem — bring labels back so you can
+     actually read what you're looking at instead of hovering node-by-node */
+  #globalGraphSvg.zoomed-in .gnode text{ opacity:0.85; }
+  /* search match (see #graphSearchInput): full brightness + a ring, regardless of zoom/dim state */
+  #globalGraphSvg .gnode.match circle{ stroke:var(--accent); stroke-width:2.5; }
+  #globalGraphSvg .gnode.match text{ opacity:1 !important; font-weight:700; fill:var(--accent); }
+  .graph-search-input{ font-family:var(--sans); font-size:12.5px; padding:5px 10px; border:1px solid var(--border); border-radius:20px; background:var(--bg-card); color:var(--ink); outline:none; width:160px; }
+  .graph-search-input:focus{ border-color:var(--accent); width:200px; }
   .graph-canvas .gnode.dim circle{ opacity:0.15; }
   .graph-canvas .gnode.dim text{ opacity:0.2; }
   .graph-canvas line{ stroke:var(--graph-line); stroke-width:1; transition:opacity .15s ease; }

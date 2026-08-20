@@ -123,7 +123,7 @@
     <div id="emptyMain" class="emptymain">
       <div class="big">왼쪽에서 카드를 고르거나<br>새 카드를 만들어 기록을 시작하세요.<br><br>
       <code>[[다른 카드 제목]]</code> 으로 카드끼리 연결하고,
-      <code>#태그</code> 로 분류할 수 있습니다.</div>
+      태그로 분류할 수 있습니다.</div>
       <button id="emptyNewBtn">+ 첫 카드 만들기</button>
     </div>
 
@@ -131,6 +131,7 @@
       <div class="graph-header">
         <span>전역 연결 그래프</span>
         <div class="graph-header-right">
+          <input type="text" id="graphSearchInput" class="graph-search-input" placeholder="🔍 카드 찾기…">
           <label class="graph-toggle"><input type="checkbox" id="showIsolatedToggle"> 고립 카드 표시</label>
           <label class="graph-toggle"><input type="checkbox" id="depth3dToggle"> 입체 효과</label>
           <button id="resetGraphViewBtn">보기 초기화</button>
@@ -1429,8 +1430,6 @@
 
     s = s.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, (full, text, url) => `<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`);
 
-    s = s.replace(/(^|\s)#([a-zA-Z0-9가-힣_-]{1,24})/g, (full, pre, tag) => `${pre}<span class="tagpill">#${tag}</span>`);
-
     s = s.replace(/^#### (.*)$/gm, '<h4>$1</h4>');
     s = s.replace(/^### (.*)$/gm, '<h3>$1</h3>');
     s = s.replace(/^## (.*)$/gm, '<h2>$1</h2>');
@@ -2254,8 +2253,7 @@
     const newTitle = titleField.value.trim() || '제목 없음';
     note.title = newTitle;
     note.content = editorBox.value;
-    const bodyTags = extractTags(note.content);
-    note.tags = Array.from(new Set([...currentManualTags, ...bodyTags]));
+    note.tags = [...currentManualTags];
     note.links = extractLinks(note.content);
     note.updated = Date.now();
     await updateNote(note);
@@ -3628,6 +3626,10 @@
   function applyGraphTransform(){
     const g = document.getElementById('graphViewport');
     if(g) g.setAttribute('transform', `translate(${graphView.tx},${graphView.ty}) scale(${graphView.scale})`);
+    // labels are hidden by default (see style.css) to avoid dozens of them overlapping when
+    // zoomed out over a big graph — but once zoomed in far enough that nodes have real breathing
+    // room, that overlap risk is gone, so bring them back instead of forcing a hover per node
+    globalGraphSvg.classList.toggle('zoomed-in', graphView.scale > 1.8);
   }
 
   function resetGraphView(){
@@ -3825,6 +3827,8 @@
     showView('graph');
     clearRightPane();
     renderCardList();
+    el('graphSearchInput').value = '';
+    graphSearchActive = false;
     renderGlobalGraph();
   }
   function closeGlobalGraph(){
@@ -3856,8 +3860,11 @@
     openNote(g.dataset.id);
   });
 
-  // hover a node to dim everything except it and its direct neighbors
+  // hover a node to dim everything except it and its direct neighbors — suppressed while a
+  // search query is active so the two highlight mechanisms don't fight over the same classes
+  let graphSearchActive = false;
   globalGraphSvg.addEventListener('mouseover', (e) => {
+    if(graphSearchActive) return;
     const g = e.target.closest('.gnode');
     if(!g) return;
     const id = g.dataset.id;
@@ -3871,8 +3878,42 @@
     });
   });
   globalGraphSvg.addEventListener('mouseout', (e) => {
+    if(graphSearchActive) return;
     if(!e.target.closest('.gnode')) return;
     globalGraphSvg.querySelectorAll('.dim').forEach(node => node.classList.remove('dim'));
+  });
+
+  // search box in the graph header: type to light up matching titles (full brightness + a ring +
+  // its label, via .match) and fade everything else (via the existing .dim), instead of having
+  // to hover node-by-node to figure out what's what in a big graph
+  function applyGraphSearch(){
+    const q = el('graphSearchInput').value.trim().toLowerCase();
+    graphSearchActive = !!q;
+    const matchedIds = new Set();
+    globalGraphSvg.querySelectorAll('.gnode').forEach(node => {
+      const nid = node.dataset.id;
+      const note = index.find(m => m.id === nid);
+      const isMatch = !!q && !!note && (note.title||'').toLowerCase().includes(q);
+      if(isMatch) matchedIds.add(nid);
+      node.classList.toggle('match', isMatch);
+      node.classList.toggle('dim', graphSearchActive && !isMatch);
+    });
+    globalGraphSvg.querySelectorAll('line').forEach(line => {
+      line.classList.toggle('dim', graphSearchActive && !(matchedIds.has(line.dataset.a) || matchedIds.has(line.dataset.b)));
+    });
+    return matchedIds;
+  }
+  el('graphSearchInput').addEventListener('input', applyGraphSearch);
+  el('graphSearchInput').addEventListener('keydown', (e) => {
+    e.stopPropagation(); // don't let the global Ctrl+P/arrow-key handlers react while typing here
+    if(e.key === 'Escape'){
+      el('graphSearchInput').value = '';
+      applyGraphSearch();
+      el('graphSearchInput').blur();
+    } else if(e.key === 'Enter'){
+      const matched = [...applyGraphSearch()];
+      if(matched.length === 1){ closeGlobalGraph(); openNote(matched[0]); } // exactly one match — just open it
+    }
   });
 
   // pan (drag empty canvas)
@@ -6841,8 +6882,7 @@
     for(const file of list){
       const text = await file.text();
       const title = file.name.replace(/\.md$/i, '').trim() || '제목 없음';
-      const tags = Array.from(new Set([...(batchTag ? [batchTag] : []), ...extractTags(text)]));
-      const draft = { title, content:text, tags, links:extractLinks(text), pinned:false, properties:[] };
+      const draft = { title, content:text, tags: batchTag ? [batchTag] : [], links:extractLinks(text), pinned:false, properties:[] };
       const created = await insertNote(draft);
       if(!created) continue;
       index.unshift(created); lastCreated = created; count++;
@@ -7428,7 +7468,7 @@ GRAPHIDEA는 흩어진 생각을 **연결해 하나의 그래프로 잇는** 개
 ## 📄 노트 카드 (마크다운)
 - **쓰기 모드**는 왼쪽 편집·오른쪽 미리보기로 나뉘고, 가운데 선을 드래그해 크기를 조절할 수 있어요. (**읽기 모드**는 미리보기만 크게 봅니다.)
 - **[[카드 제목]]** 을 적으면 다른 카드와 연결됩니다. 대괄호 두 개(\`[[\`)를 열면 일치하는 제목이 자동완성 팝업으로 떠요(↑/↓로 고르고 Enter/Tab). 없는 제목이면 그대로 두었다가 클릭하면 새 카드가 만들어져요.
-- 제목 아래 태그 입력창에 태그를 적거나, 본문에 **#태그** 를 적으면 자동 분류됩니다.
+- 제목 아래 태그 입력창에 태그를 적으면 분류됩니다.
 - 쓰기 모드 상단 도구모음: H1~H4, **굵게**, *기울임*, ~~취소선~~, ==하이라이트==, 인용, 🔗링크, 🖼이미지(구글 드라이브 연결 후 표시), \`인라인 코드\`, 코드 블록, 표(▦), 내어쓰기/들여쓰기(Tab/Shift+Tab도 가능), 할 일 목록(☑), 콜아웃(💡), 구분선(―).
 - 이미지는 🖼 버튼으로 올리거나, 캡처/복사한 이미지를 편집창에 바로 **Ctrl+V** 붙여넣기만 해도 자동 업로드돼요.
 - **읽기 모드**에서는 ⧉ 비교 버튼으로 다른 카드와 나란히 놓고 비교할 수 있어요(데스크톱/태블릿 전용).

@@ -16,11 +16,6 @@ function formatDate(ts){
   return (d.getMonth()+1) + '/' + d.getDate();
 }
 
-function extractTags(content){
-  const set = new Set(); const re = /(^|\s)#([a-zA-Z0-9가-힣_-]{1,24})/g; let m;
-  while((m = re.exec(content))) set.add(m[2]);
-  return Array.from(set);
-}
 function extractLinks(content){
   const set = new Set(); const re = /\[\[([^\]\n]+)\]\]/g; let m;
   while((m = re.exec(content))) set.add(m[1].trim());

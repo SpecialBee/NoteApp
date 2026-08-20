@@ -139,7 +139,7 @@
         </div>
       </div>
       <div class="graph-legend" id="graphLegend"></div>
-      <svg id="globalGraphSvg" class="graph-canvas"></svg>
+      <canvas id="globalGraphCanvas" class="graph-canvas"></canvas>
     </div>
 
     <div id="dashboardView" style="display:none; flex:1; flex-direction:column; overflow-y:auto; padding:28px 36px; gap:24px;">
@@ -3602,12 +3602,61 @@
 
   // ---------------- global connection graph ----------------
   const globalGraphView = el('globalGraphView');
-  const globalGraphSvg = el('globalGraphSvg');
+  const graphCanvas = el('globalGraphCanvas');
+  const gctx = graphCanvas.getContext('2d');
+  const GRAPH_FONT = ((getComputedStyle(document.documentElement).getPropertyValue('--sans')||'').trim()) || 'Inter, sans-serif';
   let showIsolatedNodes = localStorage.getItem('cardCatalogShowIsolated') === '1';
   let graphView = { scale: 1, tx: 0, ty: 0 };
   let graphAdjacency = {};
   let graphNodeMoved = false; // true right after a node drag, so the click handler won't also open it
   let globalSim = null; // live force simulation state (Obsidian-style), persists after settle so drag can reheat it
+  let graphHoverId = null;      // node under the cursor — drives the dim-everything-else highlight
+  let graphMatched = new Set(); // ids matching the search box — drives the .match highlight
+
+  // DPI-aware canvas backing store. the CSS box is sized by flex (.graph-canvas); the bitmap is
+  // sized css*dpr so nodes/text stay crisp on retina/mobile. recomputed on render + resize.
+  let graphDpr = 1, graphCssW = 1, graphCssH = 1;
+  function sizeGraphCanvas(){
+    const rect = graphCanvas.getBoundingClientRect();
+    graphDpr = window.devicePixelRatio || 1;
+    graphCssW = Math.max(1, Math.round(rect.width));
+    graphCssH = Math.max(1, Math.round(rect.height));
+    graphCanvas.width = Math.round(graphCssW * graphDpr);
+    graphCanvas.height = Math.round(graphCssH * graphDpr);
+  }
+
+  // canvas needs real color strings, not CSS var() expressions. resolve the few theme tokens the
+  // graph uses via a hidden probe element (set a var()/hex as inline color, read back computed rgb) —
+  // cheaper and more reliable than parsing custom-property values by hand. hex results are memoized
+  // (theme-stable); the var()-based tokens are re-resolved each render so a theme switch is picked up.
+  const _graphColorProbe = document.createElement('span');
+  _graphColorProbe.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none';
+  document.body.appendChild(_graphColorProbe);
+  function resolveCssColor(expr){
+    _graphColorProbe.style.color = '#000';
+    _graphColorProbe.style.color = expr;
+    return getComputedStyle(_graphColorProbe).color || 'rgb(136,136,136)';
+  }
+  const _colorCache = {};
+  function toRgb(expr){ return _colorCache[expr] || (_colorCache[expr] = resolveCssColor(expr)); }
+  let graphColors = { line:'rgb(200,200,200)', inkFaint:'rgb(150,150,150)', inkSoft:'rgb(120,120,120)', ink:'rgb(50,50,50)', accent:'rgb(217,119,87)' };
+  function resolveGraphColors(){
+    graphColors = {
+      line: resolveCssColor('var(--graph-line)'),
+      inkFaint: resolveCssColor('var(--ink-faint)'),
+      inkSoft: resolveCssColor('var(--ink-soft)'),
+      ink: resolveCssColor('var(--ink)'),
+      accent: resolveCssColor('var(--accent)'),
+    };
+  }
+  // rgb(r,g,b) -> rgba(r,g,b,a) so dim/depth fading composites in one fillStyle, no globalAlpha juggling
+  function withAlpha(rgb, a){
+    if(a >= 1) return rgb;
+    const m = rgb.match(/^rgba?\(([^)]+)\)/);
+    if(!m) return rgb;
+    const p = m[1].split(',');
+    return 'rgba(' + p[0].trim() + ',' + p[1].trim() + ',' + p[2].trim() + ',' + a + ')';
+  }
 
   function isGraphOpen(){ return globalGraphView.style.display === 'flex'; }
   function stopGlobalSim(){ if(globalSim){ cancelAnimationFrame(globalSim.raf); cancelAnimationFrame(globalSim.idleRaf); globalSim.running=false; } }
@@ -3628,21 +3677,33 @@
   // shuffle every time the graph redraws
   let depth3dEnabled = localStorage.getItem('cardCatalogDepth3d') !== '0'; // prototype: on by default, toggle off to compare
 
-  function applyGraphTransform(){
-    const g = document.getElementById('graphViewport');
-    if(g) g.setAttribute('transform', `translate(${graphView.tx},${graphView.ty}) scale(${graphView.scale})`);
-    // labels are hidden by default (see style.css) to avoid dozens of them overlapping when
-    // zoomed out over a big graph — but once zoomed in far enough that nodes have real breathing
-    // room, that overlap risk is gone, so bring them back instead of forcing a hover per node
-    // raised now that max zoom goes to 10x (was 3x) — the point of this threshold is "few enough
-    // nodes are visible on screen that labels won't overlap", which for a big/dense graph now
-    // takes noticeably deeper zoom than it used to
-    globalGraphSvg.classList.toggle('zoomed-in', graphView.scale > 4);
-  }
+  // pan/zoom (graphView) compose ON TOP of the world->canvas base fit stored on globalSim, exactly
+  // like the old #graphViewport transform sat inside the SVG viewBox. redraw a single frame when the
+  // sim is settled (during the sim, step() already repaints every frame).
+  function graphDrawIfIdle(){ if(globalSim && !globalSim.running) drawGlobalGraph(); }
+  function applyGraphTransform(){ graphDrawIfIdle(); }
+  function resetGraphView(){ graphView = { scale: 1, tx: 0, ty: 0 }; graphDrawIfIdle(); }
 
-  function resetGraphView(){
-    graphView = { scale: 1, tx: 0, ty: 0 };
-    applyGraphTransform();
+  // invert the full screen<-world chain (base fit, then pan/zoom) for hit-testing and node drag
+  function graphClientToWorld(clientX, clientY){
+    const S = globalSim; if(!S) return null;
+    const rect = graphCanvas.getBoundingClientRect();
+    let x = clientX - rect.left, y = clientY - rect.top;
+    x = (x - S.baseTx) / S.baseScale; y = (y - S.baseTy) / S.baseScale;
+    x = (x - graphView.tx) / graphView.scale; y = (y - graphView.ty) / graphView.scale;
+    return { x, y };
+  }
+  // nearest node under a pointer, within its radius (+ slack; generous on coarse/touch pointers)
+  function graphNodeAt(clientX, clientY){
+    const S = globalSim; if(!S) return null;
+    const w = graphClientToWorld(clientX, clientY); if(!w) return null;
+    const pad = matchMedia('(pointer:coarse)').matches ? 10 : 4;
+    let best = null, bestD = Infinity;
+    for(const n of S.nodes){
+      const hit = n.r + pad, dx = w.x - n.x, dy = w.y - n.y, d2 = dx*dx + dy*dy;
+      if(d2 <= hit*hit && d2 < bestD){ bestD = d2; best = n; }
+    }
+    return best;
   }
 
   function loadGraphPositions(){
@@ -3657,9 +3718,11 @@
 
   function renderGlobalGraph(){
     stopGlobalSim();
-    const rect = globalGraphSvg.getBoundingClientRect();
-    const baseW = Math.max(400, Math.round(rect.width));
-    const baseH = Math.max(300, Math.round(rect.height));
+    sizeGraphCanvas();
+    resolveGraphColors();
+    graphHoverId = null;
+    const baseW = Math.max(400, graphCssW);
+    const baseH = Math.max(300, graphCssH);
 
     const edgeSet = new Set();
     const edges = [];
@@ -3688,11 +3751,16 @@
     const W = Math.round(baseW * growth);
     const H = Math.round(baseH * growth);
 
-    globalGraphSvg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-    resetGraphView();
+    graphView = { scale: 1, tx: 0, ty: 0 };
 
     if(!shownNotes.length){
-      globalGraphSvg.innerHTML = `<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="var(--ink-faint)" font-family="Inter,sans-serif" font-size="13">연결된 카드가 없습니다${showIsolatedNodes ? '' : '. "고립 카드 표시"를 켜보세요'}</text>`;
+      globalSim = null;
+      gctx.setTransform(graphDpr,0,0,graphDpr,0,0);
+      gctx.clearRect(0,0,graphCssW,graphCssH);
+      gctx.fillStyle = graphColors.inkFaint;
+      gctx.font = '13px ' + GRAPH_FONT;
+      gctx.textAlign = 'center'; gctx.textBaseline = 'middle';
+      gctx.fillText('연결된 카드가 없습니다' + (showIsolatedNodes ? '' : '. "고립 카드 표시"를 켜보세요'), graphCssW/2, graphCssH/2);
       el('graphLegend').style.display = 'none';
       return;
     }
@@ -3726,42 +3794,22 @@
         y = H/2 + Math.sin(a) * R0 * (0.6 + 0.4*Math.random());
       }
       const z = depthOf(m.id), depth = depthBucket(z);
-      // precomputed here (not per frame) — safe to cache because toggling depth3dEnabled
-      // re-runs renderGlobalGraph(), rebuilding this whole array
-      const scaleSuffix = depth3dEnabled ? ` scale(${depth.scale})` : '';
-      return { src:m, id:m.id, r, x, y, vx:0, vy:0, fixed:false, z, depthScale:depth.scale, depthOpacity:depth.opacity, blurId:depth.blurId, scaleSuffix };
+      // color/label/flags precomputed here (not per frame) — safe to cache because any change
+      // (depth toggle, tag/pin edit) re-runs renderGlobalGraph(), rebuilding this whole array
+      const tag = (m.tags && m.tags[0]) || '';
+      let fill = colorForTag(tag);
+      fill = (fill[0] === 'v') ? graphColors.inkFaint : toRgb(fill); // untagged returns var(--ink-faint)
+      return { src:m, id:m.id, r, x, y, vx:0, vy:0, fixed:false, z,
+               depthScale:depth.scale, depthOpacity:depth.opacity,
+               fill, tag, pinned:!!m.pinned, isHub:(deg >= hubThreshold), label:(m.title||'').slice(0,18) };
     });
     const links = [];
     edges.forEach(([a,b]) => { if(idxOf[a]!=null && idxOf[b]!=null) links.push([idxOf[a], idxOf[b]]); });
 
-    let inner = '<defs>'
-      + '<filter id="gd1" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="0.4"/></filter>'
-      + '<filter id="gd2" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="0.9"/></filter>'
-      + '<filter id="gd3" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="1.5"/></filter>'
-      + '</defs>';
-    inner += '<g id="graphViewport"><g id="globalGraphLines">';
-    links.forEach(() => { inner += '<line></line>'; });
-    inner += '</g><g id="globalGraphNodes">';
+    // legend chips under the header (HTML, unchanged); the canvas paints the nodes/edges itself
     const legendTags = new Set();
     let hasUntagged = false;
-    // farther nodes paint first (drawn behind), nearer nodes paint last (drawn on top)
-    const paintOrder = depth3dEnabled ? nodes.slice().sort((a,b) => a.z - b.z) : nodes;
-    paintOrder.forEach(n => {
-      const src = n.src;
-      const tag = src.tags && src.tags[0];
-      if(tag) legendTags.add(tag); else hasUntagged = true;
-      const fill = colorForTag(tag);
-      const ring = src.pinned ? ` stroke="var(--ink)" stroke-width="2"` : '';
-      const depthAttrs = depth3dEnabled ? ` opacity="${n.depthOpacity}"${n.blurId ? ` filter="url(#${n.blurId})"` : ''}` : '';
-      const isHub = (degree[n.id]||0) >= hubThreshold;
-      inner += `<g class="gnode${src.pinned ? ' pinned' : ''}${isHub ? ' hub' : ''}" data-id="${n.id}"${depthAttrs}>`;
-      inner += `<circle r="${n.r}" fill="${fill}"${ring}></circle>`;
-      inner += `<text y="${-(n.r+7)}" text-anchor="middle">${escapeHtml((src.title||'').slice(0,18))}</text>`;
-      inner += `</g>`;
-    });
-    inner += '</g></g>';
-    globalGraphSvg.innerHTML = inner;
-
+    nodes.forEach(n => { if(n.tag) legendTags.add(n.tag); else hasUntagged = true; });
     const legendEl = el('graphLegend');
     if(legendTags.size === 0 && !hasUntagged){
       legendEl.style.display = 'none';
@@ -3772,9 +3820,11 @@
       legendEl.innerHTML = legendHtml;
     }
 
-    const lineEls = [...globalGraphSvg.querySelectorAll('#globalGraphLines line')];
-    // looked up by id (not DOM order) since depth mode paints far-to-near, not nodes[] order
-    const nodeEls = nodes.map(n => globalGraphSvg.querySelector(`.gnode[data-id="${n.id}"]`));
+    // world(viewBox) -> canvas(css px) uniform "meet" fit, centered — reproduces the old SVG viewBox
+    // so pan/zoom (graphView) feel identical; drawGlobalGraph() composes graphView on top of this
+    const baseScale = Math.min(graphCssW / W, graphCssH / H);
+    const baseTx = (graphCssW - W * baseScale) / 2;
+    const baseTy = (graphCssH - H * baseScale) / 2;
 
     // live force simulation — same alpha-cooldown model as the dashboard hero graph
     const k = Math.sqrt((W*H) / Math.max(nodes.length, 1)) * 0.55;
@@ -3820,32 +3870,117 @@
         if(n.x<mx){n.x=mx;n.vx*=-0.3;} else if(n.x>W-mx){n.x=W-mx;n.vx*=-0.3;}
         if(n.y<my){n.y=my;n.vy*=-0.3;} else if(n.y>H-16){n.y=H-16;n.vy*=-0.3;}
       }
-      // hot path: this runs for every node and every edge, 60x a second. toFixed() builds a
-      // formatted string each call (thousands per frame) and the scale suffix was being
-      // re-templated per node per frame — precompute the suffix once, and truncate with |0
-      // instead, since sub-pixel precision is invisible at these sizes anyway.
-      for(let i=0;i<nodeEls.length;i++){
-        const n = nodes[i];
-        nodeEls[i].setAttribute('transform', 'translate(' + (n.x|0) + ',' + (n.y|0) + ')' + n.scaleSuffix);
-      }
-      for(let i=0;i<lineEls.length;i++){
-        const ln = lineEls[i], a = nodes[links[i][0]], b = nodes[links[i][1]];
-        ln.setAttribute('x1', a.x|0); ln.setAttribute('y1', a.y|0);
-        ln.setAttribute('x2', b.x|0); ln.setAttribute('y2', b.y|0);
-      }
+      // the whole point of the SVG->canvas move: one immediate-mode repaint of the entire scene
+      // each frame, instead of thousands of per-element setAttribute()s thrashing SVG layout
+      drawGlobalGraph();
 
       globalSim.frame++;
       globalSim.alpha *= ALPHA_DECAY;
       if(globalSim.alpha < ALPHA_MIN || globalSim.frame > 500){
         stopGlobalSim();
         saveGlobalPositions();
-        startIdleFloat(globalSim, nodeEls, lineEls, links, isGraphOpen, depth3dEnabled ? (n => ` scale(${n.depthScale})`) : null);
+        startGlobalIdleFloat();
         return;
       }
       globalSim.raf = requestAnimationFrame(step);
     }
-    globalSim = { raf:0, frame:0, alpha:1, running:true, nodes, W, H, step };
+    globalSim = { raf:0, idleRaf:0, frame:0, alpha:1, running:true, nodes, links, W, H,
+                  baseScale, baseTx, baseTy, hubThreshold, step };
+    drawGlobalGraph();
     globalSim.raf = requestAnimationFrame(step);
+  }
+
+  // paint the entire graph in one immediate-mode pass (see step()). runs every sim frame, every
+  // idle-float frame, and once on any settled-state change (hover / search / pan / zoom).
+  function drawGlobalGraph(){
+    const S = globalSim; if(!S) return;
+    gctx.setTransform(graphDpr,0,0,graphDpr,0,0);
+    gctx.clearRect(0,0,graphCssW,graphCssH);
+    gctx.translate(S.baseTx, S.baseTy);
+    gctx.scale(S.baseScale, S.baseScale);
+    gctx.translate(graphView.tx, graphView.ty);
+    gctx.scale(graphView.scale, graphView.scale);
+
+    const nodes = S.nodes, links = S.links;
+    const searchActive = graphSearchActive;
+    const matched = graphMatched;
+    const hoverId = searchActive ? null : graphHoverId; // search + hover highlights don't stack
+    const hoverNbr = hoverId ? (graphAdjacency[hoverId] || null) : null;
+    const zoomedIn = graphView.scale > 4;
+
+    // edges first (drawn behind the nodes)
+    gctx.lineWidth = 1; // 1 world unit, matching the old SVG stroke-width:1 (scales with zoom)
+    for(let i=0;i<links.length;i++){
+      const a = nodes[links[i][0]], b = nodes[links[i][1]];
+      let dim = false;
+      if(searchActive) dim = !(matched.has(a.id) || matched.has(b.id));
+      else if(hoverId) dim = (a.id !== hoverId && b.id !== hoverId);
+      gctx.strokeStyle = withAlpha(graphColors.line, dim ? 0.08 : 1);
+      gctx.beginPath(); gctx.moveTo(a.x, a.y); gctx.lineTo(b.x, b.y); gctx.stroke();
+    }
+
+    // nodes + labels. depth mode paints far->near so nearer (bigger/brighter) nodes sit on top
+    const order = depth3dEnabled ? nodes.slice().sort((p,q)=>p.z-q.z) : nodes;
+    gctx.textAlign = 'center'; gctx.textBaseline = 'alphabetic';
+    for(let i=0;i<order.length;i++){
+      const n = order[i];
+      const isMatch = searchActive && matched.has(n.id);
+      let dim;
+      if(searchActive) dim = !isMatch;
+      else if(hoverId) dim = (n.id !== hoverId && !(hoverNbr && hoverNbr.has(n.id)));
+      else dim = false;
+
+      // depth cue = opacity + size (Stage 1 drops the SVG per-node gaussian blur; too costly on canvas)
+      const dScale = depth3dEnabled ? n.depthScale : 1;
+      const dOpac  = depth3dEnabled ? n.depthOpacity : 1;
+      const r = n.r * dScale;
+      const alpha = dOpac * (dim ? 0.15 : 1);
+
+      gctx.beginPath(); gctx.arc(n.x, n.y, r, 0, Math.PI*2);
+      gctx.fillStyle = withAlpha(n.fill, alpha); gctx.fill();
+      if(isMatch){ gctx.lineWidth = 2.5; gctx.strokeStyle = graphColors.accent; gctx.stroke(); }
+      else if(n.pinned){ gctx.lineWidth = 2; gctx.strokeStyle = withAlpha(graphColors.ink, alpha); gctx.stroke(); }
+
+      // label gating mirrors the old CSS: hubs/pinned always; everyone else on hover, on a search
+      // match, or once zoomed in far enough that overlapping titles aren't a problem
+      const baseVisible = n.isHub || n.pinned || zoomedIn || n.id === hoverId || isMatch;
+      if(baseVisible){
+        let tAlpha, tColor = graphColors.inkSoft, bold = false;
+        if(isMatch){ tAlpha = 1; tColor = graphColors.accent; bold = true; }
+        else if(n.id === hoverId){ tAlpha = 1; tColor = graphColors.ink; bold = true; }
+        else tAlpha = dim ? 0.2 : 0.85;
+        gctx.font = (bold ? '600 ' : '') + '11px ' + GRAPH_FONT;
+        gctx.fillStyle = withAlpha(tColor, tAlpha);
+        gctx.fillText(n.label, n.x, n.y - (r + 7));
+      }
+    }
+  }
+
+  // once settled, a barely-there idle drift (cheap per-node sine wobble) instead of freezing solid —
+  // the canvas equivalent of the shared startIdleFloat() the SVG mini/dashboard graphs still use
+  function startGlobalIdleFloat(){
+    if(localStorage.getItem('stk-graph-idle-float') === '0') return; // settled nodes just stay put
+    const S = globalSim; if(!S) return;
+    if(S.nodes.length > IDLE_FLOAT_MAX_NODES) return; // above this the wobble is pure permanent cost
+    S.nodes.forEach(n => {
+      n.fx = n.x; n.fy = n.y;
+      n.fPhase = Math.random() * Math.PI * 2;
+      n.fFreq = 0.0005 + Math.random() * 0.0004;
+      n.fAmp = 2 + Math.random() * 2;
+    });
+    const t0 = performance.now();
+    function idleStep(now){
+      if(S.running || !isGraphOpen()) return; // a reheat (drag) took over, or the view closed
+      const t = now - t0;
+      for(const n of S.nodes){
+        if(n.fixed) continue;
+        n.x = n.fx + Math.sin(t*n.fFreq + n.fPhase) * n.fAmp;
+        n.y = n.fy + Math.cos(t*n.fFreq*0.85 + n.fPhase) * n.fAmp;
+      }
+      drawGlobalGraph();
+      S.idleRaf = requestAnimationFrame(idleStep);
+    }
+    S.idleRaf = requestAnimationFrame(idleStep);
   }
 
   function openGlobalGraph(){
@@ -3879,55 +4014,40 @@
     renderGlobalGraph();
   };
 
-  globalGraphSvg.addEventListener('click', (e) => {
+  graphCanvas.addEventListener('click', (e) => {
     if(graphPanMoved || graphNodeMoved) return;
-    const g = e.target.closest('.gnode');
-    if(!g) return;
+    const n = graphNodeAt(e.clientX, e.clientY);
+    if(!n) return;
     closeGlobalGraph();
-    openNote(g.dataset.id);
+    openNote(n.id);
   });
 
-  // hover a node to dim everything except it and its direct neighbors — suppressed while a
-  // search query is active so the two highlight mechanisms don't fight over the same classes
+  // hover a node to dim everything except it and its direct neighbors — suppressed while a search
+  // query is active so the two highlights don't fight. now a hit-test + one redraw, not class churn.
   let graphSearchActive = false;
-  globalGraphSvg.addEventListener('mouseover', (e) => {
-    if(graphSearchActive) return;
-    const g = e.target.closest('.gnode');
-    if(!g) return;
-    const id = g.dataset.id;
-    const neighbors = graphAdjacency[id] || new Set();
-    globalGraphSvg.querySelectorAll('.gnode').forEach(node => {
-      const nid = node.dataset.id;
-      node.classList.toggle('dim', nid !== id && !neighbors.has(nid));
-    });
-    globalGraphSvg.querySelectorAll('line').forEach(line => {
-      line.classList.toggle('dim', line.dataset.a !== id && line.dataset.b !== id);
-    });
+  graphCanvas.addEventListener('mousemove', (e) => {
+    if(graphSearchActive || graphPanning || gNodeDrag) return;
+    const n = graphNodeAt(e.clientX, e.clientY);
+    const id = n ? n.id : null;
+    if(id !== graphHoverId){ graphHoverId = id; graphDrawIfIdle(); }
   });
-  globalGraphSvg.addEventListener('mouseout', (e) => {
-    if(graphSearchActive) return;
-    if(!e.target.closest('.gnode')) return;
-    globalGraphSvg.querySelectorAll('.dim').forEach(node => node.classList.remove('dim'));
+  graphCanvas.addEventListener('mouseleave', () => {
+    if(graphHoverId !== null && !graphSearchActive){ graphHoverId = null; graphDrawIfIdle(); }
   });
 
   // search box in the graph header: type to light up matching titles (full brightness + a ring +
-  // its label, via .match) and fade everything else (via the existing .dim), instead of having
-  // to hover node-by-node to figure out what's what in a big graph
+  // its label) and fade everything else, instead of hovering node-by-node in a big graph. the
+  // highlight state lives in graphMatched/graphSearchActive and is applied by drawGlobalGraph().
   function applyGraphSearch(){
     const q = el('graphSearchInput').value.trim().toLowerCase();
     graphSearchActive = !!q;
     const matchedIds = new Set();
-    globalGraphSvg.querySelectorAll('.gnode').forEach(node => {
-      const nid = node.dataset.id;
-      const note = index.find(m => m.id === nid);
-      const isMatch = !!q && !!note && (note.title||'').toLowerCase().includes(q);
-      if(isMatch) matchedIds.add(nid);
-      node.classList.toggle('match', isMatch);
-      node.classList.toggle('dim', graphSearchActive && !isMatch);
-    });
-    globalGraphSvg.querySelectorAll('line').forEach(line => {
-      line.classList.toggle('dim', graphSearchActive && !(matchedIds.has(line.dataset.a) || matchedIds.has(line.dataset.b)));
-    });
+    if(q && globalSim){
+      for(const n of globalSim.nodes){ if((n.src.title||'').toLowerCase().includes(q)) matchedIds.add(n.id); }
+    }
+    graphMatched = matchedIds;
+    if(graphSearchActive) graphHoverId = null;
+    graphDrawIfIdle();
     return matchedIds;
   }
   el('graphSearchInput').addEventListener('input', applyGraphSearch);
@@ -3945,12 +4065,12 @@
 
   // pan (drag empty canvas)
   let graphPanning = false, graphPanMoved = false, panStartX = 0, panStartY = 0, panOrigTx = 0, panOrigTy = 0;
-  globalGraphSvg.addEventListener('mousedown', (e) => {
-    if(e.target.closest('.gnode')) return;
+  graphCanvas.addEventListener('mousedown', (e) => {
+    if(graphNodeAt(e.clientX, e.clientY)) return; // node hit -> handled by the node-drag listener
     graphPanning = true; graphPanMoved = false;
     panStartX = e.clientX; panStartY = e.clientY;
     panOrigTx = graphView.tx; panOrigTy = graphView.ty;
-    globalGraphSvg.classList.add('panning');
+    graphCanvas.classList.add('panning');
   });
   window.addEventListener('mousemove', (e) => {
     if(!graphPanning) return;
@@ -3963,36 +4083,28 @@
   window.addEventListener('mouseup', () => {
     if(!graphPanning) return;
     graphPanning = false;
-    globalGraphSvg.classList.remove('panning');
+    graphCanvas.classList.remove('panning');
   });
 
   // drag a node to arrange the graph (physics reacts, Obsidian-style); settled position persists to localStorage
   let gNodeDrag = null;
-  function graphClientToLocal(clientX, clientY){
-    const vp = document.getElementById('graphViewport'); if(!vp) return null;
-    const ctm = vp.getScreenCTM(); if(!ctm) return null;
-    const pt = globalGraphSvg.createSVGPoint(); pt.x = clientX; pt.y = clientY;
-    const p = pt.matrixTransform(ctm.inverse());
-    return { x:p.x, y:p.y };
-  }
-  globalGraphSvg.addEventListener('mousedown', (e) => {
-    const g = e.target.closest('.gnode'); if(!g || !globalSim) return;
-    const node = globalSim.nodes.find(n => n.id === g.dataset.id); if(!node) return;
-    gNodeDrag = { node, id: node.id, moved:false };
-    node.fixed = true;
-    globalGraphSvg.classList.add('grabbing');
+  graphCanvas.addEventListener('mousedown', (e) => {
+    const n = graphNodeAt(e.clientX, e.clientY); if(!n || !globalSim) return;
+    gNodeDrag = { node:n, id:n.id, moved:false };
+    n.fixed = true;
+    graphCanvas.classList.add('grabbing');
     e.preventDefault();
   });
   window.addEventListener('mousemove', (e) => {
     if(!gNodeDrag) return;
-    const p = graphClientToLocal(e.clientX, e.clientY); if(!p) return;
+    const p = graphClientToWorld(e.clientX, e.clientY); if(!p) return;
     gNodeDrag.moved = true; graphNodeMoved = true;
     gNodeDrag.node.x = p.x; gNodeDrag.node.y = p.y; gNodeDrag.node.vx = 0; gNodeDrag.node.vy = 0;
     globalReheat();
   });
   window.addEventListener('mouseup', () => {
     if(!gNodeDrag) return;
-    globalGraphSvg.classList.remove('grabbing');
+    graphCanvas.classList.remove('grabbing');
     gNodeDrag.node.fixed = false;
     if(gNodeDrag.moved){ globalReheat(); saveGlobalPositions(); }
     gNodeDrag = null;
@@ -4000,10 +4112,10 @@
   });
 
   // zoom (wheel, centered on cursor)
-  globalGraphSvg.addEventListener('wheel', (e) => {
+  graphCanvas.addEventListener('wheel', (e) => {
     if(!isGraphOpen()) return;
     e.preventDefault();
-    const rect = globalGraphSvg.getBoundingClientRect();
+    const rect = graphCanvas.getBoundingClientRect();
     const mx = e.clientX - rect.left, my = e.clientY - rect.top;
     const prevScale = graphView.scale;
     const newScale = Math.min(10, Math.max(0.3, prevScale * (1 - e.deltaY * 0.0015)));
@@ -4019,10 +4131,10 @@
   let graphPinch = null;
   function graphTouchDist(t1,t2){ const dx=t1.clientX-t2.clientX, dy=t1.clientY-t2.clientY; return Math.sqrt(dx*dx+dy*dy); }
   function graphTouchMid(t1,t2){ return { x:(t1.clientX+t2.clientX)/2, y:(t1.clientY+t2.clientY)/2 }; }
-  globalGraphSvg.addEventListener('touchstart', (e) => {
+  graphCanvas.addEventListener('touchstart', (e) => {
     if(e.touches.length === 2){
-      graphPanning = false; globalGraphSvg.classList.remove('panning');
-      if(gNodeDrag){ gNodeDrag.node.fixed = false; gNodeDrag = null; globalGraphSvg.classList.remove('grabbing'); }
+      graphPanning = false; graphCanvas.classList.remove('panning');
+      if(gNodeDrag){ gNodeDrag.node.fixed = false; gNodeDrag = null; graphCanvas.classList.remove('grabbing'); }
       const [t1,t2] = e.touches;
       graphPinch = { startDist: graphTouchDist(t1,t2), startScale: graphView.scale, startTx: graphView.tx, startTy: graphView.ty, mid: graphTouchMid(t1,t2) };
       e.preventDefault();
@@ -4030,28 +4142,25 @@
     }
     if(e.touches.length !== 1) return;
     const t = e.touches[0];
-    const g = t.target && t.target.closest && t.target.closest('.gnode');
-    if(g && globalSim){
-      const node = globalSim.nodes.find(n => n.id === g.dataset.id);
-      if(node){
-        gNodeDrag = { node, id: node.id, moved:false };
-        node.fixed = true;
-        globalGraphSvg.classList.add('grabbing');
-        e.preventDefault();
-        return;
-      }
+    const n = graphNodeAt(t.clientX, t.clientY);
+    if(n && globalSim){
+      gNodeDrag = { node:n, id:n.id, moved:false };
+      n.fixed = true;
+      graphCanvas.classList.add('grabbing');
+      e.preventDefault();
+      return;
     }
     graphPanning = true; graphPanMoved = false;
     panStartX = t.clientX; panStartY = t.clientY;
     panOrigTx = graphView.tx; panOrigTy = graphView.ty;
-    globalGraphSvg.classList.add('panning');
+    graphCanvas.classList.add('panning');
     e.preventDefault();
   }, { passive: false });
-  globalGraphSvg.addEventListener('touchmove', (e) => {
+  graphCanvas.addEventListener('touchmove', (e) => {
     if(graphPinch && e.touches.length === 2){
       const [t1,t2] = e.touches;
       const scale = Math.min(10, Math.max(0.3, graphPinch.startScale * (graphTouchDist(t1,t2) / graphPinch.startDist)));
-      const rect = globalGraphSvg.getBoundingClientRect();
+      const rect = graphCanvas.getBoundingClientRect();
       const mx = graphPinch.mid.x - rect.left, my = graphPinch.mid.y - rect.top;
       graphView.tx = mx - (mx - graphPinch.startTx) * (scale / graphPinch.startScale);
       graphView.ty = my - (my - graphPinch.startTy) * (scale / graphPinch.startScale);
@@ -4063,7 +4172,7 @@
     if(e.touches.length !== 1) return;
     const t = e.touches[0];
     if(gNodeDrag){
-      const p = graphClientToLocal(t.clientX, t.clientY); if(!p) return;
+      const p = graphClientToWorld(t.clientX, t.clientY); if(!p) return;
       gNodeDrag.moved = true; graphNodeMoved = true;
       gNodeDrag.node.x = p.x; gNodeDrag.node.y = p.y; gNodeDrag.node.vx = 0; gNodeDrag.node.vy = 0;
       globalReheat();
@@ -4077,17 +4186,17 @@
       e.preventDefault();
     }
   }, { passive: false });
-  globalGraphSvg.addEventListener('touchend', () => {
+  graphCanvas.addEventListener('touchend', () => {
     if(graphPinch){ graphPinch = null; return; }
     if(gNodeDrag){
-      globalGraphSvg.classList.remove('grabbing');
+      graphCanvas.classList.remove('grabbing');
       gNodeDrag.node.fixed = false;
       if(gNodeDrag.moved){ globalReheat(); saveGlobalPositions(); }
       else { const id = gNodeDrag.id; closeGlobalGraph(); openNote(id); } // tap (no movement) opens the note
       gNodeDrag = null;
       return;
     }
-    if(graphPanning){ graphPanning = false; globalGraphSvg.classList.remove('panning'); }
+    if(graphPanning){ graphPanning = false; graphCanvas.classList.remove('panning'); }
   }, { passive: true });
 
   // re-run the simulation when the graph panel changes size (window/sidebar resize)

@@ -438,31 +438,15 @@
   .graph-legend{ display:none; flex-wrap:wrap; gap:12px; padding:8px 22px; border-bottom:1px solid var(--border-soft); font-size:11.5px; color:var(--ink-soft); flex-shrink:0; }
   .graph-legend .legend-item{ display:inline-flex; align-items:center; gap:5px; }
   .graph-legend .legend-dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
-  .graph-canvas{ flex:1; width:100%; height:100%; min-height:0; cursor:grab; touch-action:none; }
+  .graph-canvas{ flex:1; display:block; width:100%; height:100%; min-height:0; cursor:grab; touch-action:none; }
   .graph-canvas.panning{ cursor:grabbing; }
-  .graph-canvas.grabbing, .graph-canvas.grabbing .gnode{ cursor:grabbing; }
-  .graph-canvas .gnode{ cursor:grab; }
-  .graph-canvas .gnode circle{ transition:opacity .15s ease; }
-  .graph-canvas .gnode text{ font-family:var(--sans); font-size:11px; fill:var(--ink-soft); pointer-events:none; opacity:0.9; transition:opacity .12s ease; }
-  .graph-canvas .gnode:hover text{ opacity:1; font-weight:600; fill:var(--ink); }
-  /* full global graph only (not the dashboard's small, pre-capped-at-16 hero preview, which was
-     already designed to stay label-readable): with many nodes, dozens of always-on titles
-     overlapping is what actually reads as "cluttered", independent of node spacing itself.
-     Pinned/hub notes keep a permanent label as scan-able landmarks; everything else reveals on
-     hover, or once zoomed in far enough that few nodes are left on screen to overlap. */
-  #globalGraphSvg .gnode text{ opacity:0; }
-  #globalGraphSvg .gnode.pinned text, #globalGraphSvg .gnode.hub text{ opacity:0.85; }
-  #globalGraphSvg .gnode.pinned:hover text, #globalGraphSvg .gnode.hub:hover text{ opacity:1; font-weight:600; fill:var(--ink); } /* the rule above otherwise outranks the shared :hover rule */
-  #globalGraphSvg.zoomed-in .gnode text{ opacity:0.85; }
-  /* search match (see #graphSearchInput): full brightness + a ring, regardless of zoom/dim state */
-  #globalGraphSvg .gnode.match circle{ stroke:var(--accent); stroke-width:2.5; }
-  #globalGraphSvg .gnode.match text{ opacity:1 !important; font-weight:700; fill:var(--accent); }
+  .graph-canvas.grabbing{ cursor:grabbing; }
+  /* The global graph is now a <canvas>: node/edge visuals — color, dim, labels, hub/pinned/search
+     landmarks, and the zoomed-in label reveal — are painted by drawGlobalGraph() in JS, so the old
+     #globalGraphSvg .gnode/line rules were removed with the SVG. Only the box/cursor + search input
+     styling lives here. (The dashboard hero + mini note graphs are still SVG; see .graphmini etc.) */
   .graph-search-input{ font-family:var(--sans); font-size:12.5px; padding:5px 10px; border:1px solid var(--border); border-radius:20px; background:var(--bg-card); color:var(--ink); outline:none; width:160px; }
   .graph-search-input:focus{ border-color:var(--accent); width:200px; }
-  .graph-canvas .gnode.dim circle{ opacity:0.15; }
-  .graph-canvas .gnode.dim text{ opacity:0.2; }
-  .graph-canvas line{ stroke:var(--graph-line); stroke-width:1; transition:opacity .15s ease; }
-  .graph-canvas line.dim{ opacity:0.08; }
 
   /* --- Properties panel --- */
   .prop-row{ display:grid; grid-template-columns:92px 1fr 18px; align-items:stretch; border-bottom:1px solid var(--border-soft); min-height:30px; }

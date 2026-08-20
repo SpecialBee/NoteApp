@@ -4076,8 +4076,11 @@
     if(!graphPanning) return;
     const dx = e.clientX - panStartX, dy = e.clientY - panStartY;
     if(Math.abs(dx) > 3 || Math.abs(dy) > 3) graphPanMoved = true;
-    graphView.tx = panOrigTx + dx;
-    graphView.ty = panOrigTy + dy;
+    // tx/ty live in viewBox units (inside the base fit), so a screen-px drag must be divided by
+    // baseScale to track the cursor 1:1 — otherwise pan feels short on big graphs (baseScale < 1)
+    const bs = globalSim ? globalSim.baseScale : 1;
+    graphView.tx = panOrigTx + dx / bs;
+    graphView.ty = panOrigTy + dy / bs;
     applyGraphTransform();
   });
   window.addEventListener('mouseup', () => {
@@ -4113,16 +4116,18 @@
 
   // zoom (wheel, centered on cursor)
   graphCanvas.addEventListener('wheel', (e) => {
-    if(!isGraphOpen()) return;
+    if(!isGraphOpen() || !globalSim) return;
     e.preventDefault();
     const rect = graphCanvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    // cursor position in viewBox coords (undo the base fit), so zoom stays anchored on the cursor
+    const vx = (e.clientX - rect.left - globalSim.baseTx) / globalSim.baseScale;
+    const vy = (e.clientY - rect.top  - globalSim.baseTy) / globalSim.baseScale;
     const prevScale = graphView.scale;
     const newScale = Math.min(10, Math.max(0.3, prevScale * (1 - e.deltaY * 0.0015)));
-    const px = (mx - graphView.tx) / prevScale;
-    const py = (my - graphView.ty) / prevScale;
-    graphView.tx = mx - px * newScale;
-    graphView.ty = my - py * newScale;
+    const px = (vx - graphView.tx) / prevScale;
+    const py = (vy - graphView.ty) / prevScale;
+    graphView.tx = vx - px * newScale;
+    graphView.ty = vy - py * newScale;
     graphView.scale = newScale;
     applyGraphTransform();
   }, { passive: false });
@@ -4161,9 +4166,11 @@
       const [t1,t2] = e.touches;
       const scale = Math.min(10, Math.max(0.3, graphPinch.startScale * (graphTouchDist(t1,t2) / graphPinch.startDist)));
       const rect = graphCanvas.getBoundingClientRect();
-      const mx = graphPinch.mid.x - rect.left, my = graphPinch.mid.y - rect.top;
-      graphView.tx = mx - (mx - graphPinch.startTx) * (scale / graphPinch.startScale);
-      graphView.ty = my - (my - graphPinch.startTy) * (scale / graphPinch.startScale);
+      const bs = globalSim ? globalSim.baseScale : 1, btx = globalSim ? globalSim.baseTx : 0, bty = globalSim ? globalSim.baseTy : 0;
+      // pinch midpoint in viewBox coords, so the zoom stays anchored under the fingers
+      const vmx = (graphPinch.mid.x - rect.left - btx) / bs, vmy = (graphPinch.mid.y - rect.top - bty) / bs;
+      graphView.tx = vmx - (vmx - graphPinch.startTx) * (scale / graphPinch.startScale);
+      graphView.ty = vmy - (vmy - graphPinch.startTy) * (scale / graphPinch.startScale);
       graphView.scale = scale;
       applyGraphTransform();
       e.preventDefault();
@@ -4180,8 +4187,9 @@
     } else if(graphPanning){
       const dx = t.clientX - panStartX, dy = t.clientY - panStartY;
       if(Math.abs(dx) > 3 || Math.abs(dy) > 3) graphPanMoved = true;
-      graphView.tx = panOrigTx + dx;
-      graphView.ty = panOrigTy + dy;
+      const bs = globalSim ? globalSim.baseScale : 1;
+      graphView.tx = panOrigTx + dx / bs;
+      graphView.ty = panOrigTy + dy / bs;
       applyGraphTransform();
       e.preventDefault();
     }

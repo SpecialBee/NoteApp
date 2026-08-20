@@ -82,6 +82,7 @@
       <button class="sortbtn" data-sort="created">생성순</button>
       <button class="sortbtn density-btn" id="cardDensityBtn" title="카드 목록 밀도 전환">☰</button>
       <button class="sortbtn density-btn" id="cardGroupBtn" title="태그별로 묶어보기">📁</button>
+      <button class="sortbtn density-btn" id="cardCollapseAllBtn" title="그룹 전체 접기/펼치기" style="display:none;">⊟</button>
     </div>
     <div class="tagrow" id="tagRow"></div>
     <div class="cardlist" id="cardList"></div>
@@ -3301,6 +3302,7 @@
     const btn = el('cardGroupBtn');
     btn.classList.toggle('active', cardGroupMode);
     btn.title = cardGroupMode ? '태그별 묶기 끄기' : '태그별로 묶어보기';
+    el('cardCollapseAllBtn').style.display = cardGroupMode ? '' : 'none';
   }
   el('cardGroupBtn').onclick = () => {
     cardGroupMode = !cardGroupMode;
@@ -3309,6 +3311,27 @@
     renderCardList();
   };
   applyCardGroupMode();
+
+  // every group key currently on screen (tag names + the untagged bucket, if any) — used to
+  // collapse/expand them all in one click instead of clicking each header individually, which
+  // gets tedious fast once a bulk import leaves dozens of tags in the sidebar
+  function currentGroupKeys(){
+    const keys = new Set();
+    visibleCards().forEach(m => {
+      if(m.tags && m.tags.length) m.tags.forEach(t => keys.add(t));
+      else keys.add(UNTAGGED_GROUP_KEY);
+    });
+    return [...keys];
+  }
+  el('cardCollapseAllBtn').onclick = () => {
+    const keys = currentGroupKeys();
+    if(!keys.length) return;
+    const allCollapsed = keys.every(k => collapsedGroups.has(k));
+    if(allCollapsed) collapsedGroups.clear();
+    else keys.forEach(k => collapsedGroups.add(k));
+    localStorage.setItem('stk-collapsed-groups', JSON.stringify([...collapsedGroups]));
+    renderCardList();
+  };
 
   // ---------------- keyboard navigation ----------------
   function navigateCard(delta){

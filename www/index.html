@@ -3764,6 +3764,10 @@
     const REP=0.9, SPR=0.02, GRAV=0.0025, DAMP=0.86, VMAX=28;
     const ALPHA_DECAY=0.975, ALPHA_MIN=0.02;
 
+    // repulsion falls off as 1/d^2, so pairs already farther apart than this contribute almost
+    // nothing — skipping them (a cheap squared-distance compare, no sqrt) is what actually saves
+    // the time, since this loop is O(n^2) and was the real source of the lag on larger note counts
+    const REP_CUTOFF2 = (k*8) * (k*8);
     function step(){
       if(!isGraphOpen()){ stopGlobalSim(); return; }
       const alpha = globalSim.alpha;
@@ -3771,6 +3775,7 @@
         for(let j=i+1;j<nodes.length;j++){
           let dx=nodes[i].x-nodes[j].x, dy=nodes[i].y-nodes[j].y;
           let d2=dx*dx+dy*dy; if(d2<1) d2=1;
+          if(d2 > REP_CUTOFF2) continue;
           const d=Math.sqrt(d2), f=REP*(k*k)/d2*alpha, ux=dx/d, uy=dy/d;
           nodes[i].vx+=ux*f; nodes[i].vy+=uy*f;
           nodes[j].vx-=ux*f; nodes[j].vy-=uy*f;

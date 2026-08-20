@@ -438,9 +438,37 @@
   .graph-legend{ display:none; flex-wrap:wrap; gap:12px; padding:8px 22px; border-bottom:1px solid var(--border-soft); font-size:11.5px; color:var(--ink-soft); flex-shrink:0; }
   .graph-legend .legend-item{ display:inline-flex; align-items:center; gap:5px; }
   .graph-legend .legend-dot{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+  .graph-body{ position:relative; flex:1; min-height:0; display:flex; }
   .graph-canvas{ flex:1; display:block; width:100%; height:100%; min-height:0; cursor:grab; touch-action:none; }
   .graph-canvas.panning{ cursor:grabbing; }
   .graph-canvas.grabbing{ cursor:grabbing; }
+  /* --- graph connection panel (overlay, so toggling it never resizes the canvas / re-seeds the sim) --- */
+  .graph-conn-panel{ position:absolute; top:0; right:0; bottom:0; width:290px; display:flex; flex-direction:column; background:var(--bg-panel); border-left:1px solid var(--border); box-shadow:-6px 0 24px rgba(0,0,0,0.10); z-index:5; }
+  .gcp-head{ display:flex; align-items:flex-start; gap:8px; padding:14px 14px 8px; }
+  .gcp-title{ flex:1; min-width:0; font-size:14.5px; font-weight:700; color:var(--ink); line-height:1.35; word-break:break-word; }
+  .gcp-title .gcp-kind{ margin-right:5px; }
+  .gcp-close{ flex-shrink:0; background:none; border:none; color:var(--ink-faint); font-size:15px; cursor:pointer; padding:2px 6px; border-radius:6px; line-height:1; }
+  .gcp-close:hover{ color:var(--ink); background:var(--border-soft); }
+  .gcp-tags{ display:flex; flex-wrap:wrap; gap:5px; padding:0 14px; }
+  .gcp-tags:empty{ display:none; }
+  .gcp-tags .gcp-tag{ font-size:10.5px; color:var(--ink-soft); background:var(--border-soft); border-radius:10px; padding:1px 8px; }
+  .gcp-stats{ padding:8px 14px 10px; font-size:11.5px; color:var(--ink-faint); border-bottom:1px solid var(--border-soft); }
+  .gcp-body{ flex:1; overflow-y:auto; padding:6px 0 10px; }
+  .gcp-section{ font-size:11px; font-weight:700; color:var(--ink-faint); letter-spacing:0.3px; padding:10px 14px 4px; }
+  .gcp-empty{ font-size:12px; color:var(--ink-faint); padding:2px 14px 6px; }
+  .gcp-item{ display:flex; align-items:center; gap:7px; padding:6px 14px; font-size:12.5px; color:var(--ink); cursor:pointer; }
+  .gcp-item:hover{ background:var(--border-soft); }
+  .gcp-item .gcp-dot{ width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .gcp-item .gcp-name{ flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .gcp-item.broken{ color:var(--ink-faint); cursor:default; font-style:italic; }
+  .gcp-item.broken:hover{ background:none; }
+  .gcp-item.broken .gcp-dot{ background:none; border:1px dashed var(--ink-faint); }
+  .gcp-open{ margin:10px 14px 14px; padding:9px; font-family:var(--sans); font-size:13px; font-weight:600; color:#fff; background:var(--accent); border:none; border-radius:8px; cursor:pointer; }
+  .gcp-open:hover{ filter:brightness(1.05); }
+  @media (max-width:640px){
+    /* bottom sheet on phones */
+    .graph-conn-panel{ top:auto; left:0; right:0; bottom:0; width:auto; height:48%; border-left:none; border-top:1px solid var(--border); border-radius:14px 14px 0 0; box-shadow:0 -6px 24px rgba(0,0,0,0.16); }
+  }
   /* The global graph is now a <canvas>: node/edge visuals — color, dim, labels, hub/pinned/search
      landmarks, and the zoomed-in label reveal — are painted by drawGlobalGraph() in JS, so the old
      #globalGraphSvg .gnode/line rules were removed with the SVG. Only the box/cursor + search input

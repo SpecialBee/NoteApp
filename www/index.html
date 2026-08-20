@@ -139,7 +139,19 @@
         </div>
       </div>
       <div class="graph-legend" id="graphLegend"></div>
-      <canvas id="globalGraphCanvas" class="graph-canvas"></canvas>
+      <div class="graph-body">
+        <canvas id="globalGraphCanvas" class="graph-canvas"></canvas>
+        <div class="graph-conn-panel" id="graphConnPanel" style="display:none;">
+          <div class="gcp-head">
+            <span class="gcp-title" id="gcpTitle"></span>
+            <button class="gcp-close" id="gcpClose" title="닫기">✕</button>
+          </div>
+          <div class="gcp-tags" id="gcpTags"></div>
+          <div class="gcp-stats" id="gcpStats"></div>
+          <div class="gcp-body" id="gcpBody"></div>
+          <button class="gcp-open" id="gcpOpen">카드 열기 →</button>
+        </div>
+      </div>
     </div>
 
     <div id="dashboardView" style="display:none; flex:1; flex-direction:column; overflow-y:auto; padding:28px 36px; gap:24px;">
@@ -3612,6 +3624,8 @@
   let globalSim = null; // live force simulation state (Obsidian-style), persists after settle so drag can reheat it
   let graphHoverId = null;      // node under the cursor — drives the dim-everything-else highlight
   let graphMatched = new Set(); // ids matching the search box — drives the .match highlight
+  let graphSelectedId = null;   // node clicked open in the connection panel (sticky highlight)
+  let graphPanTween = 0;        // rAF handle for the smooth "walk" recenter tween
 
   // DPI-aware canvas backing store. the CSS box is sized by flex (.graph-canvas); the bitmap is
   // sized css*dpr so nodes/text stay crisp on retina/mobile. recomputed on render + resize.
@@ -3770,6 +3784,7 @@
       gctx.textAlign = 'center'; gctx.textBaseline = 'middle';
       gctx.fillText('연결된 카드가 없습니다' + (showIsolatedNodes ? '' : '. "고립 카드 표시"를 켜보세요'), graphCssW/2, graphCssH/2);
       el('graphLegend').style.display = 'none';
+      graphSelectedId = null; hideGraphPanel();
       return;
     }
 
@@ -3902,6 +3917,10 @@
     }
     globalSim = { raf:0, idleRaf:0, frame:0, alpha:1, running:true, nodes, links, W, H,
                   baseScale, baseTx, baseTy, hubThreshold, step };
+    // preserve the connection-panel selection across re-renders (tag edit, toggle, resize); drop it
+    // if the selected card no longer appears (e.g. "show isolated" turned off)
+    if(graphSelectedId && !nodes.some(n => n.id === graphSelectedId)){ graphSelectedId = null; hideGraphPanel(); }
+    else if(graphSelectedId) renderGraphPanel();
     drawGlobalGraph();
     globalSim.raf = requestAnimationFrame(step);
   }
@@ -3920,8 +3939,11 @@
     const nodes = S.nodes, links = S.links;
     const searchActive = graphSearchActive;
     const matched = graphMatched;
-    const hoverId = searchActive ? null : graphHoverId; // search + hover highlights don't stack
-    const hoverNbr = hoverId ? (graphAdjacency[hoverId] || null) : null;
+    const hoverId = searchActive ? null : graphHoverId;   // search + hover highlights don't stack
+    const selId   = searchActive ? null : graphSelectedId; // connection-panel selection (sticky)
+    // "focus" = whatever dims everything else: a live hover wins, else the sticky selection
+    const focusId = hoverId || selId;
+    const focusNbr = focusId ? (graphAdjacency[focusId] || null) : null;
     const zoomedIn = graphView.scale > 4;
 
     // edges first (drawn behind the nodes)
@@ -3930,7 +3952,7 @@
       const a = nodes[links[i][0]], b = nodes[links[i][1]];
       let dim = false;
       if(searchActive) dim = !(matched.has(a.id) || matched.has(b.id));
-      else if(hoverId) dim = (a.id !== hoverId && b.id !== hoverId);
+      else if(focusId) dim = (a.id !== focusId && b.id !== focusId);
       gctx.strokeStyle = withAlpha(graphColors.line, dim ? 0.08 : 1);
       gctx.beginPath(); gctx.moveTo(a.x, a.y); gctx.lineTo(b.x, b.y); gctx.stroke();
     }
@@ -3942,7 +3964,7 @@
       const isMatch = searchActive && matched.has(n.id);
       let dim;
       if(searchActive) dim = !isMatch;
-      else if(hoverId) dim = (n.id !== hoverId && !(hoverNbr && hoverNbr.has(n.id)));
+      else if(focusId) dim = (n.id !== focusId && !(focusNbr && focusNbr.has(n.id)));
       else dim = false;
 
       // depth cue precomputed in the node build (atmospheric fade + size); see Stage 3 notes there
@@ -3951,7 +3973,9 @@
 
       gctx.beginPath(); gctx.arc(n.x, n.y, n._rw, 0, Math.PI*2);
       gctx.fillStyle = withAlpha(n.fill, alpha); gctx.fill();
-      if(isMatch){ gctx.lineWidth = 2.5; gctx.strokeStyle = graphColors.accent; gctx.stroke(); }
+      // ring precedence: selection (thick accent, slightly larger) > search match > pinned
+      if(n.id === selId){ gctx.lineWidth = 3; gctx.strokeStyle = graphColors.accent; gctx.beginPath(); gctx.arc(n.x, n.y, n._rw + 2.5, 0, Math.PI*2); gctx.stroke(); }
+      else if(isMatch){ gctx.lineWidth = 2.5; gctx.strokeStyle = graphColors.accent; gctx.stroke(); }
       else if(n.pinned){ gctx.lineWidth = 2; gctx.strokeStyle = withAlpha(graphColors.ink, alpha); gctx.stroke(); }
     }
 
@@ -3969,11 +3993,11 @@
     const cands = [];
     for(const n of order){
       const isMatch = searchActive && matched.has(n.id);
-      const isHover = n.id === hoverId;
-      const visible = isMatch || isHover || (fullLabels && (n.isHub || n.pinned || zoomedIn));
+      const isFocus = n.id === hoverId || n.id === selId; // hovered or selected node
+      const visible = isMatch || isFocus || (fullLabels && (n.isHub || n.pinned || zoomedIn));
       if(!visible) continue;
-      // priority for the overlap fight: match > hover > hub > pinned > (zoomed-in) other
-      n._lp = isMatch ? 4 : isHover ? 3 : n.isHub ? 2 : n.pinned ? 1 : 0;
+      // priority for the overlap fight: match > focus(hover/selected) > hub > pinned > (zoomed-in) other
+      n._lp = isMatch ? 4 : isFocus ? 3 : n.isHub ? 2 : n.pinned ? 1 : 0;
       cands.push(n);
     }
     cands.sort((a,b) => b._lp - a._lp);
@@ -3982,23 +4006,23 @@
       const sx = ox + E * n.x, sy = oy + E * n.y;
       if(sx < -60 || sx > graphCssW+60 || sy < -20 || sy > graphCssH+20) continue; // off-screen
       const isMatch = searchActive && matched.has(n.id);
-      const isHover = n.id === hoverId;
+      const isFocus = n.id === hoverId || n.id === selId;
       let dim;
       if(searchActive) dim = !isMatch;
-      else if(hoverId) dim = (n.id !== hoverId && !(hoverNbr && hoverNbr.has(n.id)));
+      else if(focusId) dim = (n.id !== focusId && !(focusNbr && focusNbr.has(n.id)));
       else dim = false;
-      const bold = isMatch || isHover;
+      const bold = isMatch || isFocus;
       gctx.font = (bold ? '600 ' : '') + '12px ' + GRAPH_FONT;
       const w = gctx.measureText(n.label).width;
       const ty = sy - n._rw * E - 7;
       const box = { x0:sx - w/2 - 2, y0:ty - 12, x1:sx + w/2 + 2, y1:ty + 3 };
       let clash = false;
       for(const p of placed){ if(box.x0 < p.x1 && box.x1 > p.x0 && box.y0 < p.y1 && box.y1 > p.y0){ clash = true; break; } }
-      if(clash && !isMatch && !isHover) continue; // matches / hover always win their space
+      if(clash && !isMatch && !isFocus) continue; // matches / focus always win their space
       placed.push(box);
       let tColor = graphColors.inkSoft, tAlpha = dim ? 0.35 : 0.9;
       if(isMatch){ tColor = graphColors.accent; tAlpha = 1; }
-      else if(isHover){ tColor = graphColors.ink; tAlpha = 1; }
+      else if(isFocus){ tColor = graphColors.ink; tAlpha = 1; }
       gctx.lineWidth = 3; gctx.strokeStyle = withAlpha(graphColors.bg, Math.min(1, tAlpha + 0.15));
       gctx.strokeText(n.label, sx, ty); // halo first
       gctx.fillStyle = withAlpha(tColor, tAlpha);
@@ -4033,6 +4057,100 @@
     S.idleRaf = requestAnimationFrame(idleStep);
   }
 
+  // --- connection panel: clicking a node selects it (sticky highlight) and lists what it links to,
+  // instead of jumping straight into the card (that's now double-click / the panel's open button) ---
+  // gather a node's outgoing wiki-links (resolved to real cards; unresolved = "broken") and backlinks.
+  // links[] is a light list field, so this needs no body load; O(N) per selection (a user action).
+  function graphConnectionsOf(node){
+    const note = node.src;
+    const selfTitle = (note.title||'').toLowerCase();
+    const byTitle = {};
+    index.forEach(m => { const t=(m.title||'').toLowerCase(); if(t && !(t in byTitle)) byTitle[t]=m; });
+    const out = [], outSeen = new Set();
+    (note.links||[]).forEach(t => {
+      const key = t.toLowerCase(); if(outSeen.has(key)) return; outSeen.add(key);
+      const tgt = byTitle[key];
+      if(tgt && tgt.id !== note.id) out.push({ id:tgt.id, title:tgt.title, note:tgt, exists:true });
+      else out.push({ id:null, title:t, note:null, exists:false });
+    });
+    const inLinks = [], inSeen = new Set();
+    index.forEach(m => {
+      if(m.id === note.id || inSeen.has(m.id)) return;
+      if((m.links||[]).some(t => t.toLowerCase() === selfTitle)){ inSeen.add(m.id); inLinks.push({ id:m.id, title:m.title, note:m, exists:true }); }
+    });
+    return { out, in: inLinks };
+  }
+  function graphConnRowHtml(it){
+    if(!it.exists) return `<div class="gcp-item broken" title="대상 카드가 없는 링크"><span class="gcp-dot"></span><span class="gcp-name">${escapeHtml(it.title||'')}</span></div>`;
+    const tag = (it.note.tags && it.note.tags[0]) || '';
+    let dot = colorForTag(tag); if(dot[0] === 'v') dot = 'var(--ink-faint)';
+    const kind = isCanvasNote(it.note) ? '🎨 ' : isTableNote(it.note) ? '📊 ' : '';
+    return `<div class="gcp-item" data-id="${it.id}"><span class="gcp-dot" style="background:${dot}"></span><span class="gcp-name">${kind}${escapeHtml(it.title||'제목 없음')}</span></div>`;
+  }
+  function hideGraphPanel(){ el('graphConnPanel').style.display = 'none'; }
+  function renderGraphPanel(){
+    const S = globalSim;
+    const node = (S && graphSelectedId) ? S.nodes.find(n => n.id === graphSelectedId) : null;
+    if(!node){ hideGraphPanel(); return; }
+    const note = node.src;
+    const conns = graphConnectionsOf(node);
+    const kind = isCanvasNote(note) ? '🎨' : isTableNote(note) ? '📊' : '📄';
+    el('gcpTitle').innerHTML = `<span class="gcp-kind">${kind}</span>${escapeHtml(note.title || '제목 없음')}`;
+    el('gcpTags').innerHTML = (note.tags||[]).map(t => `<span class="gcp-tag">#${escapeHtml(t)}</span>`).join('');
+    el('gcpStats').textContent = `나가는 링크 ${conns.out.length} · 백링크 ${conns.in.length}`;
+    let html = `<div class="gcp-section">나가는 링크 (${conns.out.length})</div>`;
+    html += conns.out.length ? conns.out.map(graphConnRowHtml).join('') : `<div class="gcp-empty">없음</div>`;
+    html += `<div class="gcp-section">백링크 (${conns.in.length})</div>`;
+    html += conns.in.length ? conns.in.map(graphConnRowHtml).join('') : `<div class="gcp-empty">없음</div>`;
+    el('gcpBody').innerHTML = html;
+    el('graphConnPanel').style.display = 'flex';
+  }
+  function selectGraphNode(id, opts){
+    graphSelectedId = id;
+    graphHoverId = null;
+    renderGraphPanel();
+    if(opts && opts.center) centerGraphOnNode(id); // "walk": recenter on the newly picked node
+    else graphDrawIfIdle();
+  }
+  function deselectGraphNode(){
+    if(!graphSelectedId && el('graphConnPanel').style.display === 'none') return;
+    graphSelectedId = null;
+    hideGraphPanel();
+    graphDrawIfIdle();
+  }
+  // smooth pan so the node lands in the centre of the *visible* canvas (the dock/sheet steals space)
+  function centerGraphOnNode(id){
+    const S = globalSim; if(!S) return;
+    const n = S.nodes.find(x => x.id === id); if(!n) return;
+    cancelAnimationFrame(graphPanTween);
+    const panel = el('graphConnPanel');
+    let cxPix = graphCssW/2, cyPix = graphCssH/2;
+    if(panel.style.display !== 'none'){
+      if(window.innerWidth > 640) cxPix = (graphCssW - panel.offsetWidth)/2;
+      else cyPix = (graphCssH - panel.offsetHeight)/2;
+    }
+    const targetTx = (cxPix - S.baseTx) / S.baseScale - graphView.scale * n.x;
+    const targetTy = (cyPix - S.baseTy) / S.baseScale - graphView.scale * n.y;
+    const startTx = graphView.tx, startTy = graphView.ty, t0 = performance.now(), dur = 320;
+    function tick(now){
+      const k = Math.min(1, (now - t0) / dur), e = 1 - (1-k)*(1-k);
+      graphView.tx = startTx + (targetTx - startTx) * e;
+      graphView.ty = startTy + (targetTy - startTy) * e;
+      graphDrawIfIdle();
+      if(k < 1) graphPanTween = requestAnimationFrame(tick);
+    }
+    graphPanTween = requestAnimationFrame(tick);
+  }
+  el('gcpClose').onclick = () => deselectGraphNode();
+  el('gcpOpen').onclick = () => { if(graphSelectedId){ const id = graphSelectedId; closeGlobalGraph(); openNote(id); } };
+  el('gcpBody').addEventListener('click', (e) => {
+    const rowEl = e.target.closest('.gcp-item'); if(!rowEl || rowEl.classList.contains('broken')) return;
+    const id = rowEl.dataset.id; if(!id) return;
+    const inSim = globalSim && globalSim.nodes.some(n => n.id === id);
+    if(inSim) selectGraphNode(id, { center:true });          // walk to it inside the graph
+    else { closeGlobalGraph(); openNote(id); }               // target isn't shown here -> just open it
+  });
+
   function openGlobalGraph(){
     if(!index.length){ showToast('연결할 카드가 없습니다'); return; }
     currentId = null;
@@ -4041,10 +4159,13 @@
     renderCardList();
     el('graphSearchInput').value = '';
     graphSearchActive = false;
+    graphSelectedId = null; hideGraphPanel();
     renderGlobalGraph();
   }
   function closeGlobalGraph(){
     stopGlobalSim();
+    cancelAnimationFrame(graphPanTween);
+    graphSelectedId = null; hideGraphPanel();
     showView('empty');
   }
 
@@ -4067,7 +4188,11 @@
   graphCanvas.addEventListener('click', (e) => {
     if(graphPanMoved || graphNodeMoved) return;
     const n = graphNodeAt(e.clientX, e.clientY);
-    if(!n) return;
+    if(n) selectGraphNode(n.id); // select + open the connection panel (double-click opens the card)
+    else deselectGraphNode();    // click empty space -> clear selection + close panel
+  });
+  graphCanvas.addEventListener('dblclick', (e) => {
+    const n = graphNodeAt(e.clientX, e.clientY); if(!n) return;
     closeGlobalGraph();
     openNote(n.id);
   });
@@ -4117,6 +4242,7 @@
   let graphPanning = false, graphPanMoved = false, panStartX = 0, panStartY = 0, panOrigTx = 0, panOrigTy = 0;
   graphCanvas.addEventListener('mousedown', (e) => {
     if(graphNodeAt(e.clientX, e.clientY)) return; // node hit -> handled by the node-drag listener
+    cancelAnimationFrame(graphPanTween); // manual pan overrides an in-flight "walk" recenter
     graphPanning = true; graphPanMoved = false;
     panStartX = e.clientX; panStartY = e.clientY;
     panOrigTx = graphView.tx; panOrigTy = graphView.ty;
@@ -4143,6 +4269,7 @@
   let gNodeDrag = null;
   graphCanvas.addEventListener('mousedown', (e) => {
     const n = graphNodeAt(e.clientX, e.clientY); if(!n || !globalSim) return;
+    cancelAnimationFrame(graphPanTween);
     gNodeDrag = { node:n, id:n.id, moved:false };
     n.fixed = true;
     graphCanvas.classList.add('grabbing');
@@ -4168,6 +4295,7 @@
   graphCanvas.addEventListener('wheel', (e) => {
     if(!isGraphOpen() || !globalSim) return;
     e.preventDefault();
+    cancelAnimationFrame(graphPanTween);
     const rect = graphCanvas.getBoundingClientRect();
     // cursor position in viewBox coords (undo the base fit), so zoom stays anchored on the cursor
     const vx = (e.clientX - rect.left - globalSim.baseTx) / globalSim.baseScale;
@@ -4187,6 +4315,7 @@
   function graphTouchDist(t1,t2){ const dx=t1.clientX-t2.clientX, dy=t1.clientY-t2.clientY; return Math.sqrt(dx*dx+dy*dy); }
   function graphTouchMid(t1,t2){ return { x:(t1.clientX+t2.clientX)/2, y:(t1.clientY+t2.clientY)/2 }; }
   graphCanvas.addEventListener('touchstart', (e) => {
+    cancelAnimationFrame(graphPanTween); // any touch interaction overrides an in-flight "walk"
     if(e.touches.length === 2){
       graphPanning = false; graphCanvas.classList.remove('panning');
       if(gNodeDrag){ gNodeDrag.node.fixed = false; gNodeDrag = null; graphCanvas.classList.remove('grabbing'); }
@@ -4250,11 +4379,14 @@
       graphCanvas.classList.remove('grabbing');
       gNodeDrag.node.fixed = false;
       if(gNodeDrag.moved){ globalReheat(); saveGlobalPositions(); }
-      else { const id = gNodeDrag.id; closeGlobalGraph(); openNote(id); } // tap (no movement) opens the note
+      else selectGraphNode(gNodeDrag.id); // tap (no movement) selects + opens the panel (open card via its button)
       gNodeDrag = null;
       return;
     }
-    if(graphPanning){ graphPanning = false; graphCanvas.classList.remove('panning'); }
+    if(graphPanning){
+      graphPanning = false; graphCanvas.classList.remove('panning');
+      if(!graphPanMoved) deselectGraphNode(); // tap on empty space closes the panel
+    }
   }, { passive: true });
 
   // re-run the simulation when the graph panel changes size (window/sidebar resize)
@@ -4317,6 +4449,8 @@
     // 3. mobile slide-over overlays
     if(mobileRightpaneOpen){ mobileRightpaneOpen = false; applyPanelState(); return true; }
     if(appEl.classList.contains('show-sidebar')){ appEl.classList.remove('show-sidebar'); return true; }
+    // 3.5 graph connection panel open -> close it first (next back leaves the graph)
+    if(isGraphOpen() && graphSelectedId){ deselectGraphNode(); return true; }
     // 4. a content view is open -> flush pending edits and return to the home list
     if(currentView !== 'empty'){
       flushAllSaves();

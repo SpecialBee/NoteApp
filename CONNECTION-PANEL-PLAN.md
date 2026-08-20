@@ -1,7 +1,9 @@
 # 기획안: 노드 선택 → 연결 관계 패널
 
-> 상태: 기획 단계(미구현). 전역 그래프(캔버스) 위 상호작용 기능.
-> 관련 코드: `www/index.html`의 `renderGlobalGraph` / `drawGlobalGraph` / `graphCanvas` 이벤트 핸들러, `www/style.css`의 `.graph-*`.
+> 상태: **구현 완료(2026-08-21)**. 전역 그래프(캔버스) 위 상호작용 기능.
+> 관련 코드: `www/index.html`의 `renderGlobalGraph` / `drawGlobalGraph` / `graphCanvas` 이벤트 핸들러 + `selectGraphNode`/`renderGraphPanel`/`graphConnectionsOf`/`centerGraphOnNode`, `www/style.css`의 `.graph-conn-panel`/`.gcp-*`.
+>
+> **채택한 결정(8번 항목)**: ①카드 이동 = 더블클릭 + 패널 "카드 열기" 버튼 둘 다 / ②연결 항목 클릭 = 선택 이동(walk, 그래프에 있으면 중앙으로 팬·없으면 그 카드 열기) / ③패널 = 그래프 전용 오버레이 도킹(캔버스 리사이즈·재시뮬 없음), 모바일 하단 시트 / ④깨진 위키링크 = 흐리게(클릭 불가) 노출. 안드로이드 뒤로가기는 패널을 먼저 닫고 다음 back에서 그래프를 나감.
 
 ## 1. 목적 / UX 개념
 현재는 노드를 클릭하면 **즉시 그래프를 닫고 카드로 이동**한다. 이걸 바꿔서:

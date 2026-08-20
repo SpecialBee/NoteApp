@@ -3639,7 +3639,7 @@
   }
   const _colorCache = {};
   function toRgb(expr){ return _colorCache[expr] || (_colorCache[expr] = resolveCssColor(expr)); }
-  let graphColors = { line:'rgb(200,200,200)', inkFaint:'rgb(150,150,150)', inkSoft:'rgb(120,120,120)', ink:'rgb(50,50,50)', accent:'rgb(217,119,87)' };
+  let graphColors = { line:'rgb(200,200,200)', inkFaint:'rgb(150,150,150)', inkSoft:'rgb(120,120,120)', ink:'rgb(50,50,50)', accent:'rgb(217,119,87)', bg:'rgb(250,249,245)' };
   function resolveGraphColors(){
     graphColors = {
       line: resolveCssColor('var(--graph-line)'),
@@ -3647,6 +3647,7 @@
       inkSoft: resolveCssColor('var(--ink-soft)'),
       ink: resolveCssColor('var(--ink)'),
       accent: resolveCssColor('var(--accent)'),
+      bg: resolveCssColor('var(--bg-panel)'), // label halo, so text reads over edges/nodes
     };
   }
   // rgb(r,g,b) -> rgba(r,g,b,a) so dim/depth fading composites in one fillStyle, no globalAlpha juggling
@@ -3919,9 +3920,8 @@
       gctx.beginPath(); gctx.moveTo(a.x, a.y); gctx.lineTo(b.x, b.y); gctx.stroke();
     }
 
-    // nodes + labels. depth mode paints far->near so nearer (bigger/brighter) nodes sit on top
+    // node circles (+ rings). depth mode paints far->near so nearer (bigger/brighter) nodes sit on top
     const order = depth3dEnabled ? nodes.slice().sort((p,q)=>p.z-q.z) : nodes;
-    gctx.textAlign = 'center'; gctx.textBaseline = 'alphabetic';
     for(let i=0;i<order.length;i++){
       const n = order[i];
       const isMatch = searchActive && matched.has(n.id);
@@ -3930,29 +3930,66 @@
       else if(hoverId) dim = (n.id !== hoverId && !(hoverNbr && hoverNbr.has(n.id)));
       else dim = false;
 
-      // depth cue = opacity + size (Stage 1 drops the SVG per-node gaussian blur; too costly on canvas)
+      // depth cue = opacity + size (Stage 1 dropped the SVG per-node gaussian blur; too costly on canvas)
       const dScale = depth3dEnabled ? n.depthScale : 1;
       const dOpac  = depth3dEnabled ? n.depthOpacity : 1;
-      const r = n.r * dScale;
+      n._rw = n.r * dScale; // cache scaled radius for the label pass
       const alpha = dOpac * (dim ? 0.15 : 1);
 
-      gctx.beginPath(); gctx.arc(n.x, n.y, r, 0, Math.PI*2);
+      gctx.beginPath(); gctx.arc(n.x, n.y, n._rw, 0, Math.PI*2);
       gctx.fillStyle = withAlpha(n.fill, alpha); gctx.fill();
       if(isMatch){ gctx.lineWidth = 2.5; gctx.strokeStyle = graphColors.accent; gctx.stroke(); }
       else if(n.pinned){ gctx.lineWidth = 2; gctx.strokeStyle = withAlpha(graphColors.ink, alpha); gctx.stroke(); }
+    }
 
-      // label gating mirrors the old CSS: hubs/pinned always; everyone else on hover, on a search
-      // match, or once zoomed in far enough that overlapping titles aren't a problem
-      const baseVisible = n.isHub || n.pinned || zoomedIn || n.id === hoverId || isMatch;
-      if(baseVisible){
-        let tAlpha, tColor = graphColors.inkSoft, bold = false;
-        if(isMatch){ tAlpha = 1; tColor = graphColors.accent; bold = true; }
-        else if(n.id === hoverId){ tAlpha = 1; tColor = graphColors.ink; bold = true; }
-        else tAlpha = dim ? 0.2 : 0.85;
-        gctx.font = (bold ? '600 ' : '') + '11px ' + GRAPH_FONT;
-        gctx.fillStyle = withAlpha(tColor, tAlpha);
-        gctx.fillText(n.label, n.x, n.y - (r + 7));
-      }
+    // --- labels: second pass in *screen* space, so text stays crisp and readable at a constant size
+    // instead of being shrunk by the world transform, with greedy overlap culling so dense areas
+    // don't turn to mush. gating still mirrors the old CSS (hubs/pinned always; others on hover /
+    // search match / zoomed-in). during the heavy settling animation only hover+match labels draw,
+    // to keep that hot path cheap on big graphs.
+    gctx.setTransform(graphDpr,0,0,graphDpr,0,0);
+    const E = S.baseScale * graphView.scale;
+    const ox = S.baseTx + S.baseScale * graphView.tx;
+    const oy = S.baseTy + S.baseScale * graphView.ty;
+    const fullLabels = !S.running; // settled / idle-float / static — safe to place the full set
+    gctx.textAlign = 'center'; gctx.textBaseline = 'alphabetic'; gctx.lineJoin = 'round';
+    const cands = [];
+    for(const n of order){
+      const isMatch = searchActive && matched.has(n.id);
+      const isHover = n.id === hoverId;
+      const visible = isMatch || isHover || (fullLabels && (n.isHub || n.pinned || zoomedIn));
+      if(!visible) continue;
+      // priority for the overlap fight: match > hover > hub > pinned > (zoomed-in) other
+      n._lp = isMatch ? 4 : isHover ? 3 : n.isHub ? 2 : n.pinned ? 1 : 0;
+      cands.push(n);
+    }
+    cands.sort((a,b) => b._lp - a._lp);
+    const placed = [];
+    for(const n of cands){
+      const sx = ox + E * n.x, sy = oy + E * n.y;
+      if(sx < -60 || sx > graphCssW+60 || sy < -20 || sy > graphCssH+20) continue; // off-screen
+      const isMatch = searchActive && matched.has(n.id);
+      const isHover = n.id === hoverId;
+      let dim;
+      if(searchActive) dim = !isMatch;
+      else if(hoverId) dim = (n.id !== hoverId && !(hoverNbr && hoverNbr.has(n.id)));
+      else dim = false;
+      const bold = isMatch || isHover;
+      gctx.font = (bold ? '600 ' : '') + '12px ' + GRAPH_FONT;
+      const w = gctx.measureText(n.label).width;
+      const ty = sy - n._rw * E - 7;
+      const box = { x0:sx - w/2 - 2, y0:ty - 12, x1:sx + w/2 + 2, y1:ty + 3 };
+      let clash = false;
+      for(const p of placed){ if(box.x0 < p.x1 && box.x1 > p.x0 && box.y0 < p.y1 && box.y1 > p.y0){ clash = true; break; } }
+      if(clash && !isMatch && !isHover) continue; // matches / hover always win their space
+      placed.push(box);
+      let tColor = graphColors.inkSoft, tAlpha = dim ? 0.35 : 0.9;
+      if(isMatch){ tColor = graphColors.accent; tAlpha = 1; }
+      else if(isHover){ tColor = graphColors.ink; tAlpha = 1; }
+      gctx.lineWidth = 3; gctx.strokeStyle = withAlpha(graphColors.bg, Math.min(1, tAlpha + 0.15));
+      gctx.strokeText(n.label, sx, ty); // halo first
+      gctx.fillStyle = withAlpha(tColor, tAlpha);
+      gctx.fillText(n.label, sx, ty);
     }
   }
 

@@ -2449,8 +2449,13 @@
   // neighbors settle around it and can be dragged
   // once a force sim settles, give it a barely-there idle drift instead of freezing solid —
   // a cheap per-node sine wobble around the settled position, far lighter than full physics.
+  // above this many nodes the wobble stops being "barely-there": it keeps rewriting every node
+  // and edge attribute at 60fps forever after the layout has settled, which is the single
+  // biggest source of permanent lag on a large graph. The cosmetic gain isn't worth it there.
+  const IDLE_FLOAT_MAX_NODES = 150;
   function startIdleFloat(sim, nodeEls, lineEls, links, isActiveFn, extraTransform){
     if(localStorage.getItem('stk-graph-idle-float') === '0') return; // settled nodes just stay put
+    if(sim.nodes.length > IDLE_FLOAT_MAX_NODES) return;
     sim.nodes.forEach(n => {
       n.fx = n.x; n.fy = n.y;
       n.fPhase = Math.random() * Math.PI * 2;
@@ -2466,8 +2471,8 @@
         n.x = n.fx + Math.sin(t*n.fFreq + n.fPhase) * n.fAmp;
         n.y = n.fy + Math.cos(t*n.fFreq*0.85 + n.fPhase) * n.fAmp;
       });
-      nodeEls.forEach((g,i) => { if(!g) return; const n = sim.nodes[i]; g.setAttribute('transform', `translate(${n.x.toFixed(1)},${n.y.toFixed(1)})${extraTransform ? extraTransform(n) : ''}`); });
-      lineEls.forEach((ln,i) => { const [a,b] = links[i]; ln.setAttribute('x1', sim.nodes[a].x.toFixed(1)); ln.setAttribute('y1', sim.nodes[a].y.toFixed(1)); ln.setAttribute('x2', sim.nodes[b].x.toFixed(1)); ln.setAttribute('y2', sim.nodes[b].y.toFixed(1)); });
+      nodeEls.forEach((g,i) => { if(!g) return; const n = sim.nodes[i]; g.setAttribute('transform', 'translate(' + (n.x|0) + ',' + (n.y|0) + ')' + (extraTransform ? extraTransform(n) : '')); });
+      lineEls.forEach((ln,i) => { const [a,b] = links[i]; ln.setAttribute('x1', sim.nodes[a].x|0); ln.setAttribute('y1', sim.nodes[a].y|0); ln.setAttribute('x2', sim.nodes[b].x|0); ln.setAttribute('y2', sim.nodes[b].y|0); });
       sim.idleRaf = requestAnimationFrame(idleStep);
     }
     sim.idleRaf = requestAnimationFrame(idleStep);
@@ -3721,7 +3726,10 @@
         y = H/2 + Math.sin(a) * R0 * (0.6 + 0.4*Math.random());
       }
       const z = depthOf(m.id), depth = depthBucket(z);
-      return { src:m, id:m.id, r, x, y, vx:0, vy:0, fixed:false, z, depthScale:depth.scale, depthOpacity:depth.opacity, blurId:depth.blurId };
+      // precomputed here (not per frame) — safe to cache because toggling depth3dEnabled
+      // re-runs renderGlobalGraph(), rebuilding this whole array
+      const scaleSuffix = depth3dEnabled ? ` scale(${depth.scale})` : '';
+      return { src:m, id:m.id, r, x, y, vx:0, vy:0, fixed:false, z, depthScale:depth.scale, depthOpacity:depth.opacity, blurId:depth.blurId, scaleSuffix };
     });
     const links = [];
     edges.forEach(([a,b]) => { if(idxOf[a]!=null && idxOf[b]!=null) links.push([idxOf[a], idxOf[b]]); });
@@ -3812,12 +3820,19 @@
         if(n.x<mx){n.x=mx;n.vx*=-0.3;} else if(n.x>W-mx){n.x=W-mx;n.vx*=-0.3;}
         if(n.y<my){n.y=my;n.vy*=-0.3;} else if(n.y>H-16){n.y=H-16;n.vy*=-0.3;}
       }
-      nodeEls.forEach((g,i) => {
+      // hot path: this runs for every node and every edge, 60x a second. toFixed() builds a
+      // formatted string each call (thousands per frame) and the scale suffix was being
+      // re-templated per node per frame — precompute the suffix once, and truncate with |0
+      // instead, since sub-pixel precision is invisible at these sizes anyway.
+      for(let i=0;i<nodeEls.length;i++){
         const n = nodes[i];
-        const scalePart = depth3dEnabled ? ` scale(${n.depthScale})` : '';
-        g.setAttribute('transform', `translate(${n.x.toFixed(1)},${n.y.toFixed(1)})${scalePart}`);
-      });
-      lineEls.forEach((ln,i) => { const [a,b]=links[i]; ln.setAttribute('x1',nodes[a].x.toFixed(1)); ln.setAttribute('y1',nodes[a].y.toFixed(1)); ln.setAttribute('x2',nodes[b].x.toFixed(1)); ln.setAttribute('y2',nodes[b].y.toFixed(1)); });
+        nodeEls[i].setAttribute('transform', 'translate(' + (n.x|0) + ',' + (n.y|0) + ')' + n.scaleSuffix);
+      }
+      for(let i=0;i<lineEls.length;i++){
+        const ln = lineEls[i], a = nodes[links[i][0]], b = nodes[links[i][1]];
+        ln.setAttribute('x1', a.x|0); ln.setAttribute('y1', a.y|0);
+        ln.setAttribute('x2', b.x|0); ln.setAttribute('y2', b.y|0);
+      }
 
       globalSim.frame++;
       globalSim.alpha *= ALPHA_DECAY;

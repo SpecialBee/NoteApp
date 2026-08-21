@@ -774,9 +774,11 @@
       // the in-memory index only carries lightweight fields (content is lazy-loaded per note —
       // see ensureContentLoaded), so a full backup needs its own full-row fetch rather than
       // reusing index directly.
+      // paged (fetchAllRows): an unpaged backup would cap at 1000 notes and still look like it
+      // succeeded — the one place where silent truncation is least acceptable
       const [notesRes, checklistRes] = await Promise.all([
-        sb.from('notes').select('*').is('deleted_at', null).order('created_at', { ascending:true }),
-        sb.from('checklist_items').select('*').order('created_at', { ascending:true }),
+        fetchAllRows(() => sb.from('notes').select('*').is('deleted_at', null).order('created_at', { ascending:true })),
+        fetchAllRows(() => sb.from('checklist_items').select('*').order('created_at', { ascending:true })),
       ]);
       if(notesRes.error) throw notesRes.error;
       if(checklistRes.error) throw checklistRes.error;
@@ -1274,14 +1276,35 @@
     return note.content;
   }
 
+  // PostgREST answers any single request with at most 1000 rows and reports NO error when it
+  // truncates — so an unpaged "give me all my notes" query silently loses everything past the
+  // 1000th row: those notes vanish from the list, search, graph, and (worst) from backups,
+  // while the app looks perfectly healthy. Every query that can legitimately return the whole
+  // table has to walk pages explicitly. buildQuery is a factory because a Supabase query
+  // builder can't be reused once awaited.
+  const PG_PAGE_SIZE = 1000;
+  async function fetchAllRows(buildQuery){
+    const rows = [];
+    for(let page = 0; page < 200; page++){ // hard stop so a misbehaving response can't spin forever
+      const from = page * PG_PAGE_SIZE;
+      const { data, error } = await buildQuery().range(from, from + PG_PAGE_SIZE - 1);
+      if(error) return { data: null, error };
+      if(data && data.length) rows.push(...data);
+      if(!data || data.length < PG_PAGE_SIZE) break; // short page = last page
+    }
+    return { data: rows, error: null };
+  }
+
   async function loadAll(){
-    const { data, error } = await sb.from('notes').select(NOTE_LIST_FIELDS).is('deleted_at', null).order('updated_at', { ascending:false });
+    const { data, error } = await fetchAllRows(() =>
+      sb.from('notes').select(NOTE_LIST_FIELDS).is('deleted_at', null).order('updated_at', { ascending:false }));
     if(error){ showToast('불러오기 실패: ' + error.message); index = []; return; }
     index = data.map(rowToNote);
   }
 
   async function loadTrash(){
-    const { data, error } = await sb.from('notes').select(NOTE_LIST_FIELDS).not('deleted_at', 'is', null).order('deleted_at', { ascending:false });
+    const { data, error } = await fetchAllRows(() =>
+      sb.from('notes').select(NOTE_LIST_FIELDS).not('deleted_at', 'is', null).order('deleted_at', { ascending:false }));
     if(error){ showToast('휴지통 불러오기 실패: ' + error.message); trashIndex = []; return; }
     trashIndex = data.map(rowToNote);
     await purgeOldTrash();
@@ -1378,8 +1401,8 @@
   async function cascadeRename(oldTitle, newTitle, excludeId){
     if(!oldTitle || oldTitle.toLowerCase() === newTitle.toLowerCase()) return;
     const re = new RegExp('\\[\\[\\s*' + escapeRegExp(oldTitle) + '\\s*\\]\\]', 'gi');
-    const { data, error } = await sb.from('notes').select('id,content')
-      .is('deleted_at', null).neq('id', excludeId).ilike('content', `%[[${oldTitle}%`);
+    const { data, error } = await fetchAllRows(() => sb.from('notes').select('id,content')
+      .is('deleted_at', null).neq('id', excludeId).ilike('content', `%[[${oldTitle}%`));
     if(error || !data) return;
     let count = 0;
     for(const row of data){
@@ -2458,8 +2481,8 @@
   // match) instead of requiring every canvas board to already be loaded locally. Fired off
   // without blocking the rest of renderRightPane, since it's a network round trip.
   async function renderCanvasBacklinks(note){
-    const { data, error } = await sb.from('notes').select('id,title,content')
-      .is('deleted_at', null).eq('type', 'canvas').ilike('content', `%"noteId":"${note.id}"%`);
+    const { data, error } = await fetchAllRows(() => sb.from('notes').select('id,title,content')
+      .is('deleted_at', null).eq('type', 'canvas').ilike('content', `%"noteId":"${note.id}"%`));
     if(currentId !== note.id || error || !data) return; // panel moved on, or query failed
     const canvasRefs = data.filter(m => {
       const { elements } = parseCanvasContent(m.content || '');
@@ -2800,8 +2823,8 @@
     const hint = el('exportAllMdHint');
     btn.disabled = true; const label = btn.textContent; btn.textContent = '내보내는 중…';
     try{
-      const { data, error } = await sb.from('notes').select('title,content')
-        .is('deleted_at', null).eq('type', 'note').order('created_at', { ascending:true });
+      const { data, error } = await fetchAllRows(() => sb.from('notes').select('title,content')
+        .is('deleted_at', null).eq('type', 'note').order('created_at', { ascending:true }));
       if(error) throw error;
       const encoder = new TextEncoder();
       const usedNames = new Set();
@@ -7461,7 +7484,7 @@
   // ===== Checklist (synced via Supabase; dashCL is an in-memory cache, loaded once at boot) =====
   let dashCL = [];
   async function loadChecklist(){
-    const { data, error } = await sb.from('checklist_items').select('*').order('created_at', { ascending:false });
+    const { data, error } = await fetchAllRows(() => sb.from('checklist_items').select('*').order('created_at', { ascending:false }));
     if(error){ showToast('할 일 불러오기 실패: ' + error.message); dashCL = []; return; }
     dashCL = data.map(r => ({ id:r.id, text:r.text, done:r.done }));
     if(!dashCL.length){

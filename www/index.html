@@ -1464,8 +1464,8 @@
     s = s.replace(/```([\s\S]*?)```/g, (full, code) => `<pre><code>${code.trim()}</code></pre>`);
 
     s = s.replace(/\[\[([^\]\n]+)\]\]/g, (full, title) => {
-      const exists = index.some(m => m.title.toLowerCase() === title.trim().toLowerCase());
-      const cls = exists ? 'wikilink' : 'wikilink missing';
+      // O(1) map lookup, not a scan of every note — this runs per wikilink on every keystroke
+      const cls = findNoteByTitle(title) ? 'wikilink' : 'wikilink missing';
       return `<span class="${cls}" data-link="${escapeHtml(title.trim())}">${escapeHtml(title.trim())}</span>`;
     });
 
@@ -1822,9 +1822,40 @@
   el('fmtHr').onclick = () => { const ta=editorBox; const s=ta.selectionStart, e=ta.selectionEnd; const ins='\n\n---\n\n'; replaceEditorRange(s, e, ins, s+ins.length); };
 
   // ---------------- sidebar rendering ----------------
-  function computeAllTags(){
-    const set = new Set(); index.forEach(m => (m.tags||[]).forEach(t => set.add(t)));
+  // Lookup indexes rebuilt whenever `index` changes. Without these, every "which note has this
+  // title?" / "who links to this title?" question was a linear scan over all notes with a
+  // toLowerCase() per comparison — and those questions get asked inside loops on the hot paths
+  // (markdown preview on each keystroke, right-panel backlinks on each autosave, graph edge
+  // building on open). At ~1000 notes that was millions of throwaway string ops.
+  let noteByTitle = new Map();     // lowercased title -> note   (first match wins on duplicate titles, same as the Array.find() this replaced)
+  let notesLinkingTo = new Map();  // lowercased title -> note[] (reverse of each note's `links`)
+
+  function rebuildNoteIndexes(){
+    const set = new Set();
+    noteByTitle = new Map();
+    notesLinkingTo = new Map();
+    index.forEach(m => {
+      (m.tags||[]).forEach(t => set.add(t));
+      const title = (m.title||'').toLowerCase();
+      if(!noteByTitle.has(title)) noteByTitle.set(title, m); // first match wins, like Array.find did
+      (m.links||[]).forEach(l => {
+        const key = l.toLowerCase();
+        const arr = notesLinkingTo.get(key);
+        if(!arr) notesLinkingTo.set(key, [m]);
+        // a note that links the same title twice must still appear once, as the old
+        // filter(...some(...)) did. One note's links are processed consecutively, so a repeat
+        // can only be the entry we just pushed.
+        else if(arr[arr.length-1] !== m) arr.push(m);
+      });
+    });
     allTags = Array.from(set).sort();
+  }
+
+  function findNoteByTitle(title){ return noteByTitle.get((title||'').trim().toLowerCase()) || null; }
+  // notes whose [[links]] point at `title`, excluding the note itself
+  function backlinksOf(note){
+    const arr = notesLinkingTo.get((note.title||'').toLowerCase());
+    return arr ? arr.filter(m => m.id !== note.id) : [];
   }
   let activeTagFilter = null;
   let searchQuery = '';
@@ -2313,7 +2344,7 @@
     note.updated = Date.now();
     await updateNote(note);
     if(oldTitle !== newTitle) await cascadeRename(oldTitle, newTitle, note.id);
-    computeAllTags();
+    rebuildNoteIndexes();
     renderTagRow();
     renderCardList();
     renderRightPane(note);
@@ -2361,7 +2392,7 @@
     if(cevCurrentNoteId === note.id) cevFlushSave();
     note.tags = newTags;
     await updateNote(note);
-    computeAllTags(); renderTagRow(); renderCardList();
+    rebuildNoteIndexes(); renderTagRow(); renderCardList();
     renderRightPane(note);
     if(cevCurrentNoteId === note.id) renderNoteTagChips(note, 'cevTagChips');
     if(tevCurrentNoteId === note.id) renderNoteTagChips(note, 'tevTagChips');
@@ -2425,7 +2456,7 @@
   }
 
   function renderRightPane(note){
-    const back = index.filter(m => m.id !== note.id && (m.links||[]).some(l => l.toLowerCase() === (note.title||'').toLowerCase()));
+    const back = backlinksOf(note); // reverse-link index; runs on every autosave, so no full scan
     backlinkList.innerHTML = '';
     if(back.length === 0){
       backlinkList.className = 'rp-empty';
@@ -2544,8 +2575,8 @@
   function drawGraph(note){
     stopMiniSim();
     const w = 240, h = 150, cx = w/2, cy = h/2;
-    const outLinks = (note.links||[]).map(t => index.find(m => m.title.toLowerCase() === t.toLowerCase())).filter(Boolean);
-    const inLinks = index.filter(m => m.id !== note.id && (m.links||[]).some(l => l.toLowerCase() === (note.title||'').toLowerCase()));
+    const outLinks = (note.links||[]).map(t => findNoteByTitle(t)).filter(Boolean);
+    const inLinks = backlinksOf(note);
     const neighbors = [];
     outLinks.forEach(n => { if(!neighbors.find(x=>x.id===n.id)) neighbors.push(n); });
     inLinks.forEach(n => { if(!neighbors.find(x=>x.id===n.id)) neighbors.push(n); });
@@ -2697,7 +2728,7 @@
     const created = await insertNote(draft);
     if(!created) return null;
     index.unshift(created);
-    computeAllTags();
+    rebuildNoteIndexes();
     renderTagRow();
     await openNote(created.id);
     titleField.focus();
@@ -2713,7 +2744,7 @@
     const created = await insertNote(draft);
     if(!created) return;
     index.unshift(created);
-    computeAllTags();
+    rebuildNoteIndexes();
     renderTagRow();
     await openNote(created.id);
     showToast('카드를 복제했습니다');
@@ -2864,7 +2895,7 @@
     index = index.filter(m => m.id !== id);
     if(note){ note.deletedAt = Date.now(); trashIndex.unshift(note); trashCount.textContent = trashIndex.length; }
     await softDeleteRow(id);
-    computeAllTags();
+    rebuildNoteIndexes();
     renderTagRow();
     if(currentId === id){
       currentId = null;
@@ -2885,7 +2916,7 @@
     note.deletedAt = null;
     index.unshift(note);
     await restoreRow(id);
-    computeAllTags();
+    rebuildNoteIndexes();
     renderTagRow();
     renderCardList();
     updateEmptyTrashBtn();
@@ -2962,7 +2993,7 @@
     const t = e.target.closest('.wikilink');
     if(!t) return;
     const title = t.dataset.link;
-    const found = index.find(m => m.title.toLowerCase() === title.toLowerCase());
+    const found = findNoteByTitle(title);
     if(found){ await openNote(found.id); }
     else if(confirm(`"${title}" 카드가 없습니다. 새로 만들까요?`)){ await createNote(title); }
   });
@@ -3018,7 +3049,7 @@
     // wikilinks inside a compare panel's preview load that card into the same panel
     el('comparePreviewBox'+s).addEventListener('click', (e) => {
       const t = e.target.closest('.wikilink'); if(!t) return;
-      const found = index.find(m => m.title.toLowerCase() === t.dataset.link.toLowerCase());
+      const found = findNoteByTitle(t.dataset.link);
       if(found){ comparePanels[s-1].id = found.id; renderComparePanel(s); }
     });
     el('compareEditorBox'+s).addEventListener('input', () => queueComparePanelSave(s));
@@ -3252,7 +3283,14 @@
   }
   wireCompareDivider('compareDivider1', previewBox, 'stk-compare-ratio-1');
   wireCompareDivider('compareDivider2', el('comparePane1'), 'stk-compare-ratio-2');
-  searchInput.addEventListener('input', (e) => { searchQuery = e.target.value; renderCardList(); });
+  // debounced: each keystroke re-filters every note and rebuilds the whole card list DOM, so at
+  // ~1000 notes typing outran the render. Short enough to still feel instant.
+  let searchDebounceT = null;
+  searchInput.addEventListener('input', (e) => {
+    searchQuery = e.target.value;
+    clearTimeout(searchDebounceT);
+    searchDebounceT = setTimeout(renderCardList, 120);
+  });
   el('dupBtn').onclick = () => { if(currentId) duplicateNote(currentId); };
   el('exportMdBtn').onclick = () => { if(currentId) exportNoteAsMarkdown(currentId); };
   // window.print() snapshots whatever's on screen right now — if a <img src="drive-url"> was
@@ -3795,7 +3833,9 @@
     index.forEach(m => { degree[m.id] = 0; });
     index.forEach(m => {
       (m.links||[]).forEach(t => {
-        const target = index.find(x => x.title.toLowerCase() === t.toLowerCase());
+        // was a full scan of `index` per link (n x links x n with a toLowerCase per compare —
+        // millions of string ops at 1000 notes, re-run on every graph open/resize/toggle)
+        const target = findNoteByTitle(t);
         if(target && target.id !== m.id){
           const key = [m.id, target.id].sort().join('|');
           if(!edgeSet.has(key)){
@@ -4605,7 +4645,7 @@
         currentId = null; showView('empty'); clearRightPane();
         showToast('열려 있던 카드가 다른 기기에서 삭제되었습니다');
       }
-      computeAllTags(); renderTagRow(); renderCardList();
+      rebuildNoteIndexes(); renderTagRow(); renderCardList();
       refreshOpenNoteView();
       return;
     }
@@ -4622,7 +4662,7 @@
     else index.push(row);
 
     if(isEcho){
-      computeAllTags(); renderTagRow(); renderCardList();
+      rebuildNoteIndexes(); renderTagRow(); renderCardList();
       return;
     }
 
@@ -4664,7 +4704,7 @@
       // the card's live property badges without disturbing the canvas's own save state
       cevRenderAll();
     }
-    computeAllTags(); renderTagRow(); renderCardList();
+    rebuildNoteIndexes(); renderTagRow(); renderCardList();
     refreshOpenNoteView();
   }
 
@@ -5824,7 +5864,7 @@
     const content = '```table\n' + JSON.stringify(defaultData) + '\n```';
     const note = await insertNote({title:'새 시트 카드',content,tags:[],links:[],pinned:false,properties:[]});
     if(!note) return;
-    index.unshift(note); computeAllTags(); renderTagRow(); renderCardList();
+    index.unshift(note); rebuildNoteIndexes(); renderTagRow(); renderCardList();
     currentId = note.id;
     showView('tableEditor');
     openTableEditor(note);
@@ -7233,7 +7273,7 @@
   async function createCanvasNote(){
     const note=await insertNote({title:'새 캔버스',content:'```canvas\n```',tags:[],links:[],pinned:false,properties:[]});
     if(!note) return;
-    index.unshift(note); computeAllTags(); renderTagRow(); renderCardList();
+    index.unshift(note); rebuildNoteIndexes(); renderTagRow(); renderCardList();
     currentId=note.id;
     showView('canvasEditor');
     openCanvasEditor(note);
@@ -7259,7 +7299,7 @@
       index.unshift(created); lastCreated = created; count++;
     }
     if(!count){ showToast('불러온 파일이 없습니다'); return; }
-    computeAllTags(); renderTagRow(); renderCardList();
+    rebuildNoteIndexes(); renderTagRow(); renderCardList();
     if(lastCreated) await openNote(lastCreated.id);
     showToast(`마크다운 카드 ${count}개를 불러왔습니다`);
   }
@@ -7301,7 +7341,7 @@
     if(!dbViewConfig.filterTag){ showToast('먼저 태그를 선택하세요'); return; }
     const created=await insertNote({title:'새 항목',content:'',tags:[dbViewConfig.filterTag],links:[],pinned:false,properties:[]});
     if(!created) return;
-    index.unshift(created); computeAllTags(); renderTagRow(); renderCardList();
+    index.unshift(created); rebuildNoteIndexes(); renderTagRow(); renderCardList();
     openNote(created.id);
   });
   el('tevExitBtn').addEventListener('click',()=>exitTableEditor());
@@ -7952,7 +7992,7 @@ GRAPHIDEA는 흩어진 생각을 **연결해 하나의 그래프로 잇는** 개
       renderTagChips();
       await doSave();
     }
-    computeAllTags();
+    rebuildNoteIndexes();
     renderTagRow();
     // openDashboard() already renders the card list, so only render it here when we're NOT opening
     // the dashboard — otherwise the whole list DOM gets built twice on every app open

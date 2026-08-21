@@ -372,13 +372,6 @@
   .rp-tag-add-input{ width:74px; min-width:0; border:none; outline:none; background:none; font-size:11px; color:var(--ink); font-family:var(--sans); padding:3px 2px; }
   .rp-tag-add-input::placeholder{ color:var(--ink-faint); }
   .rp-tag-add-input:focus{ width:110px; }
-  .graphmini{ width:100%; height:150px; touch-action:none; }
-  .graphmini circle{ fill:var(--accent); }
-  .graphmini circle.self{ fill:var(--ink); }
-  .graphmini line{ stroke:var(--graph-line); stroke-width:1; }
-  .graphmini text{ font-family:var(--sans); font-size:9px; fill:var(--ink-faint); }
-  .graphmini .gnode{ cursor:grab; }
-  .graphmini.grabbing, .graphmini.grabbing .gnode{ cursor:grabbing; }
 
   /* ---------- table of contents (right panel, note editor only) ---------- */
   .toc-item{ display:block; width:100%; text-align:left; background:none; border:none; font-family:var(--sans); color:var(--ink-soft); cursor:pointer; padding:4px 0 4px 6px; border-left:2px solid transparent; line-height:1.4; }
@@ -472,7 +465,7 @@
   /* The global graph is now a <canvas>: node/edge visuals — color, dim, labels, hub/pinned/search
      landmarks, and the zoomed-in label reveal — are painted by drawGlobalGraph() in JS, so the old
      #globalGraphSvg .gnode/line rules were removed with the SVG. Only the box/cursor + search input
-     styling lives here. (The dashboard hero + mini note graphs are still SVG; see .graphmini etc.) */
+     styling lives here. (The dashboard hero graph is still SVG.) */
   .graph-search-input{ font-family:var(--sans); font-size:12.5px; padding:5px 10px; border:1px solid var(--border); border-radius:20px; background:var(--bg-card); color:var(--ink); outline:none; width:160px; }
   .graph-search-input:focus{ border-color:var(--accent); width:200px; }
 

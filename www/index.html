@@ -88,7 +88,7 @@
     <div class="cardlist" id="cardList"></div>
     <div style="padding:0 14px 4px 14px;display:flex;flex-direction:column;gap:2px;">
       <button class="logout" id="paletteBtn" style="font-size:11px;text-align:left;">⚡ 빠른 전환 (Ctrl+P)</button>
-      <button class="logout" id="globalGraphBtn" style="font-size:11px;text-align:left;font-weight:700;color:var(--accent);">🕸 전역 그래프</button>
+      <button class="logout" id="globalGraphBtn" style="font-size:11px;text-align:left;font-weight:700;color:var(--accent);">🕸 연결 지도</button>
       <button class="logout" id="trashBtn" style="font-size:11px;text-align:left;">🗑 휴지통 (<span id="trashCount">0</span>)</button>
     </div>
     <div class="synctag" id="syncTag"><span class="dot" id="syncDot"></span><span id="syncText">모든 기기와 자동 동기화됨</span></div>
@@ -129,7 +129,7 @@
 
     <div id="globalGraphView" class="graphview" style="display:none;">
       <div class="graph-header">
-        <span>전역 연결 그래프</span>
+        <span>연결 지도</span>
         <div class="graph-header-right">
           <input type="text" id="graphSearchInput" class="graph-search-input" placeholder="🔍 카드 찾기…">
           <label class="graph-toggle"><input type="checkbox" id="showIsolatedToggle"> 고립 카드 표시</label>
@@ -167,7 +167,7 @@
         </div>
       </div>
 
-      <!-- 히어로: 연결 그래프 미리보기 -->
+      <!-- 히어로: 연결 지도 미리보기 -->
       <div class="dash-hero">
         <div class="dash-hero-graph-wrap">
           <svg id="dashGraphSvg" class="graph-canvas"></svg>
@@ -183,7 +183,7 @@
           <div class="dash-hero-stat"><b id="dashHeroCount">0</b><span>노트</span></div>
           <div class="dash-hero-stat"><b id="dashHeroLinks">0</b><span>연결</span></div>
           <div class="graph-legend" id="dashGraphLegend"></div>
-          <button class="dash-hero-open" id="dashHeroOpenBtn">전체 그래프 보기 →</button>
+          <button class="dash-hero-open" id="dashHeroOpenBtn">연결 지도 열기 →</button>
         </div>
       </div>
 
@@ -398,7 +398,6 @@
     <div class="rp-section"><div class="rp-title">역링크</div><div id="backlinkList" class="rp-empty">이 카드를 가리키는 카드가 없습니다.</div></div>
     <div class="rp-section" id="canvasBacklinkSection" style="display:none;"><div class="rp-title">캔버스 보드</div><div id="canvasBacklinkList"></div></div>
     <div class="rp-section"><div class="rp-title">태그</div><div id="tagList" class="tag-list"><span class="rp-empty">태그 없음</span></div></div>
-    <div class="rp-section"><div class="rp-title">연결 지도</div><svg class="graphmini" id="graphMini" viewBox="0 0 240 150"></svg></div>
     <div class="rp-section" id="tocSection" style="display:none;"><div class="rp-title">목차</div><div id="tocList"></div></div>
   </div>
 </div>
@@ -657,7 +656,6 @@
   const canvasBacklinkSection = el('canvasBacklinkSection');
   const canvasBacklinkList = el('canvasBacklinkList');
   const tagList = el('tagList');
-  const graphMini = el('graphMini');
   const syncDot = el('syncDot');
   const syncText = el('syncText');
   const toast = el('toast');
@@ -2352,11 +2350,9 @@
   }
 
   function clearRightPane(){
-    stopMiniSim();
     backlinkList.className = 'rp-empty';
     backlinkList.textContent = '카드를 선택하면 표시됩니다.';
     tagList.innerHTML = '<span class="rp-empty">카드를 선택하면 표시됩니다.</span>';
-    graphMini.innerHTML = '';
     el('propSection').style.display = 'none';
   }
 
@@ -2500,7 +2496,6 @@
       }
     });
     tagList.appendChild(addInput);
-    drawGraph(note);
     renderToc(note.content);
     el('propSection').style.display = 'block';
     renderPropertiesPane(note);
@@ -2530,11 +2525,9 @@
     });
   }
 
-  // mini graph: live force simulation (Obsidian-style), same cooldown pattern as the
-  // global graph / dashboard hero graph — the current note stays pinned at center,
-  // neighbors settle around it and can be dragged
   // once a force sim settles, give it a barely-there idle drift instead of freezing solid —
   // a cheap per-node sine wobble around the settled position, far lighter than full physics.
+  // Used by the dashboard hero graph (still SVG); the canvas 연결 지도 has its own equivalent.
   // above this many nodes the wobble stops being "barely-there": it keeps rewriting every node
   // and edge attribute at 60fps forever after the layout has settled, which is the single
   // biggest source of permanent lag on a large graph. The cosmetic gain isn't worth it there.
@@ -2563,165 +2556,6 @@
     }
     sim.idleRaf = requestAnimationFrame(idleStep);
   }
-
-  let miniSim = null;
-  function stopMiniSim(){ if(miniSim){ cancelAnimationFrame(miniSim.raf); cancelAnimationFrame(miniSim.idleRaf); miniSim.running = false; } }
-  function reheatMiniSim(){
-    if(!miniSim) return;
-    miniSim.alpha = Math.max(miniSim.alpha, 0.5);
-    if(!miniSim.running){ miniSim.running = true; miniSim.frame = 0; miniSim.raf = requestAnimationFrame(miniSim.step); }
-  }
-
-  function drawGraph(note){
-    stopMiniSim();
-    const w = 240, h = 150, cx = w/2, cy = h/2;
-    const outLinks = (note.links||[]).map(t => findNoteByTitle(t)).filter(Boolean);
-    const inLinks = backlinksOf(note);
-    const neighbors = [];
-    outLinks.forEach(n => { if(!neighbors.find(x=>x.id===n.id)) neighbors.push(n); });
-    inLinks.forEach(n => { if(!neighbors.find(x=>x.id===n.id)) neighbors.push(n); });
-    const N = neighbors.length;
-
-    if(N === 0){
-      graphMini.innerHTML = `<circle class="self" cx="${cx}" cy="${cy}" r="7"></circle>`
-        + `<text x="${cx}" y="${cy-11}" text-anchor="middle" fill="var(--ink)">${escapeHtml((note.title||'').slice(0,14))}</text>`
-        + `<text x="${cx}" y="${cy+26}" text-anchor="middle" style="fill:var(--ink-faint);">연결된 카드 없음</text>`;
-      return;
-    }
-
-    // neighbors start bunched near the center (small random jitter) rather than
-    // already at their resting layout, so the spring/repulsion forces visibly
-    // spread them into place instead of producing near-imperceptible motion
-    // the current card's node starts pinned at center (so the layout doesn't jump the
-    // instant it's drawn) but isn't permanently fixed — like a global-graph node, it
-    // relaxes into the physics once the sim settles, and can be dragged around too.
-    const nodes = [{ self:true, id:note.id, title:note.title, x:cx, y:cy, vx:0, vy:0, fixed:true, settleFrame:26 }];
-    neighbors.forEach((n,i) => {
-      const jAngle = Math.random()*Math.PI*2, jR = Math.random()*12;
-      nodes.push({ self:false, id:n.id, title:n.title, x:cx+Math.cos(jAngle)*jR, y:cy+Math.sin(jAngle)*jR, vx:0, vy:0, fixed:false });
-    });
-    const links = neighbors.map((_,i) => [0, i+1]);
-
-    let inner = '<g id="graphMiniLines">';
-    links.forEach(() => { inner += '<line></line>'; });
-    inner += '</g><g id="graphMiniNodes">';
-    nodes.forEach((n,i) => {
-      if(n.self){
-        inner += `<g class="gnode self" data-i="${i}"><circle class="self" r="7"></circle><text y="-11" text-anchor="middle" fill="var(--ink)">${escapeHtml((n.title||'').slice(0,14))}</text></g>`;
-      }else{
-        inner += `<g class="gnode" data-i="${i}" data-id="${n.id}"><circle r="5"></circle><text y="14" text-anchor="middle">${escapeHtml((n.title||'').slice(0,10))}</text></g>`;
-      }
-    });
-    inner += '</g>';
-    graphMini.innerHTML = inner;
-
-    const lineEls = [...graphMini.querySelectorAll('#graphMiniLines line')];
-    const nodeEls = [...graphMini.querySelectorAll('#graphMiniNodes .gnode')];
-
-    // paint the starting layout immediately — otherwise these <g>/<line> elements sit at the
-    // SVG's default (0,0) origin (the viewBox's top-left corner) for the one frame before the
-    // simulation's first requestAnimationFrame tick fires, which looks like a handful of nodes
-    // flashing outside the panel right as it opens
-    nodeEls.forEach((g,i) => { g.setAttribute('transform', `translate(${nodes[i].x.toFixed(1)},${nodes[i].y.toFixed(1)})`); });
-    lineEls.forEach((ln,i) => { const [a,b]=links[i]; ln.setAttribute('x1',nodes[a].x.toFixed(1)); ln.setAttribute('y1',nodes[a].y.toFixed(1)); ln.setAttribute('x2',nodes[b].x.toFixed(1)); ln.setAttribute('y2',nodes[b].y.toFixed(1)); });
-
-    const k = 50, MX = 14, MY = 18;
-    const REP = 0.9, SPR = 0.03, DAMP = 0.86, VMAX = 20;
-    const ALPHA_DECAY = 0.97, ALPHA_MIN = 0.02;
-
-    function step(){
-      if(currentId !== note.id || el('rightpane').style.display === 'none'){ stopMiniSim(); return; }
-      const alpha = miniSim.alpha;
-      for(let i=0;i<nodes.length;i++){
-        for(let j=i+1;j<nodes.length;j++){
-          let dx=nodes[i].x-nodes[j].x, dy=nodes[i].y-nodes[j].y;
-          let d2=dx*dx+dy*dy; if(d2<1) d2=1;
-          const d=Math.sqrt(d2), f=REP*(k*k)/d2*alpha, ux=dx/d, uy=dy/d;
-          if(!nodes[i].fixed){ nodes[i].vx+=ux*f; nodes[i].vy+=uy*f; }
-          if(!nodes[j].fixed){ nodes[j].vx-=ux*f; nodes[j].vy-=uy*f; }
-        }
-      }
-      links.forEach(([a,b]) => {
-        let dx=nodes[b].x-nodes[a].x, dy=nodes[b].y-nodes[a].y;
-        const d=Math.sqrt(dx*dx+dy*dy)||0.01, f=SPR*(d-k)*alpha, ux=dx/d, uy=dy/d;
-        if(!nodes[a].fixed){ nodes[a].vx+=ux*f; nodes[a].vy+=uy*f; }
-        if(!nodes[b].fixed){ nodes[b].vx-=ux*f; nodes[b].vy-=uy*f; }
-      });
-      for(const n of nodes){
-        if(n.settleFrame !== undefined){
-          if(n.settleFrame-- <= 0) n.fixed = false;
-        }
-        if(n.fixed){ n.vx=0; n.vy=0; continue; }
-        n.vx*=DAMP; n.vy*=DAMP;
-        if(n.vx>VMAX)n.vx=VMAX; else if(n.vx<-VMAX)n.vx=-VMAX;
-        if(n.vy>VMAX)n.vy=VMAX; else if(n.vy<-VMAX)n.vy=-VMAX;
-        n.x+=n.vx; n.y+=n.vy;
-        if(n.x<MX){n.x=MX;n.vx*=-0.3;} else if(n.x>w-MX){n.x=w-MX;n.vx*=-0.3;}
-        if(n.y<MY){n.y=MY;n.vy*=-0.3;} else if(n.y>h-MY){n.y=h-MY;n.vy*=-0.3;}
-      }
-      nodeEls.forEach((g,i) => { g.setAttribute('transform', `translate(${nodes[i].x.toFixed(1)},${nodes[i].y.toFixed(1)})`); });
-      lineEls.forEach((ln,i) => { const [a,b]=links[i]; ln.setAttribute('x1',nodes[a].x.toFixed(1)); ln.setAttribute('y1',nodes[a].y.toFixed(1)); ln.setAttribute('x2',nodes[b].x.toFixed(1)); ln.setAttribute('y2',nodes[b].y.toFixed(1)); });
-
-      miniSim.frame++;
-      miniSim.alpha *= ALPHA_DECAY;
-      if(miniSim.alpha < ALPHA_MIN || miniSim.frame > 400){
-        stopMiniSim();
-        startIdleFloat(miniSim, nodeEls, lineEls, links, () => currentId === note.id && el('rightpane').style.display !== 'none');
-        return;
-      }
-      miniSim.raf = requestAnimationFrame(step);
-    }
-    miniSim = { raf:0, frame:0, alpha:1, running:true, nodes, step };
-    miniSim.raf = requestAnimationFrame(step);
-  }
-
-  // drag any mini-graph node (self included, like the global graph); a tap that didn't
-  // move a neighbor node navigates to it, same as the global graph's node click
-  let miniDrag = null;
-  function miniClientToSvg(clientX, clientY){
-    const ctm = graphMini.getScreenCTM(); if(!ctm) return null;
-    const pt = graphMini.createSVGPoint(); pt.x = clientX; pt.y = clientY;
-    const p = pt.matrixTransform(ctm.inverse());
-    return { x:p.x, y:p.y };
-  }
-  function miniDragStart(clientX, clientY, target){
-    const g = target.closest('.gnode'); if(!g || !miniSim) return;
-    const isSelf = g.classList.contains('self');
-    const node = isSelf ? miniSim.nodes[0] : miniSim.nodes.find(n => n.id === g.dataset.id);
-    if(!node) return;
-    miniDrag = { node, id: isSelf ? null : g.dataset.id, moved:false };
-    node.fixed = true;
-    node.settleFrame = undefined;
-    graphMini.classList.add('grabbing');
-    reheatMiniSim();
-  }
-  function miniDragMove(clientX, clientY){
-    if(!miniDrag) return;
-    const p = miniClientToSvg(clientX, clientY); if(!p) return;
-    miniDrag.moved = true;
-    miniDrag.node.x = p.x; miniDrag.node.y = p.y; miniDrag.node.vx = 0; miniDrag.node.vy = 0;
-  }
-  function miniDragEnd(){
-    if(!miniDrag) return;
-    miniDrag.node.fixed = false;
-    graphMini.classList.remove('grabbing');
-    if(!miniDrag.moved && miniDrag.id) openNote(miniDrag.id);
-    miniDrag = null;
-  }
-  graphMini.addEventListener('mousedown', e => miniDragStart(e.clientX, e.clientY, e.target));
-  document.addEventListener('mousemove', e => miniDragMove(e.clientX, e.clientY));
-  document.addEventListener('mouseup', miniDragEnd);
-  graphMini.addEventListener('touchstart', e => {
-    if(e.touches.length !== 1) return;
-    miniDragStart(e.touches[0].clientX, e.touches[0].clientY, e.target);
-    if(miniDrag) e.preventDefault();
-  }, { passive:false });
-  graphMini.addEventListener('touchmove', e => {
-    if(!miniDrag || e.touches.length !== 1) return;
-    miniDragMove(e.touches[0].clientX, e.touches[0].clientY);
-    e.preventDefault();
-  }, { passive:false });
-  graphMini.addEventListener('touchend', miniDragEnd);
 
   async function createNote(initialTitle){
     const draft = { title: initialTitle || '', content:'', tags:[], links:[], pinned:false };
@@ -4114,7 +3948,7 @@
   }
 
   // once settled, a barely-there idle drift (cheap per-node sine wobble) instead of freezing solid —
-  // the canvas equivalent of the shared startIdleFloat() the SVG mini/dashboard graphs still use
+  // the canvas equivalent of the shared startIdleFloat() the SVG dashboard hero graph still uses
   function startGlobalIdleFloat(){
     if(localStorage.getItem('stk-graph-idle-float') === '0') return; // settled nodes just stay put
     const S = globalSim; if(!S) return;
@@ -7657,7 +7491,7 @@
     const hiddenCount=Math.max(0, shownArr.length-CAP);
     shownArr=shownArr.slice(0,CAP);
     if(moreEl){
-      if(hiddenCount>0){ moreEl.style.display='block'; moreEl.textContent=`외 ${hiddenCount}개 — 전체 그래프에서 보기`; }
+      if(hiddenCount>0){ moreEl.style.display='block'; moreEl.textContent=`외 ${hiddenCount}개 — 연결 지도에서 보기`; }
       else moreEl.style.display='none';
     }
 
@@ -7883,7 +7717,7 @@ GRAPHIDEA는 흩어진 생각을 **연결해 하나의 그래프로 잇는** 개
 - 쓰기 모드 상단 도구모음: H1~H4, **굵게**, *기울임*, ~~취소선~~, ==하이라이트==, 인용, 🔗링크, 🖼이미지(구글 드라이브 연결 후 표시), \`인라인 코드\`, 코드 블록, 표(▦), 내어쓰기/들여쓰기(Tab/Shift+Tab도 가능), 할 일 목록(☑), 콜아웃(💡), 구분선(―).
 - 이미지는 🖼 버튼으로 올리거나, 캡처/복사한 이미지를 편집창에 바로 **Ctrl+V** 붙여넣기만 해도 자동 업로드돼요.
 - **읽기 모드**에서는 ⧉ 비교 버튼으로 다른 카드와 나란히 놓고 비교할 수 있어요(데스크톱/태블릿 전용).
-- 오른쪽 패널에서 **속성**, 역링크, **목차**, 이 카드의 연결 지도를 볼 수 있어요.
+- 오른쪽 패널에서 **속성**, 역링크, **목차**를 볼 수 있어요.
 
 ### 체크리스트 · 콜아웃
 - [x] 이렇게 완료 표시
@@ -7931,14 +7765,14 @@ GRAPHIDEA는 흩어진 생각을 **연결해 하나의 그래프로 잇는** 개
 ## 탐색과 정리
 - **Ctrl+P**: 빠른 전환 팔레트로 카드를 검색해 바로 이동(캔버스·표 안의 글자도 검색돼요).
 - **Ctrl+K**: 검색창으로 이동 · **Ctrl+S**: 즉시 저장 · **↑/↓**: 카드 목록 이동.
-- 🕸 **전역 그래프**: 모든 카드와 연결을 한눈에 — 드래그·휠·이웃 강조, **고립 카드 표시**/**입체 효과** 토글, **보기 초기화** 버튼.
+- 🕸 **연결 지도**: 모든 카드와 연결을 한눈에 — 드래그·휠·이웃 강조, **고립 카드 표시**/**입체 효과** 토글, **보기 초기화** 버튼. 노드를 **클릭하면 선택**되어 그 카드의 나가는 링크/백링크가 패널에 뜨고, **더블클릭하면 카드가 열려요**.
 - 사이드바 정렬 버튼(최근순/제목순/생성순) 옆 **☰** 로 카드 목록을 촘촘하게/넉넉하게 전환할 수 있어요.
 - 오른쪽 패널은 경계선 가운데 **‹ 탭**으로 접었다 펼 수 있어요.
 
 ## 대시보드
 상단 **대시보드**에서:
 - **오늘의 할 일** 체크리스트 (기기 간 자동 동기화)
-- **연결 그래프 미리보기** + 노트·연결 개수 요약
+- **연결 지도 미리보기** + 노트·연결 개수 요약
 - **최근 카드**, **캔버스 보드** 목록
 - **오늘의 한 장 ✨** — 한동안 안 열어본 예전 카드를 하나 골라 보여줘요
 - **활동 기록**(잔디밭 히트맵 + 연속 기록)과 **월별 캘린더**

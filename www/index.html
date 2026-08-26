@@ -1426,14 +1426,16 @@
     const items = lines.map(line => {
       const m = line.match(/^([ \t]*)(-|\d+\.)[ \t]+(.*)$/);
       const depth = Math.floor(m[1].replace(/\t/g, '  ').length / 2);
-      return { depth, ordered: m[2] !== '-', text: m[3] };
+      const ordered = m[2] !== '-';
+      // keep the number the user actually typed, not just "this is ordered" — see renderList
+      return { depth, ordered, num: ordered ? parseInt(m[2], 10) : null, text: m[3] };
     });
 
     const root = [];
     const stack = [{ depth: -1, list: root }];
     items.forEach(item => {
       while(stack.length && stack[stack.length - 1].depth >= item.depth) stack.pop();
-      const node = { ordered: item.ordered, text: item.text, children: [] };
+      const node = { ordered: item.ordered, num: item.num, text: item.text, children: [] };
       stack[stack.length - 1].list.push(node);
       stack.push({ depth: item.depth, list: node.children });
     });
@@ -1442,12 +1444,19 @@
       let html = '', i = 0;
       while(i < nodes.length){
         const ordered = nodes[i].ordered;
+        // A bare <ol> always renumbers from 1. Anything that ends one list and starts another —
+        // a blank line between items, or a "- " bullet in between — therefore restarted the
+        // count, so a note written 1. / 2. / 3. with gaps rendered as 1. / 1. / 1.
+        // Emitting the typed starting number as `start` keeps the sequence, and matches how
+        // standard markdown treats the first number of an ordered list.
+        const startNum = ordered ? nodes[i].num : null;
         let run = '';
         while(i < nodes.length && nodes[i].ordered === ordered){
           run += '<li>' + nodes[i].text + renderList(nodes[i].children) + '</li>';
           i++;
         }
-        html += (ordered ? '<ol>' : '<ul>') + run + (ordered ? '</ol>' : '</ul>');
+        if(ordered) html += (startNum && startNum !== 1 ? `<ol start="${startNum}">` : '<ol>') + run + '</ol>';
+        else html += '<ul>' + run + '</ul>';
       }
       return html;
     }

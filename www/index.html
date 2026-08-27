@@ -3381,6 +3381,7 @@
 
   // ---------------- wikilink [[...]] autocomplete ----------------
   let wikiPopupOpen = false, wikiPopupResults = [], wikiPopupIdx = 0, wikiPopupRange = null;
+  let wikiPopupAnchor = null; // { start, coords } — cached caret measurement for the open "[[", see updateWikiPopup
 
   // mirrors the textarea's text up to `position` in an offscreen div with identical
   // font metrics, then reads the pixel position of a marker span placed right there —
@@ -3399,7 +3400,10 @@
     document.body.appendChild(mirror);
     mirror.textContent = ta.value.slice(0, position);
     const span = document.createElement('span');
-    span.textContent = ta.value.slice(position) || '.';
+    // only the text immediately after the caret can influence where the caret sits (it decides
+    // whether the current word wraps); copying the entire remainder of the document just added
+    // layout work. 100 chars is far more than any single word needs.
+    span.textContent = ta.value.slice(position, position + 100) || '.';
     mirror.appendChild(span);
     const rect = ta.getBoundingClientRect();
     const top = rect.top + span.offsetTop - ta.scrollTop + (parseInt(computed.borderTopWidth) || 0);
@@ -3425,6 +3429,7 @@
 
   function closeWikiPopup(){
     wikiPopupOpen = false;
+    wikiPopupAnchor = null; // next "[[" re-measures; text above it may have changed meanwhile
     el('wikiLinkPopup').style.display = 'none';
   }
 
@@ -3461,7 +3466,17 @@
     wikiPopupIdx = 0;
     wikiPopupOpen = true;
     renderWikiPopup();
-    const coords = getCaretCoordinates(editorBox, q.end);
+    // Measuring the caret means laying out all the text before it in an offscreen mirror, which
+    // is the single most expensive thing on the typing path: ~11ms for a 32,000-character note
+    // of ordinary prose, and ~350ms if that note is written as a few very long paragraphs (one
+    // enormous line box costs far more to wrap than many short ones). Doing that per keystroke
+    // was untenable. Anchor to the "[[" instead of the moving caret and measure once per popup
+    // session — the text before "[[" doesn't change while you type the query, so the position is
+    // still correct, and the popup no longer jitters rightward as you type.
+    if(!wikiPopupAnchor || wikiPopupAnchor.start !== q.start){
+      wikiPopupAnchor = { start: q.start, coords: getCaretCoordinates(editorBox, q.start) };
+    }
+    const coords = wikiPopupAnchor.coords;
     const box = el('wikiLinkPopup');
     box.style.display = 'block';
     // clamp within the viewport so it doesn't run off the right/bottom edge on narrow (mobile) screens
@@ -4546,6 +4561,25 @@
     // silently so it doesn't toast on every keystroke or disturb the open editor.
     const prevLocal = index.find(m => m.id === row.id) || trashIndex.find(m => m.id === row.id);
     const isEcho = prevLocal && sameNoteSig(prevLocal, row);
+
+    // An echo arrives after every autosave — i.e. every ~600ms while typing — so this is a hot
+    // path, not a rare event. Two problems with sending it through the generic path below:
+    // the filter-then-push rebuilt the whole 1000-entry array AND moved the note to the end,
+    // which shifts the position-derived serial numbers (#0001…) of every card after it; and the
+    // full renderCardList() cost ~62ms at 1000 notes, undoing the in-place sidebar update that
+    // doSave() had just done. Replacing the row where it already sits avoids all of that.
+    // Safe because sameNoteSig compares content too, so an echo carries identical data.
+    if(isEcho && !isTrashed){
+      const at = index.findIndex(m => m.id === row.id);
+      if(at !== -1){
+        index[at] = row;
+        rebuildNoteIndexes();
+        renderTagRow();
+        if(!refreshCardTabInPlace(row)) renderCardList();
+        return;
+      }
+    }
+
     index = index.filter(m => m.id !== row.id);
     trashIndex = trashIndex.filter(m => m.id !== row.id);
     if(isTrashed){ if(showingTrash) { trashIndex.unshift(row); trashCount.textContent = trashIndex.length; } }

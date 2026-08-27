@@ -29,7 +29,6 @@ const ICONS = [
   // --- 2단계: 모달 / 서식 도구모음 / 비교 패널 / 시트 편집기 / 캔버스 컨텍스트 툴바 ---
   'x', 'chevron-down', 'chevron-right', 'pencil', 'eye', 'book-open',
   'link', 'filter', 'file-output',                 // 링크 / 시트 필터 / CSV 내보내기
-  'indent-increase', 'indent-decrease',            // 들여쓰기 / 내어쓰기
   'list-checks', 'lightbulb', 'triangle-alert', 'ban',  // 할 일 / 콜아웃 4종(sticky-note 재사용)
   'arrow-right', 'arrow-up', 'arrow-down', 'arrow-up-down', 'arrow-up-right',
   'rotate-ccw',                                    // 휴지통 복원

@@ -488,6 +488,10 @@
      landmarks, and the zoomed-in label reveal — are painted by drawGlobalGraph() in JS, so the old
      #globalGraphSvg .gnode/line rules were removed with the SVG. Only the box/cursor + search input
      styling lives here. (The dashboard hero graph is still SVG.) */
+  /* placeholder 는 텍스트만 담을 수 있어 이모지 돋보기를 넣었던 자리 — 아이콘을 입력창 위에 겹쳐 올린다 */
+  .search-field{ position:relative; display:inline-flex; align-items:center; }
+  .search-field-ic{ position:absolute; left:9px; pointer-events:none; color:var(--ink-faint); }
+  .search-field .graph-search-input{ padding-left:28px; }
   .graph-search-input{ font-family:var(--sans); font-size:12.5px; padding:5px 10px; border:1px solid var(--border); border-radius:20px; background:var(--bg-card); color:var(--ink); outline:none; width:160px; }
   .graph-search-input:focus{ border-color:var(--accent); width:200px; }
 

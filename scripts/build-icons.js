@@ -25,6 +25,24 @@ const ICONS = [
   'undo-2', 'redo-2', 'grid-3x3', 'maximize', 'minus', 'plus',
   'mouse-pointer-2', 'sticky-note', 'square', 'circle', 'diamond',
   'type', 'frame', 'id-card', 'image',
+
+  // --- 2단계: 모달 / 서식 도구모음 / 비교 패널 / 시트 편집기 / 캔버스 컨텍스트 툴바 ---
+  'x', 'chevron-down', 'chevron-right', 'pencil', 'eye', 'book-open',
+  'link', 'filter', 'file-output',                 // 링크 / 시트 필터 / CSV 내보내기
+  'indent-increase', 'indent-decrease',            // 들여쓰기 / 내어쓰기
+  'list-checks', 'lightbulb', 'triangle-alert', 'ban',  // 할 일 / 콜아웃 4종(sticky-note 재사용)
+  'arrow-right', 'arrow-up', 'arrow-down', 'arrow-up-down', 'arrow-up-right',
+  'rotate-ccw',                                    // 휴지통 복원
+  'lock', 'lock-open', 'tag', 'check',
+  'calendar', 'hash', 'circle-dot', 'square-check', 'sigma',  // 데이터베이스 속성 타입
+  'search', 'columns-2', 'chevrons-down-up',       // 검색 / 비교 패널 / 그룹 전체 접기
+
+  // --- 캔버스 컨텍스트 툴바 ---
+  'bold', 'a-large-small',                          // 굵게 / 글자 크기
+  'bring-to-front', 'send-to-back',                 // z 순서 (기존엔 정렬과 ⤒⤓ 를 공유하고 있었다)
+  'align-start-vertical', 'align-center-vertical', 'align-end-vertical',
+  'align-start-horizontal', 'align-center-horizontal', 'align-end-horizontal', // 캔버스 개체 정렬
+  'link-2-off',                                     // 연결 해제
 ];
 
 const SRC = path.join(__dirname, '..', 'node_modules', 'lucide-static', 'icons');

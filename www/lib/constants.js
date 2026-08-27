@@ -25,12 +25,12 @@ const DEPTH_BUCKETS = [
 ];
 
 const PROP_TYPE_META = [
-  { id:'text',     icon:'T',  label:'텍스트' },
-  { id:'number',   icon:'#',  label:'숫자' },
-  { id:'date',     icon:'📅', label:'날짜' },
-  { id:'select',   icon:'◉',  label:'선택' },
-  { id:'checkbox', icon:'☑',  label:'체크' },
-  { id:'rollup',   icon:'Σ',  label:'롤업' },
+  { id:'text',     icon:'type',         label:'텍스트' },
+  { id:'number',   icon:'hash',         label:'숫자' },
+  { id:'date',     icon:'calendar',     label:'날짜' },
+  { id:'select',   icon:'circle-dot',   label:'선택' },
+  { id:'checkbox', icon:'square-check', label:'체크' },
+  { id:'rollup',   icon:'sigma',        label:'롤업' },
 ];
 const ROLLUP_AGG_LABEL = { sum:'합계', avg:'평균', count:'개수' };
 

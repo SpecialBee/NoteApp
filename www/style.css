@@ -54,6 +54,20 @@
     --tip-soft: #24301F;
   }
   *{box-sizing:border-box;}
+
+  /* --- icons --- */
+  /* Lucide sprite (see scripts/build-icons.js). Sized in em so an icon tracks the font-size of
+     whatever button it sits in, and stroked with currentColor so it follows the theme — that is
+     the whole reason these replaced emoji, which ignored both. */
+  /* clamp, not a plain 1em: buttons here range from 11px to 15px text, and letting the icon
+     track that exactly reproduced the size jumble this replaced. It still scales with its button,
+     just inside a range narrow enough that every icon reads as the same size. */
+  .ic{ width:clamp(14px, 1.15em, 17px); height:clamp(14px, 1.15em, 17px); flex:none; vertical-align:-0.2em;
+       fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .ic-fill{ fill:currentColor; }          /* filled state, e.g. a pinned star */
+  /* Buttons that hold an icon plus a word need the two aligned and spaced. */
+  .ic + span, .ic-label{ margin-left:5px; }
+
   html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--ink);font-family:var(--sans);overflow:hidden;word-break:keep-all;overflow-wrap:break-word;transition:background-color .2s ease,color .2s ease;}
   ::selection{ background: var(--accent-soft); color: var(--ink); }
   /* dark mode: the tinted accent-soft highlight is nearly invisible on a dark page —

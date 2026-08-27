@@ -96,3 +96,8 @@ function depthOf(id){
   return (hash % 1000) / 1000;
 }
 function depthBucket(z){ return DEPTH_BUCKETS.find(b => z >= b.min) || DEPTH_BUCKETS[DEPTH_BUCKETS.length-1]; }
+
+// Returns markup for one icon from the sprite that scripts/build-icons.js writes into index.html.
+// Use this anywhere an icon is built in JS; note that it produces HTML, so the caller must assign
+// with innerHTML, not textContent. `extra` takes classes such as 'ic-fill'.
+function icon(name, extra){ return '<svg class="ic' + (extra ? ' ' + extra : '') + '" aria-hidden="true"><use href="#ic-' + name + '"/></svg>'; }

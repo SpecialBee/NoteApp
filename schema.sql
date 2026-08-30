@@ -160,18 +160,24 @@ alter table notes add column if not exists share_enabled boolean not null defaul
 -- anyone list every publicly shared note across every user, not just the one whose id they
 -- were given. A security definer function sidesteps RLS entirely but only ever returns the
 -- single row matching the exact share_id passed in, and only the columns a read-only view
--- needs — never user_id or the row's other properties. Restricted to type='note' because only
--- plain markdown cards have a "읽기모드" to share; canvas/table cards aren't supported here.
-create or replace function get_shared_note(p_share_id uuid)
-returns table (title text, content text, updated_at timestamptz)
+-- needs — never user_id or the row's other properties. `type` is included so share.html knows
+-- whether to render markdown, a canvas, or a table; a canvas "card" element that links to
+-- another note is rendered as a plain placeholder there (never fetched) since that other note
+-- may not itself be shared.
+--
+-- returns table() locks in its column list, so a plain `create or replace` fails once a column
+-- is added (as happened here, adding `type`) — drop first so the signature can actually change.
+drop function if exists get_shared_note(uuid);
+create function get_shared_note(p_share_id uuid)
+returns table (title text, content text, type text, updated_at timestamptz)
 language sql
 stable
 security definer
 set search_path = public
 as $$
-  select title, content, updated_at
+  select title, content, type, updated_at
   from notes
-  where share_id = p_share_id and share_enabled = true and deleted_at is null and type = 'note'
+  where share_id = p_share_id and share_enabled = true and deleted_at is null
 $$;
 
 revoke all on function get_shared_note(uuid) from public;

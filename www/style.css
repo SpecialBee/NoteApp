@@ -239,6 +239,7 @@
   .toolbar .pinbtn{ font-family:var(--sans); font-size:12px; font-weight:500; background:none; border:1px solid var(--border); color: var(--ink-soft); padding:5px 12px; border-radius:20px; cursor:pointer; transition:transform .1s ease; flex-shrink:0; white-space:nowrap; }
   .toolbar .pinbtn.pinned{ color:var(--accent); border-color:var(--accent); }
   .toolbar .pinbtn.shared{ color:var(--accent); border-color:var(--accent); }
+  .cev-action.shared, .tev-action.shared{ color:var(--accent); border-color:var(--accent); }
   .cardsheet{ flex:1; display:flex; flex-direction:column; overflow:hidden; padding:24px clamp(16px,6%,40px) 60px clamp(16px,6%,40px); min-height:0; }
   .cardsheet.fade-in{ animation: sheetFade .18s ease; }
   @keyframes sheetFade{ from{ opacity:0; transform:translateY(4px); } to{ opacity:1; transform:translateY(0); } }

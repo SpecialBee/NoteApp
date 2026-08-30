@@ -329,6 +329,7 @@
         <button class="cev-action" id="cevZoomInBtn" title="확대"><svg class="ic" aria-hidden="true"><use href="#ic-plus"/></svg></button>
         <button class="cev-action" id="cevCardColorBtn" title="카드 색상"><svg class="ic" aria-hidden="true"><use href="#ic-palette"/></svg></button>
         <button class="cev-action" id="cevDeleteBtn" title="선택 삭제"><svg class="ic" aria-hidden="true"><use href="#ic-trash-2"/></svg></button>
+        <button class="cev-action" id="cevShareBtn" title="읽기 전용 링크로 공유"><svg class="ic" aria-hidden="true"><use href="#ic-link"/></svg></button>
       </div>
       <div class="editor-header-pad">
         <input class="titlefield" id="cevTitleInput" placeholder="캔버스 제목" spellcheck="false">
@@ -376,6 +377,7 @@
         <div class="spacer"></div>
         <button class="tev-action" id="tevImportBtn" title="CSV 가져오기"><svg class="ic" aria-hidden="true"><use href="#ic-file-input"/></svg><span>가져오기</span></button>
         <button class="tev-action" id="tevExportBtn" title="CSV 내보내기"><svg class="ic" aria-hidden="true"><use href="#ic-file-output"/></svg><span>내보내기</span></button>
+        <button class="tev-action" id="tevShareBtn" title="읽기 전용 링크로 공유"><svg class="ic" aria-hidden="true"><use href="#ic-link"/></svg><span>공유</span></button>
         <input type="file" id="tevCsvFile" accept=".csv,text/csv" style="display:none">
       </div>
       <div class="editor-header-pad">
@@ -509,9 +511,9 @@
     <div class="guide-modal-body">
       <label class="share-toggle-row">
         <input type="checkbox" id="shareToggle">
-        <span>공개 링크로 읽기모드 공유</span>
+        <span>공개 링크로 공유</span>
       </label>
-      <p class="share-hint">이 카드의 읽기모드를 로그인 없이 볼 수 있는 링크가 만들어집니다. 링크를 아는 사람은 누구나 볼 수 있으니, 계속 공개해도 괜찮은 카드에만 켜주세요.</p>
+      <p class="share-hint">이 카드를 로그인 없이 볼 수 있는 링크가 만들어집니다. 링크를 아는 사람은 누구나 읽기 전용으로 볼 수 있으니, 계속 공개해도 괜찮은 카드에만 켜주세요.</p>
       <div class="share-link-row" id="shareLinkRow" style="display:none;">
         <input type="text" id="shareLinkInput" readonly>
         <button id="shareCopyBtn">복사</button>
@@ -706,6 +708,7 @@
 <script src="lib/constants.js"></script>
 <script src="lib/utils.js"></script>
 <script src="lib/markdown.js"></script>
+<script src="lib/canvas.js"></script>
 <script>
 (function(){
 
@@ -2143,7 +2146,8 @@
   }
 
   function updateShareBtn(note){
-    el('shareBtn').classList.toggle('shared', !!note.shareEnabled);
+    const shared = !!note.shareEnabled;
+    ['shareBtn','cevShareBtn','tevShareBtn'].forEach(id => { const b = el(id); if(b) b.classList.toggle('shared', shared); });
   }
 
   function writeOnlyEnabled(){ return localStorage.getItem('stk-write-layout') === 'write-only'; }
@@ -5080,6 +5084,7 @@
     tevFilterCol = null; tevFilterVal = '';
     el('tevTitleInput').value = note.title || '';
     renderNoteTagChips(note, 'tevTagChips');
+    updateShareBtn(note);
     renderTableEditor();
   }
 
@@ -5903,48 +5908,10 @@
   }
 
 
-  function parseCanvasContent(content){
-    const match = (content||'').match(/```canvas\n?([\s\S]*?)```/);
-    if(!match) return { elements:[], connectors:[] };
-    const raw0 = match[1].trim();
-    if(raw0.startsWith('{')){
-      try{
-        const o = JSON.parse(raw0);
-        return { elements: Array.isArray(o.elements)?o.elements:[], connectors: Array.isArray(o.connectors)?o.connectors:[] };
-      }catch{ return { elements:[], connectors:[] }; }
-    }
-    return parseCanvasLegacy(match[1]);
-  }
-
-  // legacy @-directive format (pre-JSON canvases still load)
-  function parseCanvasLegacy(raw){
-    const elements = [], connectors = [];
-    const lines = raw.split('\n');
-    let cur = null, textLines = [];
-    const flush = () => {
-      if(cur){
-        const t = textLines.join('\n').trim();
-        if(cur.type==='section') cur.label = t || '섹션';
-        else cur.text = t;
-        elements.push(cur); cur=null; textLines=[];
-      }
-    };
-    for(const line of lines){
-      if(line.startsWith('@sticky')){ flush(); const p=line.split(' '); cur={id:p[1],type:'sticky',x:+p[2],y:+p[3],w:+p[4]||200,h:+p[5]||160,color:p[6]||'#FFE066',text:''}; }
-      else if(line.startsWith('@section')){ flush(); const p=line.split(' '); cur={id:p[1],type:'section',x:+p[2],y:+p[3],w:+p[4]||300,h:+p[5]||200,color:p[6]||'#82C4F8',label:''}; }
-      else if(line.startsWith('@rect')){ flush(); const p=line.split(' '); cur={id:p[1],type:'rect',x:+p[2],y:+p[3],w:+p[4]||180,h:+p[5]||100,color:p[6]||'#E8E8E8',text:''}; }
-      else if(line.startsWith('@circle')){ flush(); const p=line.split(' '); cur={id:p[1],type:'circle',x:+p[2],y:+p[3],r:+p[4]||60,color:p[5]||'#E8E8E8',text:''}; }
-      else if(line.startsWith('@diamond')){ flush(); const p=line.split(' '); cur={id:p[1],type:'diamond',x:+p[2],y:+p[3],w:+p[4]||100,h:+p[5]||100,color:p[6]||'#E8E8E8',text:''}; }
-      else if(line.startsWith('@text')){ flush(); const p=line.split(' '); cur={id:p[1],type:'text',x:+p[2],y:+p[3],w:120,h:30,color:'',text:''}; }
-      else if(line.startsWith('@arrow ')){ flush(); const p=line.split(' '); const li=p.indexOf('|'); connectors.push({id:cevGenId('c'),type:'arrow',from:p[1],to:p[2],fromSide:p[3]||null,toSide:p[4]||null,label:li>0?p.slice(li+1).join(' ').trim():''}); }
-      else if(line.startsWith('@dashed-arrow ')){ flush(); const p=line.split(' '); const li=p.indexOf('|'); connectors.push({id:cevGenId('c'),type:'dashed-arrow',from:p[1],to:p[2],fromSide:p[3]||null,toSide:p[4]||null,label:li>0?p.slice(li+1).join(' ').trim():''}); }
-      else if(line.startsWith('@dashed ')){ flush(); const p=line.split(' '); const li=p.indexOf('|'); connectors.push({id:cevGenId('c'),type:'dashed',from:p[1],to:p[2],fromSide:p[3]||null,toSide:p[4]||null,label:li>0?p.slice(li+1).join(' ').trim():''}); }
-      else if(line.startsWith('@line ')){ flush(); const p=line.split(' '); if(p[1]&&isNaN(+p[1])){ const li=p.indexOf('|'); connectors.push({id:cevGenId('c'),type:'line',from:p[1],to:p[2],fromSide:p[3]||null,toSide:p[4]||null,label:li>0?p.slice(li+1).join(' ').trim():''}); } else connectors.push({id:cevGenId('c'),type:'line',x1:+p[1],y1:+p[2],x2:+p[3],y2:+p[4],label:''}); }
-      else if(cur){ textLines.push(line.startsWith('\\@') ? line.slice(1) : line); }
-    }
-    flush();
-    return { elements, connectors };
-  }
+  // parseCanvasContent/parseCanvasLegacy and the connector-geometry helpers below
+  // (cevElCenter/cevElBorderPt/cevConnPoints/cevGetAnchorPos/cevSideDir/cevClosestSide/
+  // cevBezierPath/cevShadeColor) now live in lib/canvas.js, shared with the read-only
+  // public share.html page.
 
   function serializeCanvasContent(elements, connectors){
     // JSON storage: robust round-trip for all props (color, text, label, locked, fontSize, bold, textColor, ...)
@@ -5954,22 +5921,6 @@
       return o;
     });
     return '```canvas\n' + JSON.stringify({elements: els, connectors}) + '\n```';
-  }
-
-  function cevElCenter(edata){ if(edata.type==='circle') return {x:edata.x,y:edata.y}; return {x:edata.x+(edata.w||120)/2,y:edata.y+(edata.h||80)/2}; }
-  function cevElBorderPt(edata, dir){
-    if(edata.type==='circle'){ const r=edata.r||60; return {x:edata.x+dir.dx*r,y:edata.y+dir.dy*r}; }
-    const hw=(edata.w||120)/2,hh=(edata.h||80)/2,cx=edata.x+hw,cy=edata.y+hh;
-    const abs=(v)=>v<0?-v:v;
-    if(abs(dir.dx)<0.001) return {x:cx,y:cy+(dir.dy>0?hh:-hh)};
-    if(abs(dir.dy)<0.001) return {x:cx+(dir.dx>0?hw:-hw),y:cy};
-    const t=Math.min(hw/abs(dir.dx),hh/abs(dir.dy));
-    return {x:cx+dir.dx*t,y:cy+dir.dy*t};
-  }
-  function cevConnPoints(fromEl, toEl){
-    const fc=cevElCenter(fromEl),tc=cevElCenter(toEl),dx=tc.x-fc.x,dy=tc.y-fc.y,len=Math.sqrt(dx*dx+dy*dy)||1;
-    const dir={dx:dx/len,dy:dy/len};
-    return {x1:cevElBorderPt(fromEl,dir).x,y1:cevElBorderPt(fromEl,dir).y,x2:cevElBorderPt(toEl,{dx:-dir.dx,dy:-dir.dy}).x,y2:cevElBorderPt(toEl,{dx:-dir.dx,dy:-dir.dy}).y};
   }
 
   function cevRebuildSvg(){
@@ -6044,9 +5995,6 @@
     });
   }
 
-  function cevShadeColor(hex, pct){
-    try{ let n=parseInt((hex||'#9CA3AF').replace(/^var\(.*\)/,'#9CA3AF').slice(1),16); if(isNaN(n)) n=0x9CA3AF; const r=Math.max(0,Math.min(255,(n>>16)+pct)),g=Math.max(0,Math.min(255,((n>>8)&0xff)+pct)),b=Math.max(0,Math.min(255,(n&0xff)+pct)); return `rgb(${r},${g},${b})`; }catch(e){ return '#9CA3AF'; }
-  }
 
 
   // ---- history (undo / redo) ----
@@ -6321,55 +6269,6 @@
     cevPanE.x = (cr.width  - (minx+maxx)*cevZoom)/2;
     cevPanE.y = (cr.height - (miny+maxy)*cevZoom)/2;
     cevApplyTransform();
-  }
-
-  function cevGetAnchorPos(edata, side){
-    if(edata.type==='circle'){
-      const r=edata.r||60;
-      if(side==='n') return {x:edata.x,     y:edata.y-r};
-      if(side==='s') return {x:edata.x,     y:edata.y+r};
-      if(side==='w') return {x:edata.x-r,   y:edata.y};
-      if(side==='e') return {x:edata.x+r,   y:edata.y};
-      return {x:edata.x, y:edata.y};
-    }
-    const w=edata.w||120, h=edata.h||80;
-    const cx=edata.x+w/2, cy=edata.y+h/2;
-    if(side==='n') return {x:cx,          y:edata.y};
-    if(side==='s') return {x:cx,          y:edata.y+h};
-    if(side==='w') return {x:edata.x,     y:cy};
-    if(side==='e') return {x:edata.x+w,   y:cy};
-    return {x:cx, y:cy};
-  }
-
-  function cevSideDir(side){
-    if(side==='n') return {x:0,  y:-1};
-    if(side==='s') return {x:0,  y:1};
-    if(side==='w') return {x:-1, y:0};
-    if(side==='e') return {x:1,  y:0};
-    return {x:1, y:0};
-  }
-
-  function cevClosestSide(edata, cx, cy){
-    let best='w', bestDist=Infinity;
-    for(const s of ['n','s','e','w']){
-      const p=cevGetAnchorPos(edata,s);
-      const d=(cx-p.x)**2+(cy-p.y)**2;
-      if(d<bestDist){ bestDist=d; best=s; }
-    }
-    return best;
-  }
-
-  function cevBezierPath(p1, fromSide, p2, toSide){
-    const dist=Math.sqrt((p2.x-p1.x)**2+(p2.y-p1.y)**2);
-    const offset=Math.max(40, Math.min(dist*0.42, 160));
-    const d1=cevSideDir(fromSide), d2=cevSideDir(toSide);
-    const cp1x=p1.x+d1.x*offset, cp1y=p1.y+d1.y*offset;
-    const cp2x=p2.x+d2.x*offset, cp2y=p2.y+d2.y*offset;
-    return {
-      path:`M ${p1.x} ${p1.y} C ${cp1x} ${cp1y} ${cp2x} ${cp2y} ${p2.x} ${p2.y}`,
-      midX:0.125*p1.x+0.375*cp1x+0.375*cp2x+0.125*p2.x,
-      midY:0.125*p1.y+0.375*cp1y+0.375*cp2y+0.125*p2.y
-    };
   }
 
   function cevAddHandles(div,edata){
@@ -6694,6 +6593,7 @@
     const ti=el('cevTitleInput'); if(ti) ti.value=note.title||'';
     renderNoteTagChips(note, 'cevTagChips');
     updateCevToolButtons();
+    updateShareBtn(note);
     cevRenderAll();
   }
 
@@ -7155,6 +7055,7 @@
   });
 
   el('cevExitBtn').addEventListener('click',()=>exitCanvasEditor());
+  el('cevShareBtn').addEventListener('click',()=>openShareModal());
   el('cevCardColorBtn').addEventListener('click',(e)=>{
     if(!cevCurrentNoteId) return;
     const note=index.find(m=>m.id===cevCurrentNoteId);
@@ -7256,6 +7157,7 @@
     openNote(created.id);
   });
   el('tevExitBtn').addEventListener('click',()=>exitTableEditor());
+  el('tevShareBtn').addEventListener('click',()=>openShareModal());
   el('tevTitleInput').addEventListener('input',()=>{
     if(!tevCurrentNoteId) return;
     const note=index.find(n=>n.id===tevCurrentNoteId); if(!note) return;

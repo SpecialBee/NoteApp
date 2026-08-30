@@ -19,9 +19,12 @@
 </script>
 <link rel="stylesheet" href="style.css">
 <style>
-  html,body{ margin:0; min-height:100%; background:var(--bg); color:var(--ink); font-family:var(--sans); }
+  /* style.css's html,body rule sets overflow:hidden (it owns the app's own internal scroll
+     areas) — this page has no such internal areas, so it needs the page itself to scroll. */
+  html,body{ margin:0; min-height:100%; height:auto; overflow-y:auto; background:var(--bg); color:var(--ink); font-family:var(--sans); }
   .share-page{ min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:40px 20px 60px 20px; }
-  .share-page-card{ width:100%; max-width:760px; background:var(--bg-card); border:1px solid var(--border); border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,0.12); padding:32px 36px 40px 36px; }
+  .share-page-card{ width:100%; max-width:760px; background:var(--bg-card); border:1px solid var(--border); border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,0.12); padding:32px 36px 40px 36px; box-sizing:border-box; }
+  .share-page-card.wide{ max-width:1100px; }
   .share-page-title{ font-size:26px; font-weight:800; color:var(--ink); word-break:break-word; }
   .share-page-meta{ font-size:12.5px; color:var(--ink-faint); margin:6px 0 24px 0; }
   .share-page-body{ font-size:15px; line-height:1.7; }
@@ -30,6 +33,17 @@
   .share-page-footer{ margin-top:28px; font-size:12.5px; color:var(--ink-faint); }
   .share-page-footer a{ color:var(--accent); text-decoration:none; font-weight:600; }
   .share-page-footer a:hover{ text-decoration:underline; }
+
+  /* read-only canvas card: same visual language as the app's editor (.cev-* classes from
+     style.css) but statically laid out in a scrollable box instead of a pan/zoom viewport */
+  .share-canvas-wrap{ width:100%; max-height:72vh; overflow:auto; border:1px solid var(--border); border-radius:10px; background:var(--bg-panel); }
+  .share-canvas-inner{ position:relative; }
+  .share-canvas-empty{ padding:48px 20px; text-align:center; color:var(--ink-faint); font-size:13px; }
+  .cev-el{ cursor:default; }
+  .cev-sticky-text{ width:100%; height:100%; box-sizing:border-box; white-space:pre-wrap; overflow-wrap:break-word; overflow:hidden; }
+
+  /* read-only table card */
+  .share-table-empty{ padding:24px 0; text-align:center; color:var(--ink-faint); font-size:13px; }
 </style>
 </head>
 <body>
@@ -39,13 +53,14 @@
   <div class="share-page-card" id="shareCard" style="display:none;">
     <div class="share-page-title" id="sharePageTitle"></div>
     <div class="share-page-meta" id="sharePageMeta"></div>
-    <div class="share-page-body preview" id="sharePageBody"></div>
+    <div class="share-page-body" id="sharePageBody"></div>
   </div>
   <div class="share-page-footer"><a href="./" target="_blank" rel="noopener">GRAPHIDEA</a>로 만든 카드입니다</div>
 </div>
 
 <script src="lib/utils.js"></script>
 <script src="lib/markdown.js"></script>
+<script src="lib/canvas.js"></script>
 <script>
 (function(){
   const SUPABASE_URL = 'https://curwidzkbjdyremkfpgh.supabase.co';
@@ -60,6 +75,176 @@
     el('shareCard').style.display = 'none';
   }
 
+  // ---- table card (parseTableContent comes from lib/utils.js) ----
+  function tableFormula(col, row){
+    const vals = (col.formulaCols||[]).map(cid => parseFloat(row.cells[cid])).filter(v => !isNaN(v));
+    if(!vals.length) return '';
+    if(col.formulaAgg==='count') return String(vals.length);
+    const sum = vals.reduce((a,b)=>a+b, 0);
+    if(col.formulaAgg==='avg') return String(+(sum/vals.length).toFixed(4));
+    return String(+sum.toFixed(4));
+  }
+  function tableCellText(col, row){
+    const v = col.type==='formula' ? tableFormula(col, row) : (row.cells ? row.cells[col.id] : '');
+    if(col.type==='checkbox') return (v && v!=='false') ? '✓' : '';
+    if(col.type==='link') return v ? '🔗 연결됨' : '';
+    return (v===null || v===undefined) ? '' : String(v);
+  }
+  function renderShareTable(content){
+    el('shareCard').classList.add('wide');
+    const data = parseTableContent(content);
+    const body = el('sharePageBody');
+    body.innerHTML = '';
+    if(!data.columns || !data.columns.length){
+      body.innerHTML = '<div class="share-table-empty">빈 시트입니다.</div>';
+      return;
+    }
+    const preview = document.createElement('div'); preview.className = 'preview';
+    const tblWrap = document.createElement('div'); tblWrap.className = 'tbl-wrap';
+    const table = document.createElement('table');
+    const thead = document.createElement('thead'); const headRow = document.createElement('tr');
+    data.columns.forEach(col => { const th = document.createElement('th'); th.textContent = col.name || ''; headRow.appendChild(th); });
+    thead.appendChild(headRow); table.appendChild(thead);
+    const tbody = document.createElement('tbody');
+    (data.rows||[]).forEach(row => {
+      const tr = document.createElement('tr');
+      data.columns.forEach(col => { const td = document.createElement('td'); td.textContent = tableCellText(col, row); tr.appendChild(td); });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody); tblWrap.appendChild(table); preview.appendChild(tblWrap);
+    body.appendChild(preview);
+  }
+
+  // ---- canvas card (parseCanvasContent + geometry helpers come from lib/canvas.js) ----
+  function canvasElBox(e){
+    if(e.type==='circle'){ const r=e.r||60; return {x:e.x-r,y:e.y-r,w:r*2,h:r*2}; }
+    return {x:e.x, y:e.y, w:e.w||120, h:e.h||80};
+  }
+  function canvasElNode(e, offX, offY){
+    const box = canvasElBox(e);
+    const left = box.x+offX, top = box.y+offY;
+    const div = document.createElement('div');
+    div.className = 'cev-el';
+    if(e.type==='sticky'){
+      div.classList.add('cev-sticky');
+      div.style.cssText = `left:${left}px;top:${top}px;width:${box.w}px;height:${box.h}px;background:${e.color||'#FFE066'};`;
+      const t = document.createElement('div'); t.className='cev-sticky-text'; t.textContent = e.text||'';
+      applyTextStyle(t, e); div.appendChild(t);
+    } else if(e.type==='rect' || e.type==='circle'){
+      div.classList.add(e.type==='rect' ? 'cev-rect' : 'cev-circle');
+      div.style.cssText = `left:${left}px;top:${top}px;width:${box.w}px;height:${box.h}px;background:${e.color||'var(--bg-card)'};border-color:${cevShadeColor(e.color||'#E0E0E0',-40)};`;
+      const lbl = document.createElement('div'); lbl.className='cev-shape-label'; lbl.textContent = e.text||'';
+      if(!e.textColor && e.color) lbl.style.color = '#3D3929';
+      applyTextStyle(lbl, e); div.appendChild(lbl);
+    } else if(e.type==='diamond'){
+      div.classList.add('cev-diamond-wrap');
+      div.style.cssText = `left:${left}px;top:${top}px;width:${box.w}px;height:${box.h}px;`;
+      const inner = document.createElement('div'); inner.className='cev-diamond-inner';
+      inner.style.cssText = `width:${box.w*0.707}px;height:${box.h*0.707}px;transform:rotate(45deg);background:${e.color||'var(--bg-card)'};border-color:${cevShadeColor(e.color||'#E0E0E0',-40)};`;
+      const lbl = document.createElement('div'); lbl.className='cev-shape-label'; lbl.style.transform='rotate(-45deg)'; lbl.textContent = e.text||'';
+      if(!e.textColor && e.color) lbl.style.color = '#3D3929';
+      applyTextStyle(lbl, e); inner.appendChild(lbl); div.appendChild(inner);
+    } else if(e.type==='text'){
+      div.classList.add('cev-text-el');
+      div.style.cssText = `left:${left}px;top:${top}px;min-width:60px;`;
+      div.textContent = e.text||''; applyTextStyle(div, e);
+    } else if(e.type==='section'){
+      div.classList.add('cev-section');
+      div.style.cssText = `left:${left}px;top:${top}px;width:${box.w}px;height:${box.h}px;border-color:${e.color||'#82C4F8'};background:${e.color||'#82C4F8'}18;`;
+      const lbl = document.createElement('div'); lbl.className='cev-section-label'; lbl.style.color = e.color||'#82C4F8'; lbl.textContent = e.label||'섹션';
+      div.appendChild(lbl);
+    } else if(e.type==='image'){
+      div.classList.add('cev-image-el');
+      div.style.cssText = `left:${left}px;top:${top}px;width:${box.w}px;height:${box.h}px;`;
+      const img = document.createElement('img'); img.src = e.src||''; img.alt='';
+      div.appendChild(img);
+    } else if(e.type==='card'){
+      div.classList.add('cev-card-node');
+      div.style.cssText = `left:${left}px;top:${top}px;width:${box.w}px;height:${box.h}px;border-left-color:${e.color||'var(--accent)'};`;
+      // the linked note might not itself be publicly shared, so its title/content is never
+      // fetched here — only a generic placeholder is shown for a "card" element
+      const t = document.createElement('div'); t.className='cev-card-title'; t.textContent = '연결된 카드';
+      div.appendChild(t);
+    } else {
+      div.style.cssText = `left:${left}px;top:${top}px;`;
+    }
+    return div;
+  }
+  function applyTextStyle(node, e){
+    if(e.fontSize) node.style.fontSize = e.fontSize + 'px';
+    if(e.bold) node.style.fontWeight = '800';
+    if(e.textColor) node.style.color = e.textColor;
+  }
+  function renderShareCanvas(content){
+    el('shareCard').classList.add('wide');
+    const { elements, connectors } = parseCanvasContent(content);
+    const body = el('sharePageBody');
+    body.innerHTML = '';
+    if(!elements.length){
+      const wrap = document.createElement('div'); wrap.className='share-canvas-wrap';
+      wrap.innerHTML = '<div class="share-canvas-empty">빈 캔버스입니다.</div>';
+      body.appendChild(wrap);
+      return;
+    }
+    let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+    elements.forEach(e => {
+      const box = canvasElBox(e);
+      minX = Math.min(minX, box.x); minY = Math.min(minY, box.y);
+      maxX = Math.max(maxX, box.x+box.w); maxY = Math.max(maxY, box.y+box.h);
+    });
+    const pad = 60;
+    const offX = pad-minX, offY = pad-minY;
+    const width = (maxX-minX)+pad*2, height = (maxY-minY)+pad*2;
+
+    const wrap = document.createElement('div'); wrap.className = 'share-canvas-wrap';
+    const inner = document.createElement('div'); inner.className = 'share-canvas-inner';
+    inner.style.width = width+'px'; inner.style.height = height+'px';
+
+    elements.filter(e => e.type==='section').forEach(e => inner.appendChild(canvasElNode(e, offX, offY)));
+    elements.filter(e => e.type!=='section').forEach(e => inner.appendChild(canvasElNode(e, offX, offY)));
+
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNS,'svg');
+    svg.setAttribute('width', width); svg.setAttribute('height', height);
+    svg.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;overflow:visible;';
+    svg.innerHTML = '<defs><marker id="share-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="context-stroke"/></marker></defs>';
+    connectors.forEach(conn => {
+      let p1, p2, fromSide, toSide;
+      if(conn.from && conn.to){
+        const fe = elements.find(x => x.id===conn.from), te = elements.find(x => x.id===conn.to);
+        if(!fe || !te) return;
+        fromSide = conn.fromSide || cevClosestSide(fe, cevGetAnchorPos(te, conn.toSide||'w').x, cevGetAnchorPos(te, conn.toSide||'w').y);
+        toSide = conn.toSide || cevClosestSide(te, cevGetAnchorPos(fe, fromSide).x, cevGetAnchorPos(fe, fromSide).y);
+        p1 = cevGetAnchorPos(fe, fromSide); p2 = cevGetAnchorPos(te, toSide);
+      } else if(conn.x1!=null){
+        p1 = {x:conn.x1,y:conn.y1}; p2 = {x:conn.x2,y:conn.y2};
+        fromSide = 'e'; toSide = 'w';
+      } else return;
+      p1 = {x:p1.x+offX, y:p1.y+offY}; p2 = {x:p2.x+offX, y:p2.y+offY};
+      const bez = cevBezierPath(p1, fromSide, p2, toSide);
+      const path = document.createElementNS(svgNS,'path');
+      path.setAttribute('d', bez.path); path.setAttribute('fill','none');
+      path.setAttribute('stroke', conn.color || 'var(--ink-soft)');
+      path.setAttribute('stroke-width', '1.5');
+      if(conn.type==='dashed' || conn.type==='dashed-arrow') path.setAttribute('stroke-dasharray','7 5');
+      if(conn.type==='arrow' || conn.type==='dashed-arrow') path.setAttribute('marker-end','url(#share-arrow)');
+      svg.appendChild(path);
+      if(conn.label){
+        const lbl = document.createElementNS(svgNS,'text');
+        lbl.setAttribute('x', bez.midX); lbl.setAttribute('y', bez.midY);
+        lbl.setAttribute('class','cev-conn-label'); lbl.textContent = conn.label;
+        svg.appendChild(lbl);
+      }
+    });
+    inner.appendChild(svg);
+    wrap.appendChild(inner);
+    body.appendChild(wrap);
+  }
+
+  function renderShareNote(content){
+    el('sharePageBody').innerHTML = renderNoteMarkdown(content || '');
+  }
+
   async function main(){
     const id = new URLSearchParams(location.search).get('id');
     if(!id){ showStatus('🔗', '공유 링크가 올바르지 않습니다.'); return; }
@@ -72,7 +257,10 @@
     document.title = (row.title || '제목 없음') + ' · GRAPHIDEA';
     el('sharePageTitle').textContent = row.title || '제목 없음';
     el('sharePageMeta').textContent = '마지막 수정 ' + new Date(row.updated_at).toLocaleString('ko-KR');
-    el('sharePageBody').innerHTML = renderNoteMarkdown(row.content || '');
+    el('sharePageBody').className = 'share-page-body' + (row.type==='note' || !row.type ? ' preview' : '');
+    if(row.type==='canvas') renderShareCanvas(row.content||'');
+    else if(row.type==='table') renderShareTable(row.content||'');
+    else renderShareNote(row.content||'');
     el('shareStatus').style.display = 'none';
     el('shareCard').style.display = 'block';
   }

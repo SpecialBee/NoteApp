@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>GRAPHIDEA — 공유된 카드</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="vendor/supabase.js"></script>
+<script>
+(function(){
+  var saved = localStorage.getItem('cardCatalogTheme');
+  var theme = saved || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  document.documentElement.dataset.theme = theme;
+})();
+</script>
+<link rel="stylesheet" href="style.css">
+<style>
+  html,body{ margin:0; min-height:100%; background:var(--bg); color:var(--ink); font-family:var(--sans); }
+  .share-page{ min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:40px 20px 60px 20px; }
+  .share-page-card{ width:100%; max-width:760px; background:var(--bg-card); border:1px solid var(--border); border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,0.12); padding:32px 36px 40px 36px; }
+  .share-page-title{ font-size:26px; font-weight:800; color:var(--ink); word-break:break-word; }
+  .share-page-meta{ font-size:12.5px; color:var(--ink-faint); margin:6px 0 24px 0; }
+  .share-page-body{ font-size:15px; line-height:1.7; }
+  .share-page-status{ display:flex; flex-direction:column; align-items:center; gap:10px; color:var(--ink-soft); font-size:14px; text-align:center; margin-top:22vh; }
+  .share-page-status-icon{ font-size:32px; }
+  .share-page-footer{ margin-top:28px; font-size:12.5px; color:var(--ink-faint); }
+  .share-page-footer a{ color:var(--accent); text-decoration:none; font-weight:600; }
+  .share-page-footer a:hover{ text-decoration:underline; }
+</style>
+</head>
+<body>
+
+<div class="share-page">
+  <div class="share-page-status" id="shareStatus">불러오는 중…</div>
+  <div class="share-page-card" id="shareCard" style="display:none;">
+    <div class="share-page-title" id="sharePageTitle"></div>
+    <div class="share-page-meta" id="sharePageMeta"></div>
+    <div class="share-page-body preview" id="sharePageBody"></div>
+  </div>
+  <div class="share-page-footer"><a href="./" target="_blank" rel="noopener">GRAPHIDEA</a>로 만든 카드입니다</div>
+</div>
+
+<script src="lib/utils.js"></script>
+<script src="lib/markdown.js"></script>
+<script>
+(function(){
+  const SUPABASE_URL = 'https://curwidzkbjdyremkfpgh.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_3kVI4cBl2nTHRSWq_oZAbQ_Mfa5-mWk';
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  function el(id){ return document.getElementById(id); }
+
+  function showStatus(icon, text){
+    el('shareStatus').innerHTML = `<div class="share-page-status-icon">${icon}</div><div>${text}</div>`;
+    el('shareStatus').style.display = 'flex';
+    el('shareCard').style.display = 'none';
+  }
+
+  async function main(){
+    const id = new URLSearchParams(location.search).get('id');
+    if(!id){ showStatus('🔗', '공유 링크가 올바르지 않습니다.'); return; }
+    let data, error;
+    try{
+      ({ data, error } = await sb.rpc('get_shared_note', { p_share_id: id }));
+    }catch(e){ error = e; }
+    const row = Array.isArray(data) ? data[0] : data;
+    if(error || !row){ showStatus('🔒', '링크를 찾을 수 없거나, 더 이상 공개되지 않는 카드입니다.'); return; }
+    document.title = (row.title || '제목 없음') + ' · GRAPHIDEA';
+    el('sharePageTitle').textContent = row.title || '제목 없음';
+    el('sharePageMeta').textContent = '마지막 수정 ' + new Date(row.updated_at).toLocaleString('ko-KR');
+    el('sharePageBody').innerHTML = renderNoteMarkdown(row.content || '');
+    el('shareStatus').style.display = 'none';
+    el('shareCard').style.display = 'block';
+  }
+  main();
+})();
+</script>
+</body>
+</html>

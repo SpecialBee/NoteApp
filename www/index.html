@@ -190,6 +190,7 @@
         <span class="submeta" id="subLine"></span>
         <span class="submeta" id="wordCount"></span>
         <div class="spacer"></div>
+        <button class="pinbtn" id="shareBtn" title="읽기 전용 링크로 공유"><svg class="ic" aria-hidden="true"><use href="#ic-link"/></svg><span>공유</span></button>
         <button class="pinbtn" id="exportPdfBtn" title="PDF로 저장 (인쇄 대화상자에서 대상을 'PDF로 저장'으로 선택하세요)"><svg class="ic" aria-hidden="true"><use href="#ic-printer"/></svg><span>PDF</span></button>
         <button class="pinbtn" id="exportMdBtn" title="마크다운 파일로 내보내기"><svg class="ic" aria-hidden="true"><use href="#ic-download"/></svg><span>MD</span></button>
         <button class="pinbtn" id="dupBtn" title="카드 복제"><svg class="ic" aria-hidden="true"><use href="#ic-copy"/></svg><span>복제</span></button>
@@ -499,6 +500,26 @@
   </div>
 </div>
 
+<div id="shareModal" class="guide-modal">
+  <div class="guide-modal-box share-modal-box">
+    <div class="guide-modal-head">
+      <span class="guide-modal-title"><svg class="ic" aria-hidden="true"><use href="#ic-link"/></svg><span>읽기 전용 링크 공유</span></span>
+      <button class="guide-modal-close" id="shareModalClose" title="닫기"><svg class="ic" aria-hidden="true"><use href="#ic-x"/></svg></button>
+    </div>
+    <div class="guide-modal-body">
+      <label class="share-toggle-row">
+        <input type="checkbox" id="shareToggle">
+        <span>공개 링크로 읽기모드 공유</span>
+      </label>
+      <p class="share-hint">이 카드의 읽기모드를 로그인 없이 볼 수 있는 링크가 만들어집니다. 링크를 아는 사람은 누구나 볼 수 있으니, 계속 공개해도 괜찮은 카드에만 켜주세요.</p>
+      <div class="share-link-row" id="shareLinkRow" style="display:none;">
+        <input type="text" id="shareLinkInput" readonly>
+        <button id="shareCopyBtn">복사</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="settingsModal" class="guide-modal">
   <div class="guide-modal-box settings-modal-box" style="width:min(680px,95vw);">
     <div class="guide-modal-head">
@@ -684,6 +705,7 @@
 
 <script src="lib/constants.js"></script>
 <script src="lib/utils.js"></script>
+<script src="lib/markdown.js"></script>
 <script>
 (function(){
 
@@ -1337,10 +1359,10 @@
   // list/graph/search load everything else eagerly and fetch content lazily per note (see
   // ensureContentLoaded). `type` is a real column so the list can pick an icon and the
   // canvas/table editors can route correctly without needing content loaded first.
-  const NOTE_LIST_FIELDS = 'id,title,type,tags,links,pinned,properties,content_len,created_at,updated_at,deleted_at';
+  const NOTE_LIST_FIELDS = 'id,title,type,tags,links,pinned,properties,content_len,created_at,updated_at,deleted_at,share_id,share_enabled';
 
   function rowToNote(r){
-    return { id:r.id, title:r.title, content:r.content, type: r.type || detectNoteType(r.content), tags:r.tags||[], links:r.links||[], pinned:r.pinned, updated: new Date(r.updated_at).getTime(), created: new Date(r.created_at).getTime(), deletedAt: r.deleted_at ? new Date(r.deleted_at).getTime() : null, properties: Array.isArray(r.properties) ? r.properties : [], contentLen: r.content!=null ? r.content.length : (typeof r.content_len==='number' ? r.content_len : null) };
+    return { id:r.id, title:r.title, content:r.content, type: r.type || detectNoteType(r.content), tags:r.tags||[], links:r.links||[], pinned:r.pinned, updated: new Date(r.updated_at).getTime(), created: new Date(r.created_at).getTime(), deletedAt: r.deleted_at ? new Date(r.deleted_at).getTime() : null, properties: Array.isArray(r.properties) ? r.properties : [], contentLen: r.content!=null ? r.content.length : (typeof r.content_len==='number' ? r.content_len : null), shareId: r.share_id, shareEnabled: !!r.share_enabled };
   }
 
   // content isn't part of the lightweight note list — fetch it on first real use (opening,
@@ -1499,158 +1521,10 @@
     if(count) showToast(`연결된 카드 ${count}개의 링크를 갱신했습니다`);
   }
 
-  // parses a block of consecutive "- " / "1. " list lines (indent = nesting depth, 2 spaces per level)
-  // into a tree, then renders properly nested <ul>/<ol> html (sub-lists live inside their parent <li>)
-  function buildListHtml(block){
-    const lines = block.replace(/\n$/, '').split('\n');
-    const items = lines.map(line => {
-      const m = line.match(/^([ \t]*)(-|\d+\.)[ \t]+(.*)$/);
-      const depth = Math.floor(m[1].replace(/\t/g, '  ').length / 2);
-      const ordered = m[2] !== '-';
-      // keep the number the user actually typed, not just "this is ordered" — see renderList
-      return { depth, ordered, num: ordered ? parseInt(m[2], 10) : null, text: m[3] };
-    });
-
-    const root = [];
-    const stack = [{ depth: -1, list: root }];
-    items.forEach(item => {
-      while(stack.length && stack[stack.length - 1].depth >= item.depth) stack.pop();
-      const node = { ordered: item.ordered, num: item.num, text: item.text, children: [] };
-      stack[stack.length - 1].list.push(node);
-      stack.push({ depth: item.depth, list: node.children });
-    });
-
-    function renderList(nodes){
-      let html = '', i = 0;
-      while(i < nodes.length){
-        const ordered = nodes[i].ordered;
-        // A bare <ol> always renumbers from 1. Anything that ends one list and starts another —
-        // a blank line between items, or a "- " bullet in between — therefore restarted the
-        // count, so a note written 1. / 2. / 3. with gaps rendered as 1. / 1. / 1.
-        // Emitting the typed starting number as `start` keeps the sequence, and matches how
-        // standard markdown treats the first number of an ordered list.
-        const startNum = ordered ? nodes[i].num : null;
-        let run = '';
-        while(i < nodes.length && nodes[i].ordered === ordered){
-          run += '<li>' + nodes[i].text + renderList(nodes[i].children) + '</li>';
-          i++;
-        }
-        if(ordered) html += (startNum && startNum !== 1 ? `<ol start="${startNum}">` : '<ol>') + run + '</ol>';
-        else html += '<ul>' + run + '</ul>';
-      }
-      return html;
-    }
-    return renderList(root);
-  }
-
-  function renderMarkdown(content){
-    let s = escapeHtml(content || '');
-    let taskCounter = 0;
-
-    // fenced code blocks first
-    s = s.replace(/```([\s\S]*?)```/g, (full, code) => `<pre><code>${code.trim()}</code></pre>`);
-
-    s = s.replace(/\[\[([^\]\n]+)\]\]/g, (full, title) => {
-      // O(1) map lookup, not a scan of every note — this runs per wikilink on every keystroke
-      const cls = findNoteByTitle(title) ? 'wikilink' : 'wikilink missing';
-      return `<span class="${cls}" data-link="${escapeHtml(title.trim())}">${escapeHtml(title.trim())}</span>`;
-    });
-
-    // must run before the plain link regex below — without consuming the leading "!", that
-    // regex would still match the "[alt](url)" part of an image and turn it into a link with a
-    // stray "!" left in front of it
-    s = s.replace(/!\[([^\]\n]*)\]\((https?:\/\/[^\s)]+)\)/g, (full, alt, url) => `<img src="${url}" alt="${alt}" loading="lazy" class="md-img">`);
-
-    s = s.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, (full, text, url) => `<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`);
-
-    s = s.replace(/^#### (.*)$/gm, '<h4>$1</h4>');
-    s = s.replace(/^### (.*)$/gm, '<h3>$1</h3>');
-    s = s.replace(/^## (.*)$/gm, '<h2>$1</h2>');
-    s = s.replace(/^# (.*)$/gm, '<h1>$1</h1>');
-
-    s = s.replace(/~~([^~]+)~~/g, '<del>$1</del>');
-    s = s.replace(/==([^=\n]+)==/g, '<mark>$1</mark>');
-    s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-    s = s.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-    s = s.replace(/`([^`\n]+)`/g, '<code>$1</code>');
-
-    s = s.replace(/(?:^&gt; .*(?:\n|$))+/gm, block => {
-      const lines = block.trim().split('\n').map(l => l.replace(/^&gt;\s?/, ''));
-      const calloutMatch = lines[0].match(/^\[!(note|tip|warning|danger)\]\s*(.*)$/i);
-      if(calloutMatch){
-        const type = calloutMatch[1].toLowerCase();
-        const title = calloutMatch[2] || (type.charAt(0).toUpperCase() + type.slice(1));
-        const body = lines.slice(1).join('<br>');
-        return `<div class="callout callout-${type}"><div class="callout-title">${title}</div>${body ? ('<div class="callout-body">' + body + '</div>') : ''}</div>\n`;
-      }
-      return '<blockquote>' + lines.join('<br>') + '</blockquote>\n';
-    });
-
-    s = s.replace(/(?:^- \[[ xX]\] .*(?:\n|$))+/gm, block => {
-      const items = block.trim().split('\n').map(line => {
-        const mm = line.match(/^- \[([ xX])\] (.*)$/);
-        const checked = mm[1].toLowerCase() === 'x';
-        const idx = taskCounter++;
-        return `<li class="task"><label><input type="checkbox" class="taskbox" data-idx="${idx}" ${checked ? 'checked' : ''}><span>${mm[2]}</span></label></li>`;
-      }).join('');
-      return '<ul class="tasklist">' + items + '</ul>\n';
-    });
-
-    s = s.replace(/(?:^[ \t]*(?:-|\d+\.)[ \t]+.*(?:\n|$))+/gm, block => buildListHtml(block) + '\n');
-
-    let tableIdx = -1;
-    s = s.replace(/(?:^\|.*\|[ \t]*\n?)+/gm, block => {
-      const lines = block.trim().split('\n');
-      if(lines.length < 2 || !/^\|?[\s:|-]+\|?$/.test(lines[1])) return block;
-      tableIdx++;
-      const tIdx = tableIdx;
-      const parseRow = (line) => line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => c.trim());
-      // column alignment, standard markdown separator syntax (:--- / :---: / ---:)
-      const aligns = parseRow(lines[1]).map(seg => {
-        if(/^:.*:$/.test(seg)) return 'center';
-        if(/:$/.test(seg)) return 'right';
-        if(/^:/.test(seg)) return 'left';
-        return '';
-      });
-      // per-cell background color, a small non-standard extension: a leading
-      // {{bg:#hex}} marker (curly braces survive escapeHtml, unlike <!-- --> or [[ ]])
-      // that this renderer strips and turns into the cell's background style.
-      const cellHtml = (raw, ci) => {
-        const bgm = raw.match(/^\{\{bg:(#[0-9a-fA-F]{3,8})\}\}([\s\S]*)$/);
-        const bg = bgm ? bgm[1] : '';
-        const text = bgm ? bgm[2] : raw;
-        const styles = [];
-        if(aligns[ci]) styles.push('text-align:' + aligns[ci]);
-        if(bg) styles.push('background:' + bg);
-        return { attr: styles.length ? ` style="${styles.join(';')}"` : '', text };
-      };
-      const header = parseRow(lines[0]);
-      const rows = lines.slice(2).map(parseRow);
-      let table = `<div class="tbl-wrap"><table data-tidx="${tIdx}"><thead><tr>` + header.map((h, ci) => {
-        const { attr, text } = cellHtml(h, ci);
-        return `<th data-row="0" data-col="${ci}"${attr}>${text}</th>`;
-      }).join('') + '</tr></thead><tbody>';
-      rows.forEach((r, ri) => {
-        table += '<tr>' + r.map((c, ci) => {
-          const { attr, text } = cellHtml(c, ci);
-          return `<td data-row="${ri + 1}" data-col="${ci}"${attr}>${text}</td>`;
-        }).join('') + '</tr>';
-      });
-      table += '</tbody></table></div>';
-      return table + '\n';
-    });
-
-    s = s.replace(/^---\s*$/gm, '<hr>');
-
-    s = s.split('\n').map(line => {
-      const t = line.trim();
-      if(!t) return '';
-      if(/^<(h1|h2|h3|h4|ul|ol|li|blockquote|pre|table|div|hr)/.test(t)) return t;
-      const depth = Math.floor(line.match(/^[ \t]*/)[0].replace(/\t/g, '  ').length / 2);
-      return depth > 0 ? `<p style="margin-left:${depth * 22}px">${t}</p>` : '<p>' + t + '</p>';
-    }).join('\n');
-    return s || '<p style="color:var(--ink-faint);font-style:italic;">내용 없음</p>';
-  }
+  // buildListHtml/the actual markdown->HTML pass now live in lib/markdown.js (shared with the
+  // public share.html page, which has no note index to check wikilinks against) — this just
+  // wires in the app's own findNoteByTitle so [[links]] here still get their valid/missing style.
+  function renderMarkdown(content){ return renderNoteMarkdown(content, findNoteByTitle); }
 
   // ---------------- formatting toolbar actions ----------------
   // every toolbar action replaces some [start,end) range of editorBox.value with new text.
@@ -2250,6 +2124,7 @@
     renderCardList();
     renderRightPane(note);
     updatePinBtn(note);
+    updateShareBtn(note);
   }
 
   function updateWordCount(){
@@ -2265,6 +2140,10 @@
     const btn = el('pinBtn');
     btn.innerHTML = note.pinned ? icon('star','ic-fill')+'<span>고정됨</span>' : icon('star')+'<span>고정</span>';
     btn.classList.toggle('pinned', !!note.pinned);
+  }
+
+  function updateShareBtn(note){
+    el('shareBtn').classList.toggle('shared', !!note.shareEnabled);
   }
 
   function writeOnlyEnabled(){ return localStorage.getItem('stk-write-layout') === 'write-only'; }
@@ -3305,6 +3184,44 @@
     const note = index.find(m => m.id === currentId);
     if(confirm(`"${note.title || '제목 없음'}" 카드를 삭제할까요? 되돌릴 수 없습니다.`)) await removeNote(currentId);
   };
+
+  // ---------------- read-mode share links (see share.html) ----------------
+  function shareUrlFor(note){ return SITE_URL.replace(/\/$/, '') + '/share.html?id=' + note.shareId; }
+  function openShareModal(){
+    if(!currentId) return;
+    const note = index.find(m => m.id === currentId);
+    if(!note) return;
+    el('shareToggle').checked = !!note.shareEnabled;
+    el('shareLinkRow').style.display = note.shareEnabled ? 'flex' : 'none';
+    if(note.shareEnabled) el('shareLinkInput').value = shareUrlFor(note);
+    el('shareModal').style.display = 'flex';
+  }
+  function closeShareModal(){ el('shareModal').style.display = 'none'; }
+  el('shareBtn').onclick = openShareModal;
+  el('shareModalClose').addEventListener('click', closeShareModal);
+  el('shareModal').addEventListener('click', e => { if(e.target === el('shareModal')) closeShareModal(); });
+  document.addEventListener('keydown', e => { if(e.key==='Escape' && el('shareModal').style.display==='flex') closeShareModal(); });
+  el('shareToggle').addEventListener('change', async (e) => {
+    if(!currentId) return;
+    const note = index.find(m => m.id === currentId);
+    if(!note) return;
+    const enabled = e.target.checked;
+    const { error } = await sb.from('notes').update({ share_enabled: enabled }).eq('id', note.id);
+    if(error){ showToast('공유 설정 실패: ' + error.message); e.target.checked = !enabled; return; }
+    note.shareEnabled = enabled;
+    el('shareLinkRow').style.display = enabled ? 'flex' : 'none';
+    if(enabled) el('shareLinkInput').value = shareUrlFor(note);
+    updateShareBtn(note);
+    showToast(enabled ? '공개 링크가 활성화됐습니다' : '공개 링크를 껐습니다');
+  });
+  el('shareCopyBtn').addEventListener('click', async () => {
+    try{
+      await navigator.clipboard.writeText(el('shareLinkInput').value);
+      showToast('링크를 복사했습니다');
+    }catch(err){
+      showToast('복사 실패 — 링크를 직접 선택해 복사해주세요');
+    }
+  });
   el('mobToggle').onclick = () => { appEl.classList.toggle('show-sidebar'); };
   el('mobSidebarBtn').onclick = () => { appEl.classList.toggle('show-sidebar'); };
   // when the mobile sidebar overlay is open, a tap on the visible content area (to its right)
@@ -4503,6 +4420,7 @@
     // 2. modals
     if(el('guideModal').style.display === 'flex'){ closeGuideModal(); return true; }
     if(el('settingsModal').style.display === 'flex'){ closeSettingsModal(); return true; }
+    if(el('shareModal').style.display === 'flex'){ closeShareModal(); return true; }
     // 3. mobile slide-over overlays
     if(mobileRightpaneOpen){ mobileRightpaneOpen = false; applyPanelState(); return true; }
     if(appEl.classList.contains('show-sidebar')){ appEl.classList.remove('show-sidebar'); return true; }
@@ -4604,7 +4522,7 @@
   // i.e. the incoming realtime row is just an echo of a write we already have locally
   function sameNoteSig(a, b){
     return a.title===b.title && a.content===b.content && a.pinned===b.pinned
-      && (!!a.deletedAt)===(!!b.deletedAt)
+      && (!!a.deletedAt)===(!!b.deletedAt) && (!!a.shareEnabled)===(!!b.shareEnabled)
       && JSON.stringify(a.tags||[])===JSON.stringify(b.tags||[])
       && JSON.stringify(a.links||[])===JSON.stringify(b.links||[])
       && JSON.stringify(a.properties||[])===JSON.stringify(b.properties||[]);

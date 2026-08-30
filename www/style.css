@@ -238,6 +238,7 @@
   .toolbar .spacer{ flex:1; min-width:4px; }
   .toolbar .pinbtn{ font-family:var(--sans); font-size:12px; font-weight:500; background:none; border:1px solid var(--border); color: var(--ink-soft); padding:5px 12px; border-radius:20px; cursor:pointer; transition:transform .1s ease; flex-shrink:0; white-space:nowrap; }
   .toolbar .pinbtn.pinned{ color:var(--accent); border-color:var(--accent); }
+  .toolbar .pinbtn.shared{ color:var(--accent); border-color:var(--accent); }
   .cardsheet{ flex:1; display:flex; flex-direction:column; overflow:hidden; padding:24px clamp(16px,6%,40px) 60px clamp(16px,6%,40px); min-height:0; }
   .cardsheet.fade-in{ animation: sheetFade .18s ease; }
   @keyframes sheetFade{ from{ opacity:0; transform:translateY(4px); } to{ opacity:1; transform:translateY(0); } }
@@ -684,6 +685,14 @@
   .guide-modal-close { font-family:var(--sans); font-size:15px; background:none; border:none; color:var(--ink-faint); cursor:pointer; padding:4px 8px; border-radius:6px; }
   .guide-modal-close:hover { color:var(--ink); background:var(--bg-panel); }
   .guide-modal-body { overflow-y:auto; padding:8px 24px 24px 24px; }
+  .share-modal-box { width:min(440px,100%); }
+  .share-toggle-row { display:flex; align-items:center; gap:8px; font-size:14px; font-weight:600; color:var(--ink); cursor:pointer; padding:12px 0 4px 0; }
+  .share-toggle-row input { width:16px; height:16px; accent-color:var(--accent); cursor:pointer; }
+  .share-hint { font-size:12.5px; color:var(--ink-soft); line-height:1.5; margin:0 0 4px 0; }
+  .share-link-row { display:flex; gap:8px; margin-top:8px; }
+  .share-link-row input { flex:1; min-width:0; font-family:var(--mono); font-size:12px; padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:var(--bg-panel); color:var(--ink); }
+  .share-link-row button { flex-shrink:0; font-family:var(--sans); font-size:13px; font-weight:600; padding:8px 14px; border:1px solid var(--border); border-radius:8px; background:var(--accent); color:#fff; cursor:pointer; }
+  .share-link-row button:hover { background:var(--accent-hover); }
   .settings-section { padding:16px 0; border-bottom:1px solid var(--border-soft); }
   .settings-section:last-child { border-bottom:none; padding-bottom:4px; }
   .settings-label { font-size:13px; font-weight:700; color:var(--ink); margin-bottom:10px; }

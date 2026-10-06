@@ -199,6 +199,7 @@
         <span class="submeta" id="subLine"></span>
         <span class="submeta" id="wordCount"></span>
         <div class="spacer"></div>
+        <button class="pinbtn" id="shareBtn" title="읽기 전용 링크로 공유"><svg class="ic" aria-hidden="true"><use href="#ic-link"/></svg><span>공유</span></button>
         <button class="pinbtn" id="exportPdfBtn" title="PDF로 저장 (인쇄 대화상자에서 대상을 'PDF로 저장'으로 선택하세요)"><svg class="ic" aria-hidden="true"><use href="#ic-printer"/></svg><span>PDF</span></button>
         <button class="pinbtn" id="exportMdBtn" title="마크다운 파일로 내보내기"><svg class="ic" aria-hidden="true"><use href="#ic-download"/></svg><span>MD</span></button>
         <button class="pinbtn" id="dupBtn" title="카드 복제"><svg class="ic" aria-hidden="true"><use href="#ic-copy"/></svg><span>복제</span></button>
@@ -342,6 +343,7 @@
         <button class="cev-action" id="cevZoomInBtn" title="확대"><svg class="ic" aria-hidden="true"><use href="#ic-plus"/></svg></button>
         <button class="cev-action" id="cevCardColorBtn" title="카드 색상"><svg class="ic" aria-hidden="true"><use href="#ic-palette"/></svg></button>
         <button class="cev-action" id="cevDeleteBtn" title="선택 삭제"><svg class="ic" aria-hidden="true"><use href="#ic-trash-2"/></svg></button>
+        <button class="cev-action" id="cevShareBtn" title="읽기 전용 링크로 공유"><svg class="ic" aria-hidden="true"><use href="#ic-link"/></svg></button>
       </div>
       <div class="editor-header-pad">
         <input class="titlefield" id="cevTitleInput" placeholder="캔버스 제목" spellcheck="false">
@@ -364,7 +366,7 @@
           <button class="cev-tool" data-tool="section" title="섹션 컨테이너"><svg class="ic" aria-hidden="true"><use href="#ic-frame"/></svg></button>
           <button class="cev-tool" data-tool="card" title="카드 노드 (기존 카드 연결)"><svg class="ic" aria-hidden="true"><use href="#ic-id-card"/></svg></button>
           <span class="cev-sep"></span>
-          <button class="cev-tool-btn" id="cevImageBtn" title="이미지 삽입 (구글 드라이브)" style="display:none;"><svg class="ic" aria-hidden="true"><use href="#ic-image"/></svg></button>
+          <button class="cev-tool-btn" id="cevImageBtn" title="이미지 삽입 (구글 드라이브)"><svg class="ic" aria-hidden="true"><use href="#ic-image"/></svg></button>
           <input type="file" id="cevImageFileInput" accept="image/*" style="display:none">
         </div>
         <span class="cev-sep"></span>
@@ -389,6 +391,7 @@
         <div class="spacer"></div>
         <button class="tev-action" id="tevImportBtn" title="CSV 가져오기"><svg class="ic" aria-hidden="true"><use href="#ic-file-input"/></svg><span>가져오기</span></button>
         <button class="tev-action" id="tevExportBtn" title="CSV 내보내기"><svg class="ic" aria-hidden="true"><use href="#ic-file-output"/></svg><span>내보내기</span></button>
+        <button class="tev-action" id="tevShareBtn" title="읽기 전용 링크로 공유"><svg class="ic" aria-hidden="true"><use href="#ic-link"/></svg><span>공유</span></button>
         <input type="file" id="tevCsvFile" accept=".csv,text/csv" style="display:none">
       </div>
       <div class="editor-header-pad">
@@ -438,7 +441,7 @@
         <button class="fmtbtn" id="fmtQuote" title="인용">"</button>
         <button class="fmtbtn" id="fmtWiki" title="카드 연결 [[ ]]">[[ ]]</button>
         <button class="fmtbtn" id="fmtLink" title="링크"><svg class="ic" aria-hidden="true"><use href="#ic-link"/></svg></button>
-        <button class="fmtbtn" id="fmtImage" title="이미지 삽입 (구글 드라이브)" style="display:none;"><svg class="ic" aria-hidden="true"><use href="#ic-image"/></svg></button>
+        <button class="fmtbtn" id="fmtImage" title="이미지 삽입 (구글 드라이브)"><svg class="ic" aria-hidden="true"><use href="#ic-image"/></svg></button>
         <input type="file" id="imageFileInput" accept="image/*" style="display:none">
         <button class="fmtbtn" id="fmtCode" title="코드">&lt;/&gt;</button>
         <button class="fmtbtn" id="fmtTable" title="표"><svg class="ic" aria-hidden="true"><use href="#ic-table"/></svg></button>
@@ -550,6 +553,26 @@
       <div class="history-detail">
         <div class="history-detail-bar"><span id="historyDetailMeta" class="history-meta"></span><button class="history-restore" id="historyRestoreBtn" disabled>이 버전으로 복원</button></div>
         <div class="history-preview preview" id="historyPreview"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="shareModal" class="guide-modal">
+  <div class="guide-modal-box share-modal-box">
+    <div class="guide-modal-head">
+      <span class="guide-modal-title"><svg class="ic" aria-hidden="true"><use href="#ic-link"/></svg><span>읽기 전용 링크 공유</span></span>
+      <button class="guide-modal-close" id="shareModalClose" title="닫기"><svg class="ic" aria-hidden="true"><use href="#ic-x"/></svg></button>
+    </div>
+    <div class="guide-modal-body">
+      <label class="share-toggle-row">
+        <input type="checkbox" id="shareToggle">
+        <span>공개 링크로 공유</span>
+      </label>
+      <p class="share-hint">이 카드를 로그인 없이 볼 수 있는 링크가 만들어집니다. 링크를 아는 사람은 누구나 읽기 전용으로 볼 수 있으니, 계속 공개해도 괜찮은 카드에만 켜주세요.</p>
+      <div class="share-link-row" id="shareLinkRow" style="display:none;">
+        <input type="text" id="shareLinkInput" readonly>
+        <button id="shareCopyBtn">복사</button>
       </div>
     </div>
   </div>
@@ -740,6 +763,8 @@
 
 <script src="lib/constants.js"></script>
 <script src="lib/utils.js"></script>
+<script src="lib/markdown.js"></script>
+<script src="lib/canvas.js"></script>
 <script src="lib/localdb.js"></script>
 <script>
 (function(){
@@ -1155,15 +1180,22 @@
     return { googleIdentity, tokenRow };
   }
 
+  // images are stored in the user's own Google Drive, so there's nothing to upload to until it's linked
+  let driveReady = false;
+  function requireDriveForImages(){
+    if(driveReady) return true;
+    showToast('사진을 넣으려면 먼저 구글 드라이브를 연결해야 해요', { label: '연결하러 가기', onClick: () => { openSettingsModal(); setSettingsTab('account'); } });
+    return false;
+  }
+
   async function refreshDriveConnectUI(){
     const btn = el('driveConnectBtn'), status = el('driveConnectStatus');
     if(!btn) return;
     const { googleIdentity, tokenRow } = await getDriveConnectState();
     const fullyConnected = !!(googleIdentity && tokenRow);
-    // the 🖼 insert button only makes sense once there's somewhere to actually upload to —
-    // stays hidden rather than visible-but-guaranteed-to-error for a not-yet-connected account
-    const imgBtn = el('fmtImage'); if(imgBtn) imgBtn.style.display = fullyConnected ? '' : 'none';
-    const cevImgBtn = el('cevImageBtn'); if(cevImgBtn) cevImgBtn.style.display = fullyConnected ? '' : 'none';
+    // the image buttons are always shown (hiding them read as "this app can't do images", esp.
+    // on the phone) — until Drive is connected a tap explains that and offers the settings page
+    driveReady = fullyConnected;
     if(fullyConnected){
       btn.textContent = '연결 해제';
       status.textContent = '연결됨 · ' + new Date(tokenRow.updated_at).toLocaleDateString('ko-KR');
@@ -1353,7 +1385,7 @@
     }
   }
 
-  el('cevImageBtn').onclick = () => el('cevImageFileInput').click();
+  el('cevImageBtn').onclick = () => { if(requireDriveForImages()) el('cevImageFileInput').click(); };
   el('cevImageFileInput').addEventListener('change', (e) => {
     const file = e.target.files && e.target.files[0];
     el('cevImageFileInput').value = '';
@@ -1435,10 +1467,10 @@
   // list/graph/search load everything else eagerly and fetch content lazily per note (see
   // ensureContentLoaded). `type` is a real column so the list can pick an icon and the
   // canvas/table editors can route correctly without needing content loaded first.
-  const NOTE_LIST_FIELDS = 'id,title,type,tags,links,pinned,properties,content_len,created_at,updated_at,deleted_at';
+  const NOTE_LIST_FIELDS = 'id,title,type,tags,links,pinned,properties,content_len,created_at,updated_at,deleted_at,share_id,share_enabled';
 
   function rowToNote(r){
-    return { id:r.id, title:r.title, content:r.content, type: r.type || detectNoteType(r.content), tags:r.tags||[], links:r.links||[], pinned:r.pinned, updated: new Date(r.updated_at).getTime(), created: new Date(r.created_at).getTime(), deletedAt: r.deleted_at ? new Date(r.deleted_at).getTime() : null, properties: Array.isArray(r.properties) ? r.properties : [], contentLen: r.content!=null ? r.content.length : (typeof r.content_len==='number' ? r.content_len : null) };
+    return { id:r.id, title:r.title, content:r.content, type: r.type || detectNoteType(r.content), tags:r.tags||[], links:r.links||[], pinned:r.pinned, updated: new Date(r.updated_at).getTime(), created: new Date(r.created_at).getTime(), deletedAt: r.deleted_at ? new Date(r.deleted_at).getTime() : null, properties: Array.isArray(r.properties) ? r.properties : [], contentLen: r.content!=null ? r.content.length : (typeof r.content_len==='number' ? r.content_len : null), shareId: r.share_id, shareEnabled: !!r.share_enabled };
   }
 
   // content isn't part of the lightweight note list — fetch it on first real use (opening,
@@ -1537,8 +1569,11 @@
     const now = Date.now();
     const created = { id: newId(), title: note.title || '제목 없음', content: note.content || '', type: detectNoteType(note.content || ''),
       tags: note.tags || [], links: note.links || [], pinned: !!note.pinned, properties: note.properties || [],
-      created: now, updated: now, deletedAt: null, contentLen: (note.content || '').length };
-    const res = await writeRow('notes', 'insert', created.id, notePayload(created));
+      created: now, updated: now, deletedAt: null, contentLen: (note.content || '').length,
+      // minted here too (the column default would only exist server-side), so the share modal
+      // has a real link for a card created offline / before the next full reload
+      shareId: newId(), shareEnabled: false };
+    const res = await writeRow('notes', 'insert', created.id, { ...notePayload(created), share_id: created.shareId });
     if(res.error){ showToast('생성 실패: ' + res.error.message); return null; }
     if(res.updatedAt) created.updated = res.updatedAt;
     cacheNote(created);
@@ -1601,8 +1636,8 @@
   function isAuthExpiry(err){ return !!err && /JWT expired|invalid JWT|token is expired/i.test(String(err.message || '')); }
 
   function toCacheRecord(n){
-    const { id, title, content, type, tags, links, pinned, updated, created, deletedAt, properties, contentLen } = n;
-    return { id, title, content, type, tags, links, pinned, updated, created, deletedAt, properties, contentLen };
+    const { id, title, content, type, tags, links, pinned, updated, created, deletedAt, properties, contentLen, shareId, shareEnabled } = n;
+    return { id, title, content, type, tags, links, pinned, updated, created, deletedAt, properties, contentLen, shareId, shareEnabled };
   }
   function cacheNote(note){ if(note && note.id && !note.deletedAt) LocalDB.put('notes', toCacheRecord(note)); }
   function uncacheNote(id){ LocalDB.del('notes', id); }
@@ -1825,160 +1860,10 @@
     if(count) showToast(`연결된 카드 ${count}개의 링크를 갱신했습니다`);
   }
 
-  // parses a block of consecutive "- " / "1. " list lines (indent = nesting depth, 2 spaces per level)
-  // into a tree, then renders properly nested <ul>/<ol> html (sub-lists live inside their parent <li>)
-  function buildListHtml(block){
-    const lines = block.replace(/\n$/, '').split('\n');
-    const items = lines.map(line => {
-      const m = line.match(/^([ \t]*)(-|\d+\.)[ \t]+(.*)$/);
-      const depth = Math.floor(m[1].replace(/\t/g, '  ').length / 2);
-      const ordered = m[2] !== '-';
-      // keep the number the user actually typed, not just "this is ordered" — see renderList
-      return { depth, ordered, num: ordered ? parseInt(m[2], 10) : null, text: m[3] };
-    });
-
-    const root = [];
-    const stack = [{ depth: -1, list: root }];
-    items.forEach(item => {
-      while(stack.length && stack[stack.length - 1].depth >= item.depth) stack.pop();
-      const node = { ordered: item.ordered, num: item.num, text: item.text, children: [] };
-      stack[stack.length - 1].list.push(node);
-      stack.push({ depth: item.depth, list: node.children });
-    });
-
-    function renderList(nodes){
-      let html = '', i = 0;
-      while(i < nodes.length){
-        const ordered = nodes[i].ordered;
-        // A bare <ol> always renumbers from 1. Anything that ends one list and starts another —
-        // a blank line between items, or a "- " bullet in between — therefore restarted the
-        // count, so a note written 1. / 2. / 3. with gaps rendered as 1. / 1. / 1.
-        // Emitting the typed starting number as `start` keeps the sequence, and matches how
-        // standard markdown treats the first number of an ordered list.
-        const startNum = ordered ? nodes[i].num : null;
-        let run = '';
-        while(i < nodes.length && nodes[i].ordered === ordered){
-          run += '<li>' + nodes[i].text + renderList(nodes[i].children) + '</li>';
-          i++;
-        }
-        if(ordered) html += (startNum && startNum !== 1 ? `<ol start="${startNum}">` : '<ol>') + run + '</ol>';
-        else html += '<ul>' + run + '</ul>';
-      }
-      return html;
-    }
-    return renderList(root);
-  }
-
-  function renderMarkdown(content){
-    let s = escapeHtml(content || '');
-    let taskCounter = 0;
-
-    // fenced code blocks first
-    s = s.replace(/```([\s\S]*?)```/g, (full, code) => `<pre><code>${code.trim()}</code></pre>`);
-
-    s = s.replace(/\[\[([^\]\n]+)\]\]/g, (full, title) => {
-      // O(1) map lookup, not a scan of every note — this runs per wikilink on every keystroke
-      const cls = findNoteByTitle(title) ? 'wikilink' : 'wikilink missing';
-      return `<span class="${cls}" data-link="${escapeHtml(title.trim())}">${escapeHtml(title.trim())}</span>`;
-    });
-
-    // must run before the plain link regex below — without consuming the leading "!", that
-    // regex would still match the "[alt](url)" part of an image and turn it into a link with a
-    // stray "!" left in front of it
-    s = s.replace(/!\[([^\]\n]*)\]\((https?:\/\/[^\s)]+)\)/g, (full, alt, url) => `<img src="${url}" alt="${alt}" loading="lazy" class="md-img">`);
-
-    s = s.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, (full, text, url) => `<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`);
-
-    s = s.replace(/^#### (.*)$/gm, '<h4>$1</h4>');
-    s = s.replace(/^### (.*)$/gm, '<h3>$1</h3>');
-    s = s.replace(/^## (.*)$/gm, '<h2>$1</h2>');
-    s = s.replace(/^# (.*)$/gm, '<h1>$1</h1>');
-
-    s = s.replace(/~~([^~]+)~~/g, '<del>$1</del>');
-    s = s.replace(/==([^=\n]+)==/g, '<mark>$1</mark>');
-    s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-    s = s.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-    s = s.replace(/`([^`\n]+)`/g, '<code>$1</code>');
-
-    s = s.replace(/(?:^&gt; .*(?:\n|$))+/gm, block => {
-      const lines = block.trim().split('\n').map(l => l.replace(/^&gt;\s?/, ''));
-      const calloutMatch = lines[0].match(/^\[!(note|tip|warning|danger)\]\s*(.*)$/i);
-      if(calloutMatch){
-        const type = calloutMatch[1].toLowerCase();
-        const title = calloutMatch[2] || (type.charAt(0).toUpperCase() + type.slice(1));
-        const body = lines.slice(1).join('<br>');
-        return `<div class="callout callout-${type}"><div class="callout-title">${title}</div>${body ? ('<div class="callout-body">' + body + '</div>') : ''}</div>\n`;
-      }
-      return '<blockquote>' + lines.join('<br>') + '</blockquote>\n';
-    });
-
-    s = s.replace(/(?:^- \[[ xX]\] .*(?:\n|$))+/gm, block => {
-      const items = block.trim().split('\n').map(line => {
-        // the text part is optional: block.trim() strips the trailing space off an empty last item
-        // ("- [ ] " → "- [ ]"), which used to make this match null and crash the whole render
-        const mm = line.match(/^- \[([ xX])\](?: (.*))?$/);
-        const checked = mm[1].toLowerCase() === 'x';
-        const idx = taskCounter++;
-        return `<li class="task"><label><input type="checkbox" class="taskbox" data-idx="${idx}" ${checked ? 'checked' : ''}><span>${mm[2] || ''}</span></label></li>`;
-      }).join('');
-      return '<ul class="tasklist">' + items + '</ul>\n';
-    });
-
-    s = s.replace(/(?:^[ \t]*(?:-|\d+\.)[ \t]+.*(?:\n|$))+/gm, block => buildListHtml(block) + '\n');
-
-    let tableIdx = -1;
-    s = s.replace(/(?:^\|.*\|[ \t]*\n?)+/gm, block => {
-      const lines = block.trim().split('\n');
-      if(lines.length < 2 || !/^\|?[\s:|-]+\|?$/.test(lines[1])) return block;
-      tableIdx++;
-      const tIdx = tableIdx;
-      const parseRow = (line) => line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => c.trim());
-      // column alignment, standard markdown separator syntax (:--- / :---: / ---:)
-      const aligns = parseRow(lines[1]).map(seg => {
-        if(/^:.*:$/.test(seg)) return 'center';
-        if(/:$/.test(seg)) return 'right';
-        if(/^:/.test(seg)) return 'left';
-        return '';
-      });
-      // per-cell background color, a small non-standard extension: a leading
-      // {{bg:#hex}} marker (curly braces survive escapeHtml, unlike <!-- --> or [[ ]])
-      // that this renderer strips and turns into the cell's background style.
-      const cellHtml = (raw, ci) => {
-        const bgm = raw.match(/^\{\{bg:(#[0-9a-fA-F]{3,8})\}\}([\s\S]*)$/);
-        const bg = bgm ? bgm[1] : '';
-        const text = bgm ? bgm[2] : raw;
-        const styles = [];
-        if(aligns[ci]) styles.push('text-align:' + aligns[ci]);
-        if(bg) styles.push('background:' + bg);
-        return { attr: styles.length ? ` style="${styles.join(';')}"` : '', text };
-      };
-      const header = parseRow(lines[0]);
-      const rows = lines.slice(2).map(parseRow);
-      let table = `<div class="tbl-wrap"><table data-tidx="${tIdx}"><thead><tr>` + header.map((h, ci) => {
-        const { attr, text } = cellHtml(h, ci);
-        return `<th data-row="0" data-col="${ci}"${attr}>${text}</th>`;
-      }).join('') + '</tr></thead><tbody>';
-      rows.forEach((r, ri) => {
-        table += '<tr>' + r.map((c, ci) => {
-          const { attr, text } = cellHtml(c, ci);
-          return `<td data-row="${ri + 1}" data-col="${ci}"${attr}>${text}</td>`;
-        }).join('') + '</tr>';
-      });
-      table += '</tbody></table></div>';
-      return table + '\n';
-    });
-
-    s = s.replace(/^---\s*$/gm, '<hr>');
-
-    s = s.split('\n').map(line => {
-      const t = line.trim();
-      if(!t) return '';
-      if(/^<(h1|h2|h3|h4|ul|ol|li|blockquote|pre|table|div|hr)/.test(t)) return t;
-      const depth = Math.floor(line.match(/^[ \t]*/)[0].replace(/\t/g, '  ').length / 2);
-      return depth > 0 ? `<p style="margin-left:${depth * 22}px">${t}</p>` : '<p>' + t + '</p>';
-    }).join('\n');
-    return s || '<p style="color:var(--ink-faint);font-style:italic;">내용 없음</p>';
-  }
+  // buildListHtml/the actual markdown->HTML pass now live in lib/markdown.js (shared with the
+  // public share.html page, which has no note index to check wikilinks against) — this just
+  // wires in the app's own findNoteByTitle so [[links]] here still get their valid/missing style.
+  function renderMarkdown(content){ return renderNoteMarkdown(content, findNoteByTitle); }
 
   // ---------------- formatting toolbar actions ----------------
   // every toolbar action replaces some [start,end) range of editorBox.value with new text.
@@ -2224,7 +2109,7 @@
   // the input event fires before replaceEditorRange moves the caret inside the brackets, so the
   // autocomplete has to be opened by hand once the caret is in place
   el('fmtWiki').onclick = () => { wrapSelection('[[', ']]'); updateWikiPopup(); };
-  el('fmtImage').onclick = () => el('imageFileInput').click();
+  el('fmtImage').onclick = () => { if(requireDriveForImages()) el('imageFileInput').click(); };
   el('imageFileInput').addEventListener('change', handleImageFileSelected);
   el('fmtCode').onclick = () => insertCode();
   el('fmtTask').onclick = () => insertLinePrefix('- [ ] ');
@@ -2591,6 +2476,7 @@
     renderCardList();
     renderRightPane(note);
     updatePinBtn(note);
+    updateShareBtn(note);
   }
 
   function updateWordCount(){
@@ -2606,6 +2492,11 @@
     const btn = el('pinBtn');
     btn.innerHTML = note.pinned ? icon('star','ic-fill')+'<span>고정됨</span>' : icon('star')+'<span>고정</span>';
     btn.classList.toggle('pinned', !!note.pinned);
+  }
+
+  function updateShareBtn(note){
+    const shared = !!note.shareEnabled;
+    ['shareBtn','cevShareBtn','tevShareBtn'].forEach(id => { const b = el(id); if(b) b.classList.toggle('shared', shared); });
   }
 
   function writeOnlyEnabled(){ return localStorage.getItem('stk-write-layout') === 'write-only'; }
@@ -3866,6 +3757,44 @@
     const note = index.find(m => m.id === currentId);
     if(confirm(`"${note.title || '제목 없음'}" 카드를 삭제할까요? 되돌릴 수 없습니다.`)) await removeNote(currentId);
   };
+
+  // ---------------- read-mode share links (see share.html) ----------------
+  function shareUrlFor(note){ return SITE_URL.replace(/\/$/, '') + '/share.html?id=' + note.shareId; }
+  function openShareModal(){
+    if(!currentId) return;
+    const note = index.find(m => m.id === currentId);
+    if(!note) return;
+    el('shareToggle').checked = !!note.shareEnabled;
+    el('shareLinkRow').style.display = note.shareEnabled ? 'flex' : 'none';
+    if(note.shareEnabled) el('shareLinkInput').value = shareUrlFor(note);
+    el('shareModal').style.display = 'flex';
+  }
+  function closeShareModal(){ el('shareModal').style.display = 'none'; }
+  el('shareBtn').onclick = openShareModal;
+  el('shareModalClose').addEventListener('click', closeShareModal);
+  el('shareModal').addEventListener('click', e => { if(e.target === el('shareModal')) closeShareModal(); });
+  document.addEventListener('keydown', e => { if(e.key==='Escape' && el('shareModal').style.display==='flex') closeShareModal(); });
+  el('shareToggle').addEventListener('change', async (e) => {
+    if(!currentId) return;
+    const note = index.find(m => m.id === currentId);
+    if(!note) return;
+    const enabled = e.target.checked;
+    const { error } = await sb.from('notes').update({ share_enabled: enabled }).eq('id', note.id);
+    if(error){ showToast('공유 설정 실패: ' + error.message); e.target.checked = !enabled; return; }
+    note.shareEnabled = enabled;
+    el('shareLinkRow').style.display = enabled ? 'flex' : 'none';
+    if(enabled) el('shareLinkInput').value = shareUrlFor(note);
+    updateShareBtn(note);
+    showToast(enabled ? '공개 링크가 활성화됐습니다' : '공개 링크를 껐습니다');
+  });
+  el('shareCopyBtn').addEventListener('click', async () => {
+    try{
+      await navigator.clipboard.writeText(el('shareLinkInput').value);
+      showToast('링크를 복사했습니다');
+    }catch(err){
+      showToast('복사 실패 — 링크를 직접 선택해 복사해주세요');
+    }
+  });
   el('mobToggle').onclick = () => { appEl.classList.toggle('show-sidebar'); };
   el('mobSidebarBtn').onclick = () => { appEl.classList.toggle('show-sidebar'); };
   // when the mobile sidebar overlay is open, a tap on the visible content area (to its right)
@@ -5003,7 +4932,11 @@
       graphCanvas.classList.remove('grabbing');
       gNodeDrag.node.fixed = false;
       if(gNodeDrag.moved){ globalReheat(); saveGlobalPositions(); }
-      else selectGraphNode(gNodeDrag.id); // tap (no movement) selects + opens the panel (open card via its button)
+      // tap (no movement) selects + opens the panel; tapping the node that's already selected opens
+      // the card — the touch equivalent of the desktop double-click, which never fires on a phone
+      // because touchstart preventDefaults the synthesized mouse events
+      else if(graphSelectedId === gNodeDrag.id){ const id = gNodeDrag.id; gNodeDrag = null; haptic('light'); closeGlobalGraph(); openNote(id); return; }
+      else selectGraphNode(gNodeDrag.id);
       gNodeDrag = null;
       return;
     }
@@ -5073,6 +5006,7 @@
     if(el('historyModal').style.display === 'flex'){ el('historyModal').style.display = 'none'; return true; }
     if(!el('mobNewSheet').hidden){ closeMobNewSheet(); return true; }
     if(el('newBtnMenu').style.display !== 'none'){ el('newBtnMenu').style.display = 'none'; return true; }
+    if(el('shareModal').style.display === 'flex'){ closeShareModal(); return true; }
     // 3. mobile slide-over overlays
     if(mobileRightpaneOpen){ mobileRightpaneOpen = false; applyPanelState(); return true; }
     if(appEl.classList.contains('show-sidebar')){ appEl.classList.remove('show-sidebar'); return true; }
@@ -5174,7 +5108,7 @@
   // i.e. the incoming realtime row is just an echo of a write we already have locally
   function sameNoteSig(a, b){
     return a.title===b.title && a.content===b.content && a.pinned===b.pinned
-      && (!!a.deletedAt)===(!!b.deletedAt)
+      && (!!a.deletedAt)===(!!b.deletedAt) && (!!a.shareEnabled)===(!!b.shareEnabled)
       && JSON.stringify(a.tags||[])===JSON.stringify(b.tags||[])
       && JSON.stringify(a.links||[])===JSON.stringify(b.links||[])
       && JSON.stringify(a.properties||[])===JSON.stringify(b.properties||[]);
@@ -5739,6 +5673,7 @@
     tevFilterCol = null; tevFilterVal = '';
     el('tevTitleInput').value = note.title || '';
     renderNoteTagChips(note, 'tevTagChips');
+    updateShareBtn(note);
     renderTableEditor();
   }
 
@@ -6562,48 +6497,10 @@
   }
 
 
-  function parseCanvasContent(content){
-    const match = (content||'').match(/```canvas\n?([\s\S]*?)```/);
-    if(!match) return { elements:[], connectors:[] };
-    const raw0 = match[1].trim();
-    if(raw0.startsWith('{')){
-      try{
-        const o = JSON.parse(raw0);
-        return { elements: Array.isArray(o.elements)?o.elements:[], connectors: Array.isArray(o.connectors)?o.connectors:[] };
-      }catch{ return { elements:[], connectors:[] }; }
-    }
-    return parseCanvasLegacy(match[1]);
-  }
-
-  // legacy @-directive format (pre-JSON canvases still load)
-  function parseCanvasLegacy(raw){
-    const elements = [], connectors = [];
-    const lines = raw.split('\n');
-    let cur = null, textLines = [];
-    const flush = () => {
-      if(cur){
-        const t = textLines.join('\n').trim();
-        if(cur.type==='section') cur.label = t || '섹션';
-        else cur.text = t;
-        elements.push(cur); cur=null; textLines=[];
-      }
-    };
-    for(const line of lines){
-      if(line.startsWith('@sticky')){ flush(); const p=line.split(' '); cur={id:p[1],type:'sticky',x:+p[2],y:+p[3],w:+p[4]||200,h:+p[5]||160,color:p[6]||'#FFE066',text:''}; }
-      else if(line.startsWith('@section')){ flush(); const p=line.split(' '); cur={id:p[1],type:'section',x:+p[2],y:+p[3],w:+p[4]||300,h:+p[5]||200,color:p[6]||'#82C4F8',label:''}; }
-      else if(line.startsWith('@rect')){ flush(); const p=line.split(' '); cur={id:p[1],type:'rect',x:+p[2],y:+p[3],w:+p[4]||180,h:+p[5]||100,color:p[6]||'#E8E8E8',text:''}; }
-      else if(line.startsWith('@circle')){ flush(); const p=line.split(' '); cur={id:p[1],type:'circle',x:+p[2],y:+p[3],r:+p[4]||60,color:p[5]||'#E8E8E8',text:''}; }
-      else if(line.startsWith('@diamond')){ flush(); const p=line.split(' '); cur={id:p[1],type:'diamond',x:+p[2],y:+p[3],w:+p[4]||100,h:+p[5]||100,color:p[6]||'#E8E8E8',text:''}; }
-      else if(line.startsWith('@text')){ flush(); const p=line.split(' '); cur={id:p[1],type:'text',x:+p[2],y:+p[3],w:120,h:30,color:'',text:''}; }
-      else if(line.startsWith('@arrow ')){ flush(); const p=line.split(' '); const li=p.indexOf('|'); connectors.push({id:cevGenId('c'),type:'arrow',from:p[1],to:p[2],fromSide:p[3]||null,toSide:p[4]||null,label:li>0?p.slice(li+1).join(' ').trim():''}); }
-      else if(line.startsWith('@dashed-arrow ')){ flush(); const p=line.split(' '); const li=p.indexOf('|'); connectors.push({id:cevGenId('c'),type:'dashed-arrow',from:p[1],to:p[2],fromSide:p[3]||null,toSide:p[4]||null,label:li>0?p.slice(li+1).join(' ').trim():''}); }
-      else if(line.startsWith('@dashed ')){ flush(); const p=line.split(' '); const li=p.indexOf('|'); connectors.push({id:cevGenId('c'),type:'dashed',from:p[1],to:p[2],fromSide:p[3]||null,toSide:p[4]||null,label:li>0?p.slice(li+1).join(' ').trim():''}); }
-      else if(line.startsWith('@line ')){ flush(); const p=line.split(' '); if(p[1]&&isNaN(+p[1])){ const li=p.indexOf('|'); connectors.push({id:cevGenId('c'),type:'line',from:p[1],to:p[2],fromSide:p[3]||null,toSide:p[4]||null,label:li>0?p.slice(li+1).join(' ').trim():''}); } else connectors.push({id:cevGenId('c'),type:'line',x1:+p[1],y1:+p[2],x2:+p[3],y2:+p[4],label:''}); }
-      else if(cur){ textLines.push(line.startsWith('\\@') ? line.slice(1) : line); }
-    }
-    flush();
-    return { elements, connectors };
-  }
+  // parseCanvasContent/parseCanvasLegacy and the connector-geometry helpers below
+  // (cevElCenter/cevElBorderPt/cevConnPoints/cevGetAnchorPos/cevSideDir/cevClosestSide/
+  // cevBezierPath/cevShadeColor) now live in lib/canvas.js, shared with the read-only
+  // public share.html page.
 
   function serializeCanvasContent(elements, connectors){
     // JSON storage: robust round-trip for all props (color, text, label, locked, fontSize, bold, textColor, ...)
@@ -6613,22 +6510,6 @@
       return o;
     });
     return '```canvas\n' + JSON.stringify({elements: els, connectors}) + '\n```';
-  }
-
-  function cevElCenter(edata){ if(edata.type==='circle') return {x:edata.x,y:edata.y}; return {x:edata.x+(edata.w||120)/2,y:edata.y+(edata.h||80)/2}; }
-  function cevElBorderPt(edata, dir){
-    if(edata.type==='circle'){ const r=edata.r||60; return {x:edata.x+dir.dx*r,y:edata.y+dir.dy*r}; }
-    const hw=(edata.w||120)/2,hh=(edata.h||80)/2,cx=edata.x+hw,cy=edata.y+hh;
-    const abs=(v)=>v<0?-v:v;
-    if(abs(dir.dx)<0.001) return {x:cx,y:cy+(dir.dy>0?hh:-hh)};
-    if(abs(dir.dy)<0.001) return {x:cx+(dir.dx>0?hw:-hw),y:cy};
-    const t=Math.min(hw/abs(dir.dx),hh/abs(dir.dy));
-    return {x:cx+dir.dx*t,y:cy+dir.dy*t};
-  }
-  function cevConnPoints(fromEl, toEl){
-    const fc=cevElCenter(fromEl),tc=cevElCenter(toEl),dx=tc.x-fc.x,dy=tc.y-fc.y,len=Math.sqrt(dx*dx+dy*dy)||1;
-    const dir={dx:dx/len,dy:dy/len};
-    return {x1:cevElBorderPt(fromEl,dir).x,y1:cevElBorderPt(fromEl,dir).y,x2:cevElBorderPt(toEl,{dx:-dir.dx,dy:-dir.dy}).x,y2:cevElBorderPt(toEl,{dx:-dir.dx,dy:-dir.dy}).y};
   }
 
   function cevRebuildSvg(){
@@ -6703,9 +6584,6 @@
     });
   }
 
-  function cevShadeColor(hex, pct){
-    try{ let n=parseInt((hex||'#9CA3AF').replace(/^var\(.*\)/,'#9CA3AF').slice(1),16); if(isNaN(n)) n=0x9CA3AF; const r=Math.max(0,Math.min(255,(n>>16)+pct)),g=Math.max(0,Math.min(255,((n>>8)&0xff)+pct)),b=Math.max(0,Math.min(255,(n&0xff)+pct)); return `rgb(${r},${g},${b})`; }catch(e){ return '#9CA3AF'; }
-  }
 
 
   // ---- history (undo / redo) ----
@@ -6980,55 +6858,6 @@
     cevPanE.x = (cr.width  - (minx+maxx)*cevZoom)/2;
     cevPanE.y = (cr.height - (miny+maxy)*cevZoom)/2;
     cevApplyTransform();
-  }
-
-  function cevGetAnchorPos(edata, side){
-    if(edata.type==='circle'){
-      const r=edata.r||60;
-      if(side==='n') return {x:edata.x,     y:edata.y-r};
-      if(side==='s') return {x:edata.x,     y:edata.y+r};
-      if(side==='w') return {x:edata.x-r,   y:edata.y};
-      if(side==='e') return {x:edata.x+r,   y:edata.y};
-      return {x:edata.x, y:edata.y};
-    }
-    const w=edata.w||120, h=edata.h||80;
-    const cx=edata.x+w/2, cy=edata.y+h/2;
-    if(side==='n') return {x:cx,          y:edata.y};
-    if(side==='s') return {x:cx,          y:edata.y+h};
-    if(side==='w') return {x:edata.x,     y:cy};
-    if(side==='e') return {x:edata.x+w,   y:cy};
-    return {x:cx, y:cy};
-  }
-
-  function cevSideDir(side){
-    if(side==='n') return {x:0,  y:-1};
-    if(side==='s') return {x:0,  y:1};
-    if(side==='w') return {x:-1, y:0};
-    if(side==='e') return {x:1,  y:0};
-    return {x:1, y:0};
-  }
-
-  function cevClosestSide(edata, cx, cy){
-    let best='w', bestDist=Infinity;
-    for(const s of ['n','s','e','w']){
-      const p=cevGetAnchorPos(edata,s);
-      const d=(cx-p.x)**2+(cy-p.y)**2;
-      if(d<bestDist){ bestDist=d; best=s; }
-    }
-    return best;
-  }
-
-  function cevBezierPath(p1, fromSide, p2, toSide){
-    const dist=Math.sqrt((p2.x-p1.x)**2+(p2.y-p1.y)**2);
-    const offset=Math.max(40, Math.min(dist*0.42, 160));
-    const d1=cevSideDir(fromSide), d2=cevSideDir(toSide);
-    const cp1x=p1.x+d1.x*offset, cp1y=p1.y+d1.y*offset;
-    const cp2x=p2.x+d2.x*offset, cp2y=p2.y+d2.y*offset;
-    return {
-      path:`M ${p1.x} ${p1.y} C ${cp1x} ${cp1y} ${cp2x} ${cp2y} ${p2.x} ${p2.y}`,
-      midX:0.125*p1.x+0.375*cp1x+0.375*cp2x+0.125*p2.x,
-      midY:0.125*p1.y+0.375*cp1y+0.375*cp2y+0.125*p2.y
-    };
   }
 
   function cevAddHandles(div,edata){
@@ -7353,6 +7182,7 @@
     const ti=el('cevTitleInput'); if(ti) ti.value=note.title||'';
     renderNoteTagChips(note, 'cevTagChips');
     updateCevToolButtons();
+    updateShareBtn(note);
     cevRenderAll();
   }
 
@@ -7814,6 +7644,7 @@
   });
 
   el('cevExitBtn').addEventListener('click',()=>exitCanvasEditor());
+  el('cevShareBtn').addEventListener('click',()=>openShareModal());
   el('cevCardColorBtn').addEventListener('click',(e)=>{
     if(!cevCurrentNoteId) return;
     const note=index.find(m=>m.id===cevCurrentNoteId);
@@ -8060,6 +7891,24 @@
       document.body.classList.toggle('note-typing', a === editorBox);
     }, 0);
   });
+  // How far the keyboard overlaps the page, as --kb-inset. On Android 15+ the app is edge-to-edge,
+  // so the WebView is NOT resized when the keyboard opens — it simply covers the bottom of the page
+  // and a bottom:0 toolbar ends up hidden behind it. The Keyboard plugin reports the real IME
+  // height (in CSS px); whatever the WebView did shrink by is subtracted so older Android (which
+  // still resizes) isn't double-offset. In a mobile browser visualViewport carries the same info.
+  let kbBaseHeight = window.innerHeight;
+  function setKbInset(px){ document.documentElement.style.setProperty('--kb-inset', Math.max(0, Math.round(px)) + 'px'); }
+  if(isNativeApp && CapPlugins.Keyboard){
+    CapPlugins.Keyboard.addListener('keyboardWillShow', info => setKbInset(info.keyboardHeight - (kbBaseHeight - window.innerHeight)));
+    CapPlugins.Keyboard.addListener('keyboardDidShow', info => setKbInset(info.keyboardHeight - (kbBaseHeight - window.innerHeight)));
+    CapPlugins.Keyboard.addListener('keyboardWillHide', () => setKbInset(0));
+  }else if(window.visualViewport){
+    const vv = window.visualViewport;
+    const onVV = () => setKbInset(window.innerHeight - vv.height - vv.offsetTop);
+    vv.addEventListener('resize', onVV); vv.addEventListener('scroll', onVV);
+  }
+  window.addEventListener('resize', () => { if(!document.body.classList.contains('input-focus')) kbBaseHeight = window.innerHeight; });
+
   // tapping a toolbar button must not steal focus from the textarea, or the keyboard would
   // close (and the docked toolbar jump away) on every formatting tap
   document.querySelector('.fmttoolbar').addEventListener('mousedown', e => { if(e.target.closest('.fmtbtn')) e.preventDefault(); });
@@ -8127,6 +7976,7 @@
     openNote(created.id);
   });
   el('tevExitBtn').addEventListener('click',()=>exitTableEditor());
+  el('tevShareBtn').addEventListener('click',()=>openShareModal());
   el('tevTitleInput').addEventListener('input',()=>{
     if(!tevCurrentNoteId) return;
     const note=index.find(n=>n.id===tevCurrentNoteId); if(!note) return;

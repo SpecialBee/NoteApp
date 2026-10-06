@@ -15,7 +15,7 @@
     --danger-soft: #F5E1DC;
     --ok: #6B8F52;
     --radius: 8px;
-    --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     /* fixed regardless of theme, so code blocks & toasts don't invert oddly */
     --code-bg: #232220;
@@ -216,6 +216,14 @@
   .synctag .dot{ width:6px; height:6px; border-radius:50%; background:var(--ok); flex-shrink:0; }
   .synctag .dot.saving{ background:var(--accent); animation:pulse 0.9s ease infinite; }
   .synctag .dot.saved-pop{ animation:dotPop .4s ease; }
+  .synctag .dot.offline{ background:var(--ink-faint); }
+  .synctag .dot.pending{ background:var(--warn); animation:pulse 0.9s ease infinite; }
+  .offline-badge{ position:fixed; top:calc(8px + env(safe-area-inset-top, 0px)); left:50%; transform:translateX(-50%); z-index:60;
+    display:flex; align-items:center; gap:6px; padding:4px 11px; border-radius:999px; pointer-events:none;
+    background:var(--warn-soft); color:var(--warn-ink); border:1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+    font-size:11.5px; font-weight:600; box-shadow:0 2px 8px rgba(0,0,0,.08); }
+  .offline-badge .ic{ width:13px; height:13px; }
+  .offline-badge[hidden]{ display:none; } /* the display:flex above would otherwise beat the hidden attribute */
   @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:0.35;} }
   @keyframes dotPop{ 0%{transform:scale(1);} 45%{transform:scale(1.8);} 100%{transform:scale(1);} }
 
@@ -798,6 +806,10 @@
   .newbtn-menu { position:absolute; top:calc(100% + 4px); left:0; right:0; background:var(--bg-card); border:1px solid var(--border); border-radius:10px; overflow:hidden; z-index:50; box-shadow:0 4px 14px rgba(0,0,0,.12); flex-direction:column; }
   .newbtn-item { display:block; width:100%; background:none; border:none; padding:10px 14px; text-align:left; font-family:var(--sans); font-size:13px; color:var(--ink); cursor:pointer; }
   .newbtn-item:hover { background:var(--accent-soft); color:var(--accent); }
+  .newbtn-menu { max-height:min(70vh, 520px); overflow-y:auto; }
+  .newbtn-sep { height:1px; background:var(--border-soft); margin:4px 0; flex-shrink:0; }
+  .newbtn-label { font-size:10.5px; font-weight:700; letter-spacing:.4px; color:var(--ink-faint); padding:6px 14px 2px; }
+  .newbtn-hint { font-size:11.5px; line-height:1.5; color:var(--ink-faint); padding:4px 14px 10px; }
   /* Anchor hidden when element is selected */
   /* anchors always interactive - removed selected suppression */
   /* Color button: only on hover or selected */
@@ -986,7 +998,7 @@
   body > *:not(#printArea){ display:none !important; }
   #printArea{
     display:block !important; max-width:720px; margin:0 auto; padding:0;
-    font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    font-family:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
     color:#1a1a1a; background:#fff; font-size:12.5pt; line-height:1.6;
     print-color-adjust:exact; -webkit-print-color-adjust:exact; /* otherwise browsers drop the code/quote background tints by default */
   }
@@ -1012,3 +1024,140 @@
   .settings-nav { flex-direction:row; width:100%; border-right:none; border-bottom:1px solid var(--border-soft); overflow-x:auto; overflow-y:visible; padding:8px; gap:6px; }
   .settings-nav-btn { flex-shrink:0; width:auto; white-space:nowrap; }
 }
+
+  /* --- unlinked mentions (right panel) --- */
+  .unlinked-item{ padding:8px 0; border-bottom:1px solid var(--border-soft); }
+  .unlinked-item:last-child{ border-bottom:none; }
+  .unlinked-head{ display:flex; align-items:center; gap:6px; }
+  .unlinked-title{ flex:1; min-width:0; font-size:12.5px; font-weight:600; color:var(--ink); cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .unlinked-title:hover{ color:var(--accent); }
+  .unlinked-link{ display:flex; align-items:center; gap:3px; flex-shrink:0; font-family:var(--sans); font-size:11px; font-weight:600; color:var(--accent); background:var(--accent-soft); border:none; border-radius:999px; padding:3px 9px; cursor:pointer; }
+  .unlinked-link .ic{ width:12px; height:12px; }
+  .unlinked-snippet{ font-size:11.5px; line-height:1.5; color:var(--ink-soft); margin-top:3px; }
+  .unlinked-snippet mark{ background:var(--accent-soft); color:var(--ink); border-radius:3px; padding:0 2px; }
+  .rp-history-btn{ display:flex; align-items:center; gap:6px; width:100%; font-family:var(--sans); font-size:12px; font-weight:600; color:var(--ink-soft); background:var(--bg-panel); border:1px solid var(--border); border-radius:8px; padding:8px 10px; cursor:pointer; }
+  .rp-history-btn:hover{ color:var(--accent); border-color:var(--accent); }
+
+  /* --- version history modal --- */
+  .history-modal-box{ width:min(860px,100%); height:min(640px,88vh); }
+  .history-layout{ display:grid; grid-template-columns:230px 1fr; min-height:0; flex:1; }
+  .history-list{ border-right:1px solid var(--border-soft); overflow-y:auto; padding:6px; }
+  .history-item{ display:flex; flex-direction:column; gap:2px; width:100%; text-align:left; font-family:var(--sans); background:none; border:none; border-radius:8px; padding:9px 10px; cursor:pointer; color:var(--ink); }
+  .history-item:hover{ background:var(--bg-panel); }
+  .history-item.active{ background:var(--accent-soft); }
+  .history-when{ font-size:12.5px; font-weight:700; }
+  .history-sub{ font-size:11px; color:var(--ink-faint); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .history-detail{ display:flex; flex-direction:column; min-width:0; min-height:0; }
+  .history-detail-bar{ display:flex; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid var(--border-soft); }
+  .history-meta{ flex:1; font-size:12px; color:var(--ink-faint); }
+  .history-restore{ font-family:var(--sans); font-size:12px; font-weight:700; color:#fff; background:var(--accent); border:none; border-radius:8px; padding:7px 12px; cursor:pointer; }
+  .history-restore:disabled{ opacity:.4; cursor:default; }
+  .history-preview{ overflow-y:auto; padding:8px 20px 20px; flex:1; }
+  @media (max-width:640px){
+    .history-modal-box{ height:92vh; }
+    .history-layout{ grid-template-columns:1fr; grid-template-rows:38% 1fr; }
+    .history-list{ border-right:none; border-bottom:1px solid var(--border-soft); }
+  }
+
+/* --- phone bottom navigation + "new card" sheet ---
+   Kept at the end of the file on purpose (see the settings-nav note above: earlier mobile
+   overrides have lost to later desktop rules of equal specificity before). */
+.bottomnav, .mob-sheet-backdrop{ display:none; }
+@media (max-width:640px){
+  :root{ --bottomnav-h: 58px; }
+  .bottomnav{
+    display:flex; align-items:stretch; justify-content:space-around;
+    position:fixed; left:0; right:0; bottom:0; z-index:30;
+    height:calc(var(--bottomnav-h) + env(safe-area-inset-bottom, 0px));
+    padding-bottom:env(safe-area-inset-bottom, 0px);
+    background:color-mix(in srgb, var(--bg-panel) 92%, transparent);
+    -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px);
+    border-top:1px solid var(--border-soft);
+  }
+  .bottomnav-btn{
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+    background:none; border:none; font-family:var(--sans); font-size:10.5px; font-weight:600;
+    color:var(--ink-faint); cursor:pointer; -webkit-tap-highlight-color:transparent;
+    transition:color .15s ease;
+  }
+  .bottomnav-btn .ic{ width:21px; height:21px; }
+  .bottomnav-btn.active{ color:var(--accent); }
+  .bottomnav-btn:active .ic{ transform:scale(.9); }
+  .bottomnav-fab{
+    align-self:center; width:46px; height:46px; margin:0 6px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    border:none; border-radius:15px; background:var(--accent); color:#fff; cursor:pointer;
+    box-shadow:0 4px 14px color-mix(in srgb, var(--accent) 40%, transparent);
+    -webkit-tap-highlight-color:transparent; transition:transform .12s ease;
+  }
+  .bottomnav-fab .ic{ width:24px; height:24px; stroke-width:2.4; }
+  .bottomnav-fab:active{ transform:scale(.92); }
+
+  /* the app shell gives the bar its own strip instead of being overlapped by it */
+  body:not(.input-focus) .app.ready:not([data-view="canvasEditor"]):not([data-view="tableEditor"]){
+    height:calc(100vh - var(--bottomnav-h) - env(safe-area-inset-bottom, 0px));
+  }
+  body:not(.input-focus) .app.show-sidebar .sidebar{ height:calc(100vh - var(--bottomnav-h) - env(safe-area-inset-bottom, 0px)); }
+  body:not(.input-focus) .app.show-rightpane .rightpane{ height:calc(100vh - var(--bottomnav-h) - env(safe-area-inset-bottom, 0px)) !important; }
+  /* hidden while typing (it would ride up on the keyboard) and in the canvas/sheet editors,
+     which need the whole screen and have their own toolbars */
+  body.input-focus .bottomnav,
+  .app[data-view="canvasEditor"] ~ .bottomnav,
+  .app[data-view="tableEditor"] ~ .bottomnav{ display:none; }
+  body:not(.input-focus) .toast{ bottom:calc(var(--bottomnav-h) + env(safe-area-inset-bottom, 0px) + 12px); }
+
+  .mob-sheet-backdrop:not([hidden]){
+    display:flex; align-items:flex-end; position:fixed; inset:0; z-index:1000;
+    background:rgba(0,0,0,.36); animation:backdropFade .18s ease;
+  }
+  .mob-sheet{
+    width:100%; max-height:80vh; overflow-y:auto; background:var(--bg-card);
+    border-radius:18px 18px 0 0; padding:8px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+    box-shadow:0 -8px 30px rgba(0,0,0,.18); animation:sheetUp .22s cubic-bezier(.2,.8,.3,1);
+  }
+  .mob-sheet-grip{ width:38px; height:4px; border-radius:2px; background:var(--border); margin:2px auto 14px; }
+  .mob-sheet-grid{ display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-bottom:6px; }
+  .mob-sheet-btn{
+    display:flex; flex-direction:column; align-items:center; gap:7px; padding:14px 4px;
+    background:var(--bg-panel); border:1px solid var(--border-soft); border-radius:14px;
+    font-family:var(--sans); font-size:12px; font-weight:600; color:var(--ink); cursor:pointer;
+  }
+  .mob-sheet-btn .ic{ width:22px; height:22px; color:var(--accent); }
+  .mob-sheet-btn:active{ background:var(--accent-soft); }
+  .mob-sheet-row{
+    display:flex; align-items:center; gap:10px; width:100%; padding:12px 6px; background:none; border:none;
+    border-bottom:1px solid var(--border-soft); font-family:var(--sans); font-size:14px; color:var(--ink); text-align:left; cursor:pointer;
+  }
+  .mob-sheet-row .ic{ color:var(--ink-faint); }
+
+  /* formatting toolbar docked above the keyboard while typing in a note */
+  body.note-typing .fmttoolbar{
+    position:fixed; left:0; right:0; bottom:0; z-index:40; margin:0;
+    padding:6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+    background:var(--bg-card); border-top:1px solid var(--border); border-bottom:none;
+    box-shadow:0 -4px 14px rgba(0,0,0,.06);
+  }
+  body.note-typing .fmttoolbar .fmtbtn{ min-width:38px; min-height:36px; flex-shrink:0; }
+  /* most-used actions first when it's under the thumb */
+  body.note-typing #fmtTask{ order:-3; }
+  body.note-typing #fmtWiki{ order:-2; }
+  body.note-typing #fmtBold{ order:-1; }
+  body.note-typing .cardsheet{ padding-bottom:64px; }
+}
+@keyframes sheetUp{ from{ transform:translateY(100%); } to{ transform:none; } }
+@keyframes backdropFade{ from{ opacity:0; } to{ opacity:1; } }
+
+/* --- screen transitions & empty states --- */
+.view-enter{ animation:viewEnter .16s ease; }
+@keyframes viewEnter{ from{ opacity:0; } to{ opacity:1; } }
+.cardlist.empty-state{ gap:10px; }
+.cardlist.empty-state .empty-ic{ width:28px; height:28px; color:var(--border); }
+.cardlist.empty-state .empty-sub{ font-size:11.5px; color:var(--ink-faint); opacity:.85; }
+.emptymain .emptymain-ic{ width:44px; height:44px; color:var(--accent); opacity:.55; }
+.emptymain-actions{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
+.emptymain button.ghost{ display:flex; align-items:center; gap:6px; background:var(--bg-panel); color:var(--ink); border:1px solid var(--border); }
+.emptymain button.ghost:hover{ background:var(--accent-soft); color:var(--accent); }
+.newbtn.newbtn-ghost{ background:var(--bg-card); color:var(--ink); border:1px solid var(--border); }
+.newbtn.newbtn-danger{ background:var(--danger-soft); color:var(--danger); border:1px solid color-mix(in srgb, var(--danger) 35%, transparent); }
+.newbtn.newbtn-ghost:hover{ background:var(--bg-panel); }
+.newbtn.newbtn-danger:hover{ background:var(--danger); color:#fff; }

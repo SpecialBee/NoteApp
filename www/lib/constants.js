@@ -4,7 +4,7 @@
 const ACCENT_PRESETS = ['#D97757','#4C7EFF','#6B8F52','#B3483A','#8E6CC7','#3AA6A6','#C79A3A','#565B66'];
 const MARK_PRESETS = ['#FDE68A','#BBF7D0','#FBCFE8','#BFDBFE','#FED7AA','#E9D5FF'];
 const FONT_OPTIONS = [
-  { label: '기본 (Inter)', value: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
+  { label: '기본 (Pretendard)', value: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" },
   { label: '시스템 UI', value: "-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif" },
   { label: '맑은 고딕', value: "'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif" },
   { label: '바탕 (명조체)', value: "'Batang', 'Apple SD Gothic Neo', Georgia, serif" },

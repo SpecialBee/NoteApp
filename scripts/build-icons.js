@@ -42,6 +42,8 @@ const ICONS = [
   'align-start-vertical', 'align-center-vertical', 'align-end-vertical',
   'align-start-horizontal', 'align-center-horizontal', 'align-end-horizontal', // 캔버스 개체 정렬
   'link-2-off',                                     // 연결 해제
+  'wifi-off', 'history',                            // 오프라인 배지 / 버전 기록
+  'house', 'list', 'layout-template',              // 모바일 하단 내비 / 템플릿
 ];
 
 const SRC = path.join(__dirname, '..', 'node_modules', 'lucide-static', 'icons');

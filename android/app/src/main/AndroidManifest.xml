@@ -28,6 +28,20 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="graphidea" android:host="drive-callback" />
             </intent-filter>
+            <!-- launcher shortcuts (res/xml/shortcuts.xml) deep-link here -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="graphidea" android:host="new" />
+                <data android:scheme="graphidea" android:host="today" />
+            </intent-filter>
+            <!-- "share to GRAPHIDEA" from other apps — picked up by ShareInboxPlugin -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
         </activity>
 
         <provider

@@ -63,11 +63,18 @@ alter table notes add column if not exists properties jsonb not null default '[]
 -- code-block prefix client-side — lets the note list/graph/search load without pulling every
 -- note's full content just to figure out which icon to show.
 alter table notes add column if not exists type text not null default 'note';
-update notes set type = case
-  when content like '```canvas%' then 'canvas'
-  when content like '```table%' then 'table'
-  else 'note'
-end;
+-- only touch rows whose type is actually wrong: an unconditional UPDATE here fired the
+-- updated_at trigger on every note each time this file was re-run, scrambling "최근순"
+update notes set type = t.new_type
+from (
+  select id, case
+    when content like '```canvas%' then 'canvas'
+    when content like '```table%' then 'table'
+    else 'note'
+  end as new_type
+  from notes
+) t
+where notes.id = t.id and notes.type is distinct from t.new_type;
 
 -- cheap character count for the dashboard "총 글자 수" stat — computed by Postgres so the
 -- client can sum it from the lightweight note list instead of loading every note's content.
@@ -145,3 +152,65 @@ create policy "update own drive token" on user_drive_tokens
 drop policy if exists "delete own drive token" on user_drive_tokens;
 create policy "delete own drive token" on user_drive_tokens
   for delete using (auth.uid() = user_id);
+
+-- full-text body search: the app lazy-loads note bodies, so its search box also asks the server
+-- `content ilike '%검색어%'` (and the "연결 안 된 언급" panel asks for a title the same way).
+-- Trigram GIN indexes let Postgres answer that from the index instead of reading every body.
+create extension if not exists pg_trgm with schema extensions;
+create index if not exists notes_content_trgm_idx on notes using gin (content extensions.gin_trgm_ops);
+create index if not exists notes_title_trgm_idx on notes using gin (title extensions.gin_trgm_ops);
+
+-- version history: the state a note had before an edit, kept by trigger so it also covers
+-- writes replayed from the offline queue and edits made on any device. Autosave fires every
+-- ~600ms while typing, so a snapshot is only taken when the note has none from the last 10
+-- minutes — one version per editing session rather than one per keystroke. Capped at 50 per note.
+create table if not exists note_revisions (
+  id bigint generated always as identity primary key,
+  note_id uuid not null references notes(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  title text not null,
+  content text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists note_revisions_note_id_created_at_idx
+  on note_revisions (note_id, created_at desc);
+
+alter table note_revisions enable row level security;
+
+-- read/delete only: rows are written exclusively by the trigger below (security definer), so
+-- a client can't forge history
+drop policy if exists "select own note revisions" on note_revisions;
+create policy "select own note revisions" on note_revisions
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "delete own note revisions" on note_revisions;
+create policy "delete own note revisions" on note_revisions
+  for delete using (auth.uid() = user_id);
+
+create or replace function save_note_revision() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.content is distinct from old.content or new.title is distinct from old.title then
+    if not exists (
+      select 1 from note_revisions
+      where note_id = old.id and created_at > now() - interval '10 minutes'
+    ) then
+      insert into note_revisions (note_id, user_id, title, content)
+        values (old.id, old.user_id, old.title, old.content);
+      delete from note_revisions
+        where note_id = old.id
+          and id not in (
+            select id from note_revisions where note_id = old.id
+            order by created_at desc limit 50
+          );
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists notes_save_revision on notes;
+create trigger notes_save_revision
+  after update on notes
+  for each row execute function save_note_revision();

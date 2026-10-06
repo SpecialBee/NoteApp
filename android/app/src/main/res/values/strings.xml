@@ -4,4 +4,8 @@
     <string name="title_activity_main">GRAPHIDEA</string>
     <string name="package_name">com.specialbee.graphidea</string>
     <string name="custom_url_scheme">com.specialbee.graphidea</string>
+    <string name="shortcut_new_short">새 노트</string>
+    <string name="shortcut_new_long">새 노트 만들기</string>
+    <string name="shortcut_today_short">오늘 노트</string>
+    <string name="shortcut_today_long">오늘의 데일리 노트</string>
 </resources>

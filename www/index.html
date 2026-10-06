@@ -6,8 +6,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <link rel="icon" type="image/png" href="icon.png">
 <link rel="apple-touch-icon" href="icon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Pretendard is bundled (not a CDN) so the Android app renders the same type offline; the
+     dynamic-subset build only downloads the unicode-range slices a page actually uses. -->
+<link rel="stylesheet" href="vendor/pretendard/pretendard.css">
 <script src="vendor/supabase.js"></script>
 <script>
 (function(){
@@ -55,7 +56,7 @@
 <symbol id="ic-diamond" viewBox="0 0 24 24"><path d="M2.7 10.3a2.41 2.41 0 0 0 0 3.41l7.59 7.59a2.41 2.41 0 0 0 3.41 0l7.59-7.59a2.41 2.41 0 0 0 0-3.41l-7.59-7.59a2.41 2.41 0 0 0-3.41 0Z" /></symbol>
 <symbol id="ic-type" viewBox="0 0 24 24"><path d="M12 4v16" /> <path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2" /> <path d="M9 20h6" /></symbol>
 <symbol id="ic-frame" viewBox="0 0 24 24"><line x1="22" x2="2" y1="6" y2="6" /> <line x1="22" x2="2" y1="18" y2="18" /> <line x1="6" x2="6" y1="2" y2="22" /> <line x1="18" x2="18" y1="2" y2="22" /></symbol>
-<symbol id="ic-id-card" viewBox="0 0 24 24"><path d="M16 10h2" /> <path d="M16 14h2" /> <path d="M6.17 15a3 3 0 0 1 5.66 0" /> <circle cx="9" cy="11" r="2" /> <rect x="2" y="5" width="20" height="14" rx="2" /></symbol>
+<symbol id="ic-id-card" viewBox="0 0 24 24"><path d="M13 19a4 4 0 00-8 0" /> <path d="M16 10h2" /> <path d="M16 14h2" /> <circle cx="9" cy="12" r="3" /> <rect x="2" y="5" width="20" height="14" rx="2" /></symbol>
 <symbol id="ic-image" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" ry="2" /> <circle cx="9" cy="9" r="2" /> <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" /></symbol>
 <symbol id="ic-x" viewBox="0 0 24 24"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></symbol>
 <symbol id="ic-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></symbol>
@@ -82,8 +83,8 @@
 <symbol id="ic-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></symbol>
 <symbol id="ic-calendar" viewBox="0 0 24 24"><path d="M8 2v3" /> <path d="M16 2v3" /> <rect x="3" y="3" width="18" height="18" rx="2" /> <path d="M3 9h18" /></symbol>
 <symbol id="ic-hash" viewBox="0 0 24 24"><line x1="4" x2="20" y1="9" y2="9" /> <line x1="4" x2="20" y1="15" y2="15" /> <line x1="10" x2="8" y1="3" y2="21" /> <line x1="16" x2="14" y1="3" y2="21" /></symbol>
-<symbol id="ic-circle-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <circle cx="12" cy="12" r="1" /></symbol>
-<symbol id="ic-square-check" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" /> <path d="m9 12 2 2 4-4" /></symbol>
+<symbol id="ic-circle-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1" /> <circle cx="12" cy="12" r="10" /></symbol>
+<symbol id="ic-square-check" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" /> <path d="m16 9-5.5 5.5L8 12" /></symbol>
 <symbol id="ic-sigma" viewBox="0 0 24 24"><path d="M18 7V5a1 1 0 0 0-1-1H6.5a.5.5 0 0 0-.4.8l4.5 6a2 2 0 0 1 0 2.4l-4.5 6a.5.5 0 0 0 .4.8H17a1 1 0 0 0 1-1v-2" /></symbol>
 <symbol id="ic-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34" /> <circle cx="11" cy="11" r="8" /></symbol>
 <symbol id="ic-columns-2" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" /> <path d="M12 3v18" /></symbol>
@@ -99,6 +100,11 @@
 <symbol id="ic-align-center-horizontal" viewBox="0 0 24 24"><path d="M2 12h20" /> <path d="M10 16v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4" /> <path d="M10 8V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v4" /> <path d="M20 16v1a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2v-1" /> <path d="M14 8V7c0-1.1.9-2 2-2h2a2 2 0 0 1 2 2v1" /></symbol>
 <symbol id="ic-align-end-horizontal" viewBox="0 0 24 24"><rect width="6" height="16" x="4" y="2" rx="2" /> <rect width="6" height="9" x="14" y="9" rx="2" /> <path d="M22 22H2" /></symbol>
 <symbol id="ic-link-2-off" viewBox="0 0 24 24"><path d="M9 17H7A5 5 0 0 1 7 7" /> <path d="M15 7h2a5 5 0 0 1 4 8" /> <line x1="8" x2="12" y1="12" y2="12" /> <line x1="2" x2="22" y1="2" y2="22" /></symbol>
+<symbol id="ic-wifi-off" viewBox="0 0 24 24"><path d="M12 20h.01" /> <path d="M8.5 16.429a5 5 0 0 1 7 0" /> <path d="M5 12.859a10 10 0 0 1 5.17-2.69" /> <path d="M19 12.859a10 10 0 0 0-2.007-1.523" /> <path d="M2 8.82a15 15 0 0 1 4.177-2.643" /> <path d="M22 8.82a15 15 0 0 0-11.288-3.764" /> <path d="m2 2 20 20" /></symbol>
+<symbol id="ic-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /> <path d="M3 3v5h5" /> <path d="M12 7v5l4 2" /></symbol>
+<symbol id="ic-house" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" /> <path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></symbol>
+<symbol id="ic-list" viewBox="0 0 24 24"><path d="M3 5h.01" /> <path d="M3 12h.01" /> <path d="M3 19h.01" /> <path d="M8 5h13" /> <path d="M8 12h13" /> <path d="M8 19h13" /></symbol>
+<symbol id="ic-layout-template" viewBox="0 0 24 24"><rect width="18" height="7" x="3" y="3" rx="1" /> <rect width="9" height="7" x="3" y="14" rx="1" /> <rect width="5" height="7" x="16" y="14" rx="1" /></symbol>
 </svg>
 <!-- ICON-SPRITE:END -->
 
@@ -151,12 +157,15 @@
         <button class="newbtn-item" id="newCanvasItem"><svg class="ic" aria-hidden="true"><use href="#ic-shapes"/></svg><span>캔버스 카드</span></button>
         <button class="newbtn-item" id="newTableItem"><svg class="ic" aria-hidden="true"><use href="#ic-table"/></svg><span>시트 카드</span></button>
         <button class="newbtn-item" id="importMdItem"><svg class="ic" aria-hidden="true"><use href="#ic-file-input"/></svg><span>마크다운(.md) 불러오기</span></button>
+        <div class="newbtn-sep"></div>
+        <button class="newbtn-item" id="todayNoteItem"><svg class="ic" aria-hidden="true"><use href="#ic-calendar"/></svg><span>오늘 노트</span></button>
+        <div id="newBtnTemplates"></div>
       </div>
       <input type="file" id="importMdFile" accept=".md,text/markdown" multiple style="display:none">
     </div>
     <div id="trashActionRow" style="display:none; gap:6px; flex-direction:column;">
-      <button class="newbtn" id="backFromTrashBtn" style="background:var(--bg-card);color:var(--ink);border:1px solid var(--border);"><svg class="ic" aria-hidden="true"><use href="#ic-arrow-left"/></svg><span>GRAPHIDEA로 돌아가기</span></button>
-      <button class="newbtn" id="emptyTrashBtn" style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;"><svg class="ic" aria-hidden="true"><use href="#ic-trash-2"/></svg><span>휴지통 전체 비우기</span></button>
+      <button class="newbtn newbtn-ghost" id="backFromTrashBtn"><svg class="ic" aria-hidden="true"><use href="#ic-arrow-left"/></svg><span>GRAPHIDEA로 돌아가기</span></button>
+      <button class="newbtn newbtn-danger" id="emptyTrashBtn"><svg class="ic" aria-hidden="true"><use href="#ic-trash-2"/></svg><span>휴지통 전체 비우기</span></button>
     </div>
     <div class="sortrow" id="sortRow">
       <button class="sortbtn" data-sort="updated">최근순</button>
@@ -193,6 +202,7 @@
         <button class="pinbtn" id="exportPdfBtn" title="PDF로 저장 (인쇄 대화상자에서 대상을 'PDF로 저장'으로 선택하세요)"><svg class="ic" aria-hidden="true"><use href="#ic-printer"/></svg><span>PDF</span></button>
         <button class="pinbtn" id="exportMdBtn" title="마크다운 파일로 내보내기"><svg class="ic" aria-hidden="true"><use href="#ic-download"/></svg><span>MD</span></button>
         <button class="pinbtn" id="dupBtn" title="카드 복제"><svg class="ic" aria-hidden="true"><use href="#ic-copy"/></svg><span>복제</span></button>
+        <button class="pinbtn" id="historyBtn" title="이전 버전 보기 · 복원"><svg class="ic" aria-hidden="true"><use href="#ic-history"/></svg><span>버전</span></button>
         <button class="pinbtn" id="cardColorBtn" title="카드 색상 변경"><svg class="ic" aria-hidden="true"><use href="#ic-palette"/></svg></button>
         <button class="pinbtn" id="pinBtn"><svg class="ic" aria-hidden="true"><use href="#ic-star"/></svg><span>고정</span></button>
         <button class="pinbtn" id="delBtn" style="color:var(--danger);border-color:var(--danger-soft);">삭제</button>
@@ -203,10 +213,14 @@
     </div>
 
     <div id="emptyMain" class="emptymain">
-      <div class="big">왼쪽에서 카드를 고르거나<br>새 카드를 만들어 기록을 시작하세요.<br><br>
+      <svg class="ic emptymain-ic" aria-hidden="true"><use href="#ic-waypoints"/></svg>
+      <div class="big">카드 목록에서 카드를 고르거나<br>새 카드를 만들어 기록을 시작하세요.<br><br>
       <code>[[다른 카드 제목]]</code> 으로 카드끼리 연결하고,
       태그로 분류할 수 있습니다.</div>
-      <button id="emptyNewBtn">+ 첫 카드 만들기</button>
+      <div class="emptymain-actions">
+        <button id="emptyNewBtn">+ 새 카드 만들기</button>
+        <button id="emptyTodayBtn" class="ghost"><svg class="ic" aria-hidden="true"><use href="#ic-calendar"/></svg><span>오늘 노트</span></button>
+      </div>
     </div>
 
     <div id="globalGraphView" class="graphview" style="display:none;">
@@ -422,12 +436,12 @@
         <button class="fmtbtn" id="fmtHighlight" title="하이라이트"><mark style="background:none;color:inherit;">H</mark></button>
         <span class="fmtsep"></span>
         <button class="fmtbtn" id="fmtQuote" title="인용">"</button>
+        <button class="fmtbtn" id="fmtWiki" title="카드 연결 [[ ]]">[[ ]]</button>
         <button class="fmtbtn" id="fmtLink" title="링크"><svg class="ic" aria-hidden="true"><use href="#ic-link"/></svg></button>
         <button class="fmtbtn" id="fmtImage" title="이미지 삽입 (구글 드라이브)" style="display:none;"><svg class="ic" aria-hidden="true"><use href="#ic-image"/></svg></button>
         <input type="file" id="imageFileInput" accept="image/*" style="display:none">
         <button class="fmtbtn" id="fmtCode" title="코드">&lt;/&gt;</button>
         <button class="fmtbtn" id="fmtTable" title="표"><svg class="ic" aria-hidden="true"><use href="#ic-table"/></svg></button>
-        <span class="fmtsep"></span>
         <span class="fmtsep"></span>
         <button class="fmtbtn" id="fmtTask" title="할 일 목록"><svg class="ic" aria-hidden="true"><use href="#ic-list-checks"/></svg></button>
         <button class="fmtbtn" id="fmtCallout" title="콜아웃"><svg class="ic" aria-hidden="true"><use href="#ic-lightbulb"/></svg></button>
@@ -476,13 +490,39 @@
       <div id="propAddRow"></div>
     </div>
     <div class="rp-section"><div class="rp-title">역링크</div><div id="backlinkList" class="rp-empty">이 카드를 가리키는 카드가 없습니다.</div></div>
+    <div class="rp-section" id="unlinkedSection" style="display:none;"><div class="rp-title" title="이 카드의 제목이 적혀 있지만 [[링크]]로 묶이지 않은 카드">연결 안 된 언급</div><div id="unlinkedList"></div></div>
     <div class="rp-section" id="canvasBacklinkSection" style="display:none;"><div class="rp-title">캔버스 보드</div><div id="canvasBacklinkList"></div></div>
     <div class="rp-section"><div class="rp-title">태그</div><div id="tagList" class="tag-list"><span class="rp-empty">태그 없음</span></div></div>
     <div class="rp-section" id="tocSection" style="display:none;"><div class="rp-title">목차</div><div id="tocList"></div></div>
+    <div class="rp-section"><button class="rp-history-btn" id="rpHistoryBtn"><svg class="ic" aria-hidden="true"><use href="#ic-history"/></svg><span>이전 버전 보기</span></button></div>
+  </div>
+</div>
+
+<!-- phone-width bottom navigation (CSS shows it only <=640px). Must stay a later sibling of
+     #app: the CSS hides it for the canvas/sheet editors via .app[data-view=…] ~ .bottomnav -->
+<nav class="bottomnav" id="bottomNav" aria-label="주요 화면">
+  <button class="bottomnav-btn" data-nav="home"><svg class="ic" aria-hidden="true"><use href="#ic-house"/></svg><span>홈</span></button>
+  <button class="bottomnav-btn" data-nav="list"><svg class="ic" aria-hidden="true"><use href="#ic-list"/></svg><span>목록</span></button>
+  <button class="bottomnav-fab" data-nav="new" aria-label="새 카드"><svg class="ic" aria-hidden="true"><use href="#ic-plus"/></svg></button>
+  <button class="bottomnav-btn" data-nav="search"><svg class="ic" aria-hidden="true"><use href="#ic-search"/></svg><span>검색</span></button>
+  <button class="bottomnav-btn" data-nav="graph"><svg class="ic" aria-hidden="true"><use href="#ic-waypoints"/></svg><span>연결 지도</span></button>
+</nav>
+<div class="mob-sheet-backdrop" id="mobNewSheet" hidden>
+  <div class="mob-sheet" role="dialog" aria-label="새 카드 만들기">
+    <div class="mob-sheet-grip"></div>
+    <div class="mob-sheet-grid">
+      <button class="mob-sheet-btn" data-new="note"><svg class="ic" aria-hidden="true"><use href="#ic-file-text"/></svg><span>노트</span></button>
+      <button class="mob-sheet-btn" data-new="today"><svg class="ic" aria-hidden="true"><use href="#ic-calendar"/></svg><span>오늘 노트</span></button>
+      <button class="mob-sheet-btn" data-new="canvas"><svg class="ic" aria-hidden="true"><use href="#ic-shapes"/></svg><span>캔버스</span></button>
+      <button class="mob-sheet-btn" data-new="table"><svg class="ic" aria-hidden="true"><use href="#ic-table"/></svg><span>시트</span></button>
+    </div>
+    <div id="mobSheetTemplates"></div>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
+<!-- shown only while offline (updateSyncStatus) — the sidebar's sync line is hidden on phones -->
+<div class="offline-badge" id="offlineBadge" hidden><svg class="ic" aria-hidden="true"><use href="#ic-wifi-off"/></svg><span>오프라인</span></div>
 
 <!-- populated just before window.print() and hidden the rest of the time — @media print hides
      everything else in body, so printing/saving-as-PDF always shows just this, regardless of
@@ -496,6 +536,22 @@
       <button class="guide-modal-close" id="guideModalClose" title="닫기"><svg class="ic" aria-hidden="true"><use href="#ic-x"/></svg></button>
     </div>
     <div class="guide-modal-body preview" id="guideModalBody"></div>
+  </div>
+</div>
+
+<div id="historyModal" class="guide-modal">
+  <div class="guide-modal-box history-modal-box">
+    <div class="guide-modal-head">
+      <span class="guide-modal-title"><svg class="ic" aria-hidden="true"><use href="#ic-history"/></svg><span id="historyModalTitle">버전 기록</span></span>
+      <button class="guide-modal-close" id="historyModalClose" title="닫기"><svg class="ic" aria-hidden="true"><use href="#ic-x"/></svg></button>
+    </div>
+    <div class="history-layout">
+      <div class="history-list" id="historyList"></div>
+      <div class="history-detail">
+        <div class="history-detail-bar"><span id="historyDetailMeta" class="history-meta"></span><button class="history-restore" id="historyRestoreBtn" disabled>이 버전으로 복원</button></div>
+        <div class="history-preview preview" id="historyPreview"></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -684,6 +740,7 @@
 
 <script src="lib/constants.js"></script>
 <script src="lib/utils.js"></script>
+<script src="lib/localdb.js"></script>
 <script>
 (function(){
 
@@ -895,12 +952,33 @@
     }
   };
 
+  // ---------------- native (Capacitor) helpers ----------------
+  // plugins are injected by the native runtime, so on the web every call here is a silent no-op
+  const CapPlugins = (window.Capacitor && window.Capacitor.Plugins) || {};
+  const isNativeApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  // 'light' for taps/toggles, 'medium' for creating something, 'success'/'warning' for outcomes
+  function haptic(kind){
+    if(!isNativeApp || !CapPlugins.Haptics) return;
+    const H = CapPlugins.Haptics;
+    if(kind === 'success' || kind === 'warning') H.notification({ type: kind.toUpperCase() }).catch(() => {});
+    else H.impact({ style: kind === 'medium' ? 'MEDIUM' : 'LIGHT' }).catch(() => {});
+  }
+  // edge-to-edge draws the app under the status bar, so its icons have to flip with the theme —
+  // the system default (white icons) was nearly invisible on the light theme's beige background
+  function syncStatusBar(theme){
+    if(!isNativeApp || !CapPlugins.StatusBar) return;
+    CapPlugins.StatusBar.setStyle({ style: theme === 'dark' ? 'DARK' : 'LIGHT' }).catch(() => {});
+    // pre-15 Android still paints a status bar background of its own
+    CapPlugins.StatusBar.setBackgroundColor({ color: theme === 'dark' ? '#1F1E1B' : '#F5F4EE' }).catch(() => {});
+  }
+
   function setTheme(theme){
     document.documentElement.dataset.theme = theme;
     localStorage.setItem('cardCatalogTheme', theme);
     el('themeToggleBtn').innerHTML = icon(theme === 'dark' ? 'sun' : 'moon');
     // accent-hover/soft are mixed against black/white differently per theme, so re-derive them
     applyAccentColor(localStorage.getItem('stk-accent-color') || '');
+    syncStatusBar(theme);
   }
   setTheme(document.documentElement.dataset.theme || 'light');
   el('themeToggleBtn').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
@@ -1324,13 +1402,33 @@
       appEl.classList.add('ready');
       saveDriveRefreshTokenFromSession(session);
       bootOnce(session.user);
+    }else if(event !== 'SIGNED_OUT' && bootFromStoredSession()){
+      // no usable session only because the token expired while offline — keep working from cache
     }else{
       loginWrap.style.display = 'flex';
       appEl.classList.remove('ready');
       bootedUserId = null;
       teardownRealtime();
+      LocalDB.close();
     }
   });
+
+  // Supabase drops to "no session" when the access token has expired and the refresh request
+  // can't reach the server — i.e. every time the app is opened offline more than an hour after
+  // its last use. The refresh token is still in storage (auth-js only deletes it on a real
+  // rejection), so boot from the cached user and let it refresh once we're back online.
+  const AUTH_STORAGE_KEY = 'sb-' + new URL(SUPABASE_URL).hostname.split('.')[0] + '-auth-token';
+  function bootFromStoredSession(){
+    let stored = null;
+    try{ stored = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || 'null'); }catch(e){}
+    const user = stored && (stored.user || (stored.currentSession && stored.currentSession.user));
+    if(!user || !user.id || !stored.refresh_token) return false;
+    loginWrap.style.display = 'none';
+    appEl.classList.add('ready');
+    setOnline(false);
+    bootOnce(user);
+    return true;
+  }
 
   // ---------------- data layer (Supabase) ----------------
   // note content is the one field that can get large (long markdown, canvas JSON), so the
@@ -1345,12 +1443,19 @@
 
   // content isn't part of the lightweight note list — fetch it on first real use (opening,
   // duplicating, exporting, …) and cache it on the note object so repeat access is free.
+  // Returns null (and leaves note.content undefined) when it can't be fetched — callers must
+  // not treat that as an empty note, or the next autosave would overwrite the real body with ''.
   async function ensureContentLoaded(note){
     if(note.content !== undefined) return note.content;
     const { data, error } = await sb.from('notes').select('content').eq('id', note.id).single();
-    if(error){ showToast('본문 불러오기 실패: ' + error.message); return ''; }
+    if(error){
+      if(isNetworkError(error)){ setOnline(false); showToast('오프라인이라 이 카드의 본문을 아직 불러오지 못했어요'); }
+      else showToast('본문 불러오기 실패: ' + error.message);
+      return null;
+    }
     note.content = data.content || '';
     note.contentLen = note.content.length;
+    cacheNote(note);
     return note.content;
   }
 
@@ -1373,17 +1478,37 @@
     return { data: rows, error: null };
   }
 
+  // returns true when the server list was actually loaded (false = offline / failed, and the
+  // cached list stays in place)
   async function loadAll(){
     const { data, error } = await fetchAllRows(() =>
       sb.from('notes').select(NOTE_LIST_FIELDS).is('deleted_at', null).order('updated_at', { ascending:false }));
-    if(error){ showToast('불러오기 실패: ' + error.message); index = []; return; }
-    index = data.map(rowToNote);
+    if(error){
+      if(isNetworkError(error)) setOnline(false);
+      else showToast('불러오기 실패: ' + error.message);
+      return false;
+    }
+    setOnline(true);
+    const prev = new Map(index.map(n => [n.id, n]));
+    const fresh = data.map(rowToNote);
+    // the list query skips content; keep any body we already hold for a note the server hasn't
+    // changed since (same updated_at), so it opens instantly and stays searchable offline
+    fresh.forEach(n => {
+      const p = prev.get(n.id);
+      if(p && p.content !== undefined && p.updated === n.updated){ n.content = p.content; n.contentLen = p.content.length; }
+    });
+    index = mergePendingNotes(fresh, prev);
+    LocalDB.replaceAll('notes', index.map(toCacheRecord));
+    return true;
   }
 
   async function loadTrash(){
     const { data, error } = await fetchAllRows(() =>
       sb.from('notes').select(NOTE_LIST_FIELDS).not('deleted_at', 'is', null).order('deleted_at', { ascending:false }));
-    if(error){ showToast('휴지통 불러오기 실패: ' + error.message); trashIndex = []; return; }
+    if(error){
+      showToast(isNetworkError(error) ? '오프라인에서는 휴지통을 볼 수 없어요' : '휴지통 불러오기 실패: ' + error.message);
+      trashIndex = []; return;
+    }
     trashIndex = data.map(rowToNote);
     await purgeOldTrash();
     trashCount.textContent = trashIndex.length;
@@ -1402,43 +1527,244 @@
     await Promise.all(stale.map(m => hardDeleteRow(m.id)));
   }
 
+  function notePayload(note){
+    return { title: note.title || '제목 없음', content: note.content, type: detectNoteType(note.content), tags: note.tags, links: note.links, pinned: note.pinned, properties: note.properties || [] };
+  }
+
+  // the id is minted here rather than by Postgres so a note created offline already has its
+  // final id — links, the open editor and the queued insert all agree on it before it syncs
   async function insertNote(note){
-    const { data, error } = await sb.from('notes').insert({
-      title: note.title || '제목 없음', content: note.content, type: detectNoteType(note.content), tags: note.tags, links: note.links, pinned: note.pinned, properties: note.properties || []
-    }).select().single();
-    if(error){ showToast('생성 실패: ' + error.message); return null; }
-    return rowToNote(data);
+    const now = Date.now();
+    const created = { id: newId(), title: note.title || '제목 없음', content: note.content || '', type: detectNoteType(note.content || ''),
+      tags: note.tags || [], links: note.links || [], pinned: !!note.pinned, properties: note.properties || [],
+      created: now, updated: now, deletedAt: null, contentLen: (note.content || '').length };
+    const res = await writeRow('notes', 'insert', created.id, notePayload(created));
+    if(res.error){ showToast('생성 실패: ' + res.error.message); return null; }
+    if(res.updatedAt) created.updated = res.updatedAt;
+    cacheNote(created);
+    return created;
   }
 
   async function updateNote(note){
     syncDot.classList.add('saving'); syncText.textContent = '저장 중…';
-    const { error } = await sb.from('notes').update({
-      title: note.title, content: note.content, type: detectNoteType(note.content), tags: note.tags, links: note.links, pinned: note.pinned, properties: note.properties || []
-    }).eq('id', note.id);
+    const res = await writeRow('notes', 'update', note.id, notePayload(note));
     syncDot.classList.remove('saving');
-    syncText.textContent = error ? '저장 실패 — 네트워크 확인 필요' : '모든 기기와 자동 동기화됨';
-    if(!error){
-      note.updated = Date.now(); // optimistic: reflect edit time locally until realtime echo arrives
-      syncDot.classList.remove('saved-pop');
-      void syncDot.offsetWidth;
-      syncDot.classList.add('saved-pop');
-    }
+    if(res.error){ updateSyncStatus('저장 실패 — ' + res.error.message); return; }
+    // keep the server's own timestamp so the cache can tell later whether this body is current
+    note.updated = res.updatedAt || Date.now();
+    cacheNote(note);
+    updateSyncStatus();
+    syncDot.classList.remove('saved-pop');
+    void syncDot.offsetWidth;
+    syncDot.classList.add('saved-pop');
   }
 
   async function softDeleteRow(id){
-    const { error } = await sb.from('notes').update({ deleted_at: new Date().toISOString() }).eq('id', id);
-    if(error) showToast('삭제 실패: ' + error.message);
+    const res = await writeRow('notes', 'update', id, { deleted_at: new Date().toISOString() });
+    if(res.error) showToast('삭제 실패: ' + res.error.message);
+    uncacheNote(id);
   }
 
   async function restoreRow(id){
-    const { error } = await sb.from('notes').update({ deleted_at: null }).eq('id', id);
-    if(error) showToast('복원 실패: ' + error.message);
+    const res = await writeRow('notes', 'update', id, { deleted_at: null });
+    if(res.error) showToast('복원 실패: ' + res.error.message);
   }
 
   async function hardDeleteRow(id){
-    const { error } = await sb.from('notes').delete().eq('id', id);
-    if(error) showToast('영구 삭제 실패: ' + error.message);
+    const res = await writeRow('notes', 'delete', id);
+    if(res.error) showToast('영구 삭제 실패: ' + res.error.message);
+    uncacheNote(id);
   }
+
+  // ---------------- offline cache & outbox ----------------
+  // Reads come from IndexedDB first (instant boot, works offline) and are refreshed from the
+  // server when it answers. Writes try the server; if the network is down they're parked in the
+  // outbox — one entry per row, later edits merged into it — and replayed in order once the
+  // connection is back. Conflicts stay last-write-wins, same as before this existed (the
+  // note_revisions trigger keeps what got overwritten).
+  let outbox = new Map(); // 'table:id' -> { key, seq, table, kind:'insert'|'update'|'delete', id, payload }
+  let outboxSeq = 0;
+  let isOnline = navigator.onLine;
+  let flushing = false, flushTimer = null;
+
+  function newId(){
+    if(window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0; return (c==='x' ? r : (r&0x3|0x8)).toString(16); });
+  }
+
+  function isNetworkError(err){
+    if(!err) return false;
+    if(!navigator.onLine) return true;
+    return /Failed to fetch|NetworkError|Load failed|fetch failed|Network request failed|ERR_INTERNET|timeout/i.test(String(err.message || err));
+  }
+  // an access token that expired while we were offline: not a real rejection, just refresh and retry
+  function isAuthExpiry(err){ return !!err && /JWT expired|invalid JWT|token is expired/i.test(String(err.message || '')); }
+
+  function toCacheRecord(n){
+    const { id, title, content, type, tags, links, pinned, updated, created, deletedAt, properties, contentLen } = n;
+    return { id, title, content, type, tags, links, pinned, updated, created, deletedAt, properties, contentLen };
+  }
+  function cacheNote(note){ if(note && note.id && !note.deletedAt) LocalDB.put('notes', toCacheRecord(note)); }
+  function uncacheNote(id){ LocalDB.del('notes', id); }
+  function cacheChecklist(){ LocalDB.putKV('checklist', dashCL); }
+
+  // server rows never get to undo an edit that's still waiting in the outbox
+  function mergePendingNotes(fresh, prev){
+    const pending = [...outbox.values()].filter(op => op.table === 'notes');
+    if(!pending.length) return fresh;
+    const byId = new Map(fresh.map(n => [n.id, n]));
+    pending.forEach(op => {
+      if(op.kind === 'delete' || (op.payload && op.payload.deleted_at)){ byId.delete(op.id); return; }
+      const local = prev.get(op.id);
+      if(local) byId.set(op.id, local);
+    });
+    return [...byId.values()].sort((a, b) => b.updated - a.updated);
+  }
+
+  async function loadOutbox(){
+    const ops = await LocalDB.getAll('outbox');
+    outbox = new Map(ops.map(op => [op.key, op]));
+    outboxSeq = ops.reduce((m, op) => Math.max(m, op.seq || 0), 0);
+  }
+
+  async function loadFromCache(){
+    const [notes, cl] = await Promise.all([LocalDB.getAll('notes'), LocalDB.getKV('checklist')]);
+    if(Array.isArray(cl)) dashCL = cl;
+    if(!notes.length) return false;
+    index = notes.filter(n => !n.deletedAt).sort((a, b) => b.updated - a.updated);
+    return true;
+  }
+
+  function sendOp(op){
+    const q = sb.from(op.table);
+    if(op.kind === 'delete') return q.delete().eq('id', op.id);
+    const cols = op.table === 'notes' ? 'id,updated_at' : 'id';
+    // insert is an upsert so replaying it after a half-finished flush can't fail on a duplicate id
+    if(op.kind === 'insert') return q.upsert({ id: op.id, ...op.payload }).select(cols);
+    return q.update(op.payload).eq('id', op.id).select(cols);
+  }
+  function updatedAtOf(data){
+    const row = Array.isArray(data) ? data[0] : data;
+    return row && row.updated_at ? new Date(row.updated_at).getTime() : null;
+  }
+
+  // the one way every row write leaves the app. Resolves { updatedAt } when the server took it,
+  // { queued:true } when it was parked for later, or { error } for a real rejection (RLS, bad data)
+  async function writeRow(table, kind, id, payload){
+    if(!outbox.size && navigator.onLine){
+      const { data, error } = await sendOp({ table, kind, id, payload });
+      if(!error){ setOnline(true); return { updatedAt: updatedAtOf(data) }; }
+      if(!isNetworkError(error) && !isAuthExpiry(error)) return { error };
+      if(isNetworkError(error)) setOnline(false);
+    }
+    await enqueue(table, kind, id, payload);
+    return { queued: true };
+  }
+
+  async function enqueue(table, kind, id, payload){
+    const key = table + ':' + id;
+    const prev = outbox.get(key);
+    let op;
+    if(kind === 'delete' || !prev || prev.kind === 'delete'){
+      op = { key, table, kind, id, payload: payload ? { ...payload } : null };
+    }else{
+      // a never-synced insert stays an insert (with the later edits folded in); otherwise merge updates
+      op = { key, table, kind: prev.kind === 'insert' ? 'insert' : kind, id, payload: { ...prev.payload, ...payload } };
+    }
+    op.seq = ++outboxSeq;
+    outbox.set(key, op);
+    await LocalDB.put('outbox', op);
+    updateSyncStatus();
+    scheduleFlush(isOnline ? 400 : 30000);
+  }
+
+  function scheduleFlush(delay){ clearTimeout(flushTimer); flushTimer = setTimeout(flushOutbox, delay); }
+
+  async function flushOutbox(){
+    if(flushing || !outbox.size) return;
+    if(!navigator.onLine){ setOnline(false); scheduleFlush(30000); return; }
+    flushing = true;
+    try{
+      // a session restored offline may hold an expired access token — getSession refreshes it
+      const { data: sess } = await sb.auth.getSession();
+      if(!sess || !sess.session){ scheduleFlush(30000); return; }
+      const ops = [...outbox.values()].sort((a, b) => a.seq - b.seq);
+      for(const op of ops){
+        const { data, error } = await sendOp(op);
+        if(error){
+          if(isNetworkError(error)){ setOnline(false); scheduleFlush(30000); return; }
+          if(isAuthExpiry(error)){ await sb.auth.refreshSession().catch(() => {}); scheduleFlush(5000); return; }
+          // a real rejection would wedge every later write forever — report it and move on
+          showToast('동기화 실패한 변경이 있어요: ' + error.message);
+        }
+        const updatedAt = updatedAtOf(data);
+        if(op.table === 'notes' && updatedAt){
+          const n = index.find(m => m.id === op.id);
+          if(n){ n.updated = updatedAt; cacheNote(n); }
+        }
+        // only drop the entry if nothing newer was merged into it while this request was in flight
+        if(outbox.get(op.key) && outbox.get(op.key).seq === op.seq){
+          outbox.delete(op.key);
+          await LocalDB.del('outbox', op.key);
+        }
+      }
+      setOnline(true);
+    }finally{
+      flushing = false;
+      updateSyncStatus();
+    }
+    if(outbox.size) scheduleFlush(400);
+  }
+
+  function setOnline(on){
+    if(isOnline === on) return;
+    isOnline = on;
+    updateSyncStatus();
+  }
+
+  function updateSyncStatus(errText){
+    const pending = outbox.size;
+    syncDot.classList.toggle('offline', !isOnline);
+    syncDot.classList.toggle('pending', isOnline && pending > 0);
+    if(errText) syncText.textContent = errText;
+    else if(!isOnline) syncText.textContent = pending ? `오프라인 — 변경 ${pending}개 대기 중` : '오프라인 — 저장된 데이터로 표시 중';
+    else if(pending) syncText.textContent = `동기화 중… (${pending}개 남음)`;
+    else syncText.textContent = '모든 기기와 자동 동기화됨';
+    const badge = el('offlineBadge');
+    if(badge){
+      badge.hidden = isOnline;
+      badge.querySelector('span').textContent = pending ? `오프라인 · ${pending}개 대기` : '오프라인';
+    }
+  }
+
+  // coming back online: replay the queue first (so our offline edits land), then pull whatever
+  // changed elsewhere while we were away
+  let resyncing = false;
+  async function resyncAfterReconnect(){
+    if(resyncing || !bootedUserId) return;
+    resyncing = true;
+    try{
+      await flushOutbox();
+      if(outbox.size) return; // still offline after all
+      const before = currentId ? index.find(m => m.id === currentId) : null;
+      const beforeUpdated = before ? before.updated : null;
+      if(await loadAll()){
+        await loadChecklist();
+        rebuildNoteIndexes(); renderTagRow(); renderCardList();
+        if(currentView === 'dashboard') renderDashboard();
+        // the open card changed on another device while we were offline — reopen it, unless
+        // there's an edit of our own still waiting to be saved
+        const after = currentId ? index.find(m => m.id === currentId) : null;
+        if(after && beforeUpdated !== null && after.updated !== beforeUpdated && !saveTimer && !tevSaveTimer && !cevSaveTimer) openNote(currentId);
+        if(!realtimeChannel || realtimeChannel.state !== 'joined') setupRealtime(bootedUserId);
+      }
+    }finally{ resyncing = false; }
+  }
+  window.addEventListener('online', () => { setOnline(true); resyncAfterReconnect(); });
+  window.addEventListener('offline', () => setOnline(false));
+  // the 'online' event never fires when the radio was up the whole time but the internet wasn't
+  // (captive Wi-Fi, flaky mobile data), so also poke the server every 30s while marked offline
+  setInterval(() => { if(!isOnline && navigator.onLine) resyncAfterReconnect(); }, 30000);
 
   // ---------------- tag chip UI ----------------
   function renderTagChips(){
@@ -1588,10 +1914,12 @@
 
     s = s.replace(/(?:^- \[[ xX]\] .*(?:\n|$))+/gm, block => {
       const items = block.trim().split('\n').map(line => {
-        const mm = line.match(/^- \[([ xX])\] (.*)$/);
+        // the text part is optional: block.trim() strips the trailing space off an empty last item
+        // ("- [ ] " → "- [ ]"), which used to make this match null and crash the whole render
+        const mm = line.match(/^- \[([ xX])\](?: (.*))?$/);
         const checked = mm[1].toLowerCase() === 'x';
         const idx = taskCounter++;
-        return `<li class="task"><label><input type="checkbox" class="taskbox" data-idx="${idx}" ${checked ? 'checked' : ''}><span>${mm[2]}</span></label></li>`;
+        return `<li class="task"><label><input type="checkbox" class="taskbox" data-idx="${idx}" ${checked ? 'checked' : ''}><span>${mm[2] || ''}</span></label></li>`;
       }).join('');
       return '<ul class="tasklist">' + items + '</ul>\n';
     });
@@ -1892,6 +2220,10 @@
   el('fmtHighlight').onclick = () => wrapSelection('==');
   el('fmtQuote').onclick = () => insertLinePrefix('> ');
   el('fmtLink').onclick = () => insertLink();
+  // typing "[[" is a two-key chord on desktop but a symbol-page hunt on a phone keyboard
+  // the input event fires before replaceEditorRange moves the caret inside the brackets, so the
+  // autocomplete has to be opened by hand once the caret is in place
+  el('fmtWiki').onclick = () => { wrapSelection('[[', ']]'); updateWikiPopup(); };
   el('fmtImage').onclick = () => el('imageFileInput').click();
   el('imageFileInput').addEventListener('change', handleImageFileSelected);
   el('fmtCode').onclick = () => insertCode();
@@ -2010,6 +2342,7 @@
     if(m.title.toLowerCase().includes(q)) return true;
     if((m.tags||[]).some(t => t.toLowerCase().includes(q))) return true;
     if(noteSearchText(m).toLowerCase().includes(q)) return true;
+    if(serverSearchHit(m, q.trim())) return true;
     return false;
   }
 
@@ -2142,7 +2475,10 @@
     cardList.innerHTML = '';
     if(filtered.length === 0){
       cardList.classList.add('empty-state');
-      cardList.innerHTML = index.length === 0 ? '아직 카드가 없습니다.<br>위 버튼으로 첫 카드를 만들어보세요.' : '검색과 일치하는 카드가 없습니다.';
+      if(index.length === 0) cardList.innerHTML = icon('sticky-note', 'empty-ic') + '<div>아직 카드가 없습니다.<br>위 버튼으로 첫 카드를 만들어보세요.</div>';
+      else if(activeTagFilter && !searchQuery) cardList.innerHTML = icon('tag', 'empty-ic') + `<div>#${escapeHtml(activeTagFilter)} 태그가 붙은 카드가 없습니다.</div>`;
+      else cardList.innerHTML = icon('search', 'empty-ic') + '<div>“' + escapeHtml(searchQuery.trim()) + '”와 일치하는 카드가 없습니다.' +
+        (isOnline ? (searchQuery.trim().length >= 2 && serverSearch.q !== searchQuery.trim().toLowerCase() ? '<br><span class="empty-sub">본문까지 찾는 중…</span>' : '') : '<br><span class="empty-sub">오프라인이라 한 번 열어본 카드의 본문만 찾았어요.</span>') + '</div>';
       lastCardListIds = [];
       return;
     }
@@ -2219,7 +2555,12 @@
     currentId = id;
     const note = index.find(m => m.id === id);
     if(!note){ showToast('카드를 찾을 수 없습니다'); return; }
-    await ensureContentLoaded(note);
+    if(await ensureContentLoaded(note) === null){
+      // offline and never opened before: opening an empty editor would let autosave wipe the body
+      if(currentId === id) currentId = null;
+      if(currentView === 'note' || currentView === 'canvasEditor' || currentView === 'tableEditor') showView('empty');
+      return;
+    }
     if(currentId !== id) return; // user already switched to another card while content was loading
     if(isCanvasNote(note)){
       showView('canvasEditor');
@@ -2342,7 +2683,12 @@
       return;
     }
     pick.innerHTML = '<span>' + escapeHtml(note.title || '제목 없음') + '</span>' + icon('chevron-down');
-    await ensureContentLoaded(note);
+    if(await ensureContentLoaded(note) === null){
+      // same reason as openNote: an editable panel over a body we don't have would save '' over it
+      editorEl.style.display = 'none'; previewEl.style.display = 'block';
+      previewEl.innerHTML = '<div class="rp-empty" style="padding:24px 0;">오프라인이라 본문을 불러오지 못했어요.</div>';
+      return;
+    }
     if(panel.mode === 'write'){
       editorEl.style.display = 'block';
       previewEl.style.display = 'none';
@@ -2456,6 +2802,8 @@
     backlinkList.textContent = '카드를 선택하면 표시됩니다.';
     tagList.innerHTML = '<span class="rp-empty">카드를 선택하면 표시됩니다.</span>';
     el('propSection').style.display = 'none';
+    el('unlinkedSection').style.display = 'none';
+    unlinkedFor = null;
   }
 
   // shared by the plain-note top tag-chip bar and the canvas/table top tag-chip bars — canvas
@@ -2572,6 +2920,7 @@
     canvasBacklinkList.innerHTML = '';
     canvasBacklinkSection.style.display = 'none';
     renderCanvasBacklinks(note);
+    renderUnlinkedMentions(note);
     tagList.innerHTML = '';
     (note.tags||[]).forEach(t => {
       const chip = document.createElement('span');
@@ -2634,6 +2983,211 @@
   // and edge attribute at 60fps forever after the layout has settled, which is the single
   // biggest source of permanent lag on a large graph. The cosmetic gain isn't worth it there.
   const IDLE_FLOAT_MAX_NODES = 150;
+  // ---------------- unlinked mentions (right panel) ----------------
+  // Cards whose body names this card's title in plain text but never wraps it in [[ ]] — the
+  // connections the graph is missing. One tap turns the first such mention into a real link.
+  // Only plain notes are searched (canvas/sheet bodies are JSON) and only once per note/title,
+  // not on every autosave the way the rest of renderRightPane runs.
+  let unlinkedFor = null; // "id|title" the list was last built for
+
+  function escapeRegExp(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+  function escapeLike(s){ return s.replace(/[\\%_]/g, c => '\\' + c); }
+
+  // index of the first case-insensitive occurrence of title that isn't already inside a [[...]]
+  function findUnlinkedMention(content, title){
+    const linkSpans = [...content.matchAll(/\[\[[^\]\n]*\]\]/g)].map(m => [m.index, m.index + m[0].length]);
+    const re = new RegExp(escapeRegExp(title), 'gi');
+    let m;
+    while((m = re.exec(content))){
+      const at = m.index;
+      if(!linkSpans.some(([a, b]) => at >= a && at < b)) return at;
+    }
+    return -1;
+  }
+
+  function mentionSnippet(content, at, len){
+    const from = Math.max(0, at - 28), to = Math.min(content.length, at + len + 28);
+    const clean = t => escapeHtml(t.replace(/\s+/g, ' '));
+    return (from > 0 ? '…' : '') + clean(content.slice(from, at)) + '<mark>' + clean(content.slice(at, at + len)) + '</mark>' + clean(content.slice(at + len, to)) + (to < content.length ? '…' : '');
+  }
+
+  async function renderUnlinkedMentions(note, force){
+    const section = el('unlinkedSection'), list = el('unlinkedList');
+    const title = (note.title || '').trim();
+    const key = note.id + '|' + title;
+    if(!force && key === unlinkedFor) return;
+    unlinkedFor = key;
+    if(title.length < 2 || title === '제목 없음'){ section.style.display = 'none'; return; }
+    const linkedIds = new Set(backlinksOf(note).map(m => m.id));
+    let candidates = [];
+    if(isOnline){
+      const { data, error } = await sb.from('notes').select('id,content').is('deleted_at', null).eq('type', 'note')
+        .neq('id', note.id).ilike('content', '%' + escapeLike(title) + '%').limit(40);
+      if(error){ if(isNetworkError(error)) setOnline(false); }
+      else candidates = data;
+    }else{
+      // offline: the bodies we already hold are the best we can do
+      candidates = index.filter(n => n.id !== note.id && n.content !== undefined && n.type === 'note' && n.content.toLowerCase().includes(title.toLowerCase())).map(n => ({ id: n.id, content: n.content }));
+    }
+    if(unlinkedFor !== key) return; // switched cards while the query was out
+    const hits = [];
+    candidates.forEach(r => {
+      if(linkedIds.has(r.id)) return;
+      const n = index.find(m => m.id === r.id);
+      if(!n) return;
+      const at = findUnlinkedMention(r.content || '', title);
+      if(at !== -1) hits.push({ note: n, content: r.content, at });
+    });
+    list.innerHTML = '';
+    if(!hits.length){ section.style.display = 'none'; return; }
+    section.style.display = 'block';
+    hits.slice(0, 20).forEach(h => {
+      const row = document.createElement('div');
+      row.className = 'unlinked-item';
+      row.innerHTML = `<div class="unlinked-head"><span class="unlinked-title">${escapeHtml(h.note.title || '제목 없음')}</span><button class="unlinked-link" title="이 언급을 [[링크]]로 바꾸기">${icon('link')}<span>연결</span></button></div><div class="unlinked-snippet">${mentionSnippet(h.content, h.at, title.length)}</div>`;
+      row.querySelector('.unlinked-title').onclick = () => openNote(h.note.id);
+      row.querySelector('.unlinked-link').onclick = async (e) => {
+        e.stopPropagation();
+        await linkMention(h.note, title);
+        renderRightPane(note);
+        renderUnlinkedMentions(note, true);
+      };
+      list.appendChild(row);
+    });
+  }
+
+  async function linkMention(target, title){
+    if(await ensureContentLoaded(target) === null) return;
+    const at = findUnlinkedMention(target.content, title);
+    if(at === -1) return;
+    // keep the casing the author typed; [[ ]] resolution is case-insensitive anyway
+    const typed = target.content.slice(at, at + title.length);
+    target.content = target.content.slice(0, at) + '[[' + typed + ']]' + target.content.slice(at + title.length);
+    target.links = extractLinks(target.content);
+    // the target may be open in a compare panel — keep that textarea in step
+    comparePanels.forEach((p, i) => { if(p.id === target.id){ const ed = el('compareEditorBox' + (i+1)); if(ed) ed.value = target.content; } });
+    await updateNote(target);
+    rebuildNoteIndexes();
+    haptic('success');
+    showToast(`"${target.title}"에 링크를 걸었어요`);
+  }
+
+  // ---------------- full-text body search (server side) ----------------
+  // Bodies are lazy-loaded, so the in-memory search only sees cards opened at some point. While
+  // a search is active, also ask Postgres (trigram-indexed ilike, see schema.sql) which cards
+  // contain the query, and count those as matches too.
+  let serverSearch = { q: '', ids: new Set() };
+  let serverSearchT = null, serverSearchSeq = 0;
+  // raw JSON keys of canvas/sheet bodies — a server hit on these says nothing about the real text
+  const JSON_NOISE_WORDS = new Set(['type','text','label','elements','connectors','columns','rows','cells','canvas','table','color','from','to','name','id','options','width','height','note','card','true','false','null']);
+
+  function queueServerSearch(){
+    clearTimeout(serverSearchT);
+    const q = searchQuery.trim();
+    if(q.length < 2 || !isOnline){ if(serverSearch.q){ serverSearch = { q: '', ids: new Set() }; } return; }
+    serverSearchT = setTimeout(async () => {
+      const seq = ++serverSearchSeq;
+      const { data, error } = await sb.from('notes').select('id').is('deleted_at', null).ilike('content', '%' + escapeLike(q) + '%').limit(1000);
+      if(seq !== serverSearchSeq || searchQuery.trim() !== q) return;
+      if(error){ if(isNetworkError(error)) setOnline(false); return; }
+      serverSearch = { q: q.toLowerCase(), ids: new Set(data.map(r => r.id)) };
+      renderCardList();
+    }, 300);
+  }
+
+  function serverSearchHit(m, q){
+    if(serverSearch.q !== q || !serverSearch.ids.has(m.id)) return false;
+    if(m.content !== undefined) return false; // body is local — the local check already decided
+    if(m.type !== 'note' && JSON_NOISE_WORDS.has(q)) return false;
+    return true;
+  }
+
+  // ---------------- version history ----------------
+  // note_revisions is filled by a Postgres trigger (schema.sql): on an edit, the state being
+  // replaced is kept if the note has no snapshot from the last 10 minutes — so a burst of
+  // autosaves becomes one version, and an edit session always leaves its "before" behind.
+  let historyNoteId = null, historyRows = [], historyPick = null;
+
+  async function openHistoryModal(noteId){
+    const note = index.find(m => m.id === noteId);
+    if(!note) return;
+    flushAllSaves();
+    historyNoteId = noteId; historyRows = []; historyPick = null;
+    el('historyModalTitle').textContent = '버전 기록 · ' + (note.title || '제목 없음');
+    el('historyList').innerHTML = '<div class="rp-empty" style="padding:16px;">불러오는 중…</div>';
+    el('historyPreview').innerHTML = '';
+    el('historyDetailMeta').textContent = '';
+    el('historyRestoreBtn').disabled = true;
+    el('historyModal').style.display = 'flex';
+    if(!isOnline){ el('historyList').innerHTML = '<div class="rp-empty" style="padding:16px;">오프라인에서는 버전 기록을 볼 수 없어요.</div>'; return; }
+    const { data, error } = await sb.from('note_revisions').select('id,title,content,created_at').eq('note_id', noteId).order('created_at', { ascending: false }).limit(50);
+    if(historyNoteId !== noteId) return;
+    if(error){
+      const missing = /note_revisions/.test(error.message || '') && /exist|schema cache|find/i.test(error.message || '');
+      el('historyList').innerHTML = `<div class="rp-empty" style="padding:16px;">${missing ? '버전 기록 테이블이 아직 없어요. schema.sql을 Supabase에 다시 실행해 주세요.' : '불러오기 실패: ' + escapeHtml(error.message)}</div>`;
+      return;
+    }
+    historyRows = data;
+    renderHistoryList();
+  }
+
+  function renderHistoryList(){
+    const list = el('historyList');
+    list.innerHTML = '';
+    if(!historyRows.length){
+      list.innerHTML = '<div class="rp-empty" style="padding:16px;">아직 저장된 이전 버전이 없어요.<br>편집을 이어가면 10분 단위로 이전 상태가 쌓여요.</div>';
+      return;
+    }
+    historyRows.forEach(r => {
+      const b = document.createElement('button');
+      b.className = 'history-item' + (historyPick && historyPick.id === r.id ? ' active' : '');
+      const d = new Date(r.created_at);
+      b.innerHTML = `<span class="history-when">${d.toLocaleDateString('ko-KR', { month:'short', day:'numeric' })} ${d.toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit' })}</span><span class="history-sub">${escapeHtml(r.title || '제목 없음')} · ${(r.content || '').length.toLocaleString()}자</span>`;
+      b.onclick = () => { historyPick = r; renderHistoryList(); renderHistoryPreview(); };
+      list.appendChild(b);
+    });
+  }
+
+  function renderHistoryPreview(){
+    const r = historyPick;
+    if(!r) return;
+    const note = index.find(m => m.id === historyNoteId);
+    const kind = detectNoteType(r.content || '');
+    el('historyDetailMeta').textContent = new Date(r.created_at).toLocaleString('ko-KR') + ' 이전 상태';
+    if(kind === 'canvas'){
+      const { elements } = parseCanvasContent(r.content || '');
+      el('historyPreview').innerHTML = `<p class="rp-empty">캔버스 버전 · 도형 ${elements.length}개</p><ul>${elements.filter(e => e.text || e.label).slice(0, 40).map(e => '<li>' + escapeHtml(e.text || e.label) + '</li>').join('')}</ul>`;
+    }else if(kind === 'table'){
+      const t = parseTableContent(r.content || '');
+      el('historyPreview').innerHTML = `<p class="rp-empty">시트 버전 · 열 ${(t.columns || []).length}개 · 행 ${(t.rows || []).length}개</p>`;
+    }else{
+      el('historyPreview').innerHTML = renderMarkdown(r.content || '');
+    }
+    el('historyRestoreBtn').disabled = !note;
+  }
+
+  async function restoreHistoryPick(){
+    const r = historyPick, note = index.find(m => m.id === historyNoteId);
+    if(!r || !note) return;
+    if(!confirm('이 버전으로 되돌릴까요? 지금 내용은 버전 기록에 남아서 다시 복원할 수 있어요.')) return;
+    await flushAllSaves();
+    note.content = r.content || '';
+    note.contentLen = note.content.length;
+    note.links = extractLinks(note.content);
+    await updateNote(note);
+    rebuildNoteIndexes();
+    el('historyModal').style.display = 'none';
+    if(currentId === note.id){ currentId = null; await openNote(note.id); }
+    showToast('이전 버전으로 복원했어요');
+  }
+
+  el('historyBtn').onclick = () => { if(currentId) openHistoryModal(currentId); };
+  el('rpHistoryBtn').onclick = () => { if(currentId) openHistoryModal(currentId); };
+  el('historyModalClose').onclick = () => { el('historyModal').style.display = 'none'; };
+  el('historyModal').addEventListener('click', e => { if(e.target === el('historyModal')) el('historyModal').style.display = 'none'; });
+  el('historyRestoreBtn').onclick = restoreHistoryPick;
+  document.addEventListener('keydown', e => { if(e.key === 'Escape' && el('historyModal').style.display === 'flex') el('historyModal').style.display = 'none'; });
+
   function startIdleFloat(sim, nodeEls, lineEls, links, isActiveFn, extraTransform){
     if(localStorage.getItem('stk-graph-idle-float') === '0') return; // settled nodes just stay put
     if(sim.nodes.length > IDLE_FLOAT_MAX_NODES) return;
@@ -2663,6 +3217,7 @@
     const draft = { title: initialTitle || '', content:'', tags:[], links:[], pinned:false };
     const created = await insertNote(draft);
     if(!created) return null;
+    haptic('medium');
     index.unshift(created);
     rebuildNoteIndexes();
     renderTagRow();
@@ -2675,7 +3230,7 @@
     const note = index.find(m => m.id === id);
     if(!note) return;
     await flushSave();
-    await ensureContentLoaded(note);
+    if(await ensureContentLoaded(note) === null) return;
     const draft = { title: (note.title || '제목 없음') + ' 사본', content: note.content, tags: [...(note.tags||[])], links: [...(note.links||[])], pinned:false };
     const created = await insertNote(draft);
     if(!created) return;
@@ -2689,7 +3244,7 @@
   async function exportNoteAsMarkdown(id){
     const note = index.find(m => m.id === id);
     if(!note) return;
-    await ensureContentLoaded(note);
+    if(await ensureContentLoaded(note) === null) return;
     const md = `# ${note.title || '제목 없음'}\n\n${note.content || ''}`;
     const blob = new Blob([md], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
@@ -2830,6 +3385,7 @@
     const note = index.find(m => m.id === id);
     index = index.filter(m => m.id !== id);
     if(note){ note.deletedAt = Date.now(); trashIndex.unshift(note); trashCount.textContent = trashIndex.length; }
+    haptic('warning');
     await softDeleteRow(id);
     rebuildNoteIndexes();
     renderTagRow();
@@ -2852,6 +3408,7 @@
     note.deletedAt = null;
     index.unshift(note);
     await restoreRow(id);
+    cacheNote(note);
     rebuildNoteIndexes();
     renderTagRow();
     renderCardList();
@@ -2962,11 +3519,13 @@
   el('newBtn').onclick = (e) => {
     e.stopPropagation();
     const menu=el('newBtnMenu');
+    if(menu.style.display==='none') renderTemplateMenu();
     menu.style.display = menu.style.display==='none' ? 'flex' : 'none';
   };
   el('newNoteItem').addEventListener('click',()=>{ el('newBtnMenu').style.display='none'; createNote(''); });
   document.addEventListener('click',e=>{ if(!e.target.closest('#newBtnWrap')) el('newBtnMenu').style.display='none'; });
   el('emptyNewBtn').onclick = () => createNote('');
+  el('emptyTodayBtn').onclick = () => openTodayNote();
   el('editModeBtn').onclick = () => setMode('split');
   el('previewModeBtn').onclick = () => setMode('preview');
   el('compareBtn').onclick = () => {
@@ -3251,6 +3810,7 @@
     searchQuery = e.target.value;
     clearTimeout(searchDebounceT);
     searchDebounceT = setTimeout(renderCardList, 120);
+    queueServerSearch();
   });
   el('dupBtn').onclick = () => { if(currentId) duplicateNote(currentId); };
   el('exportMdBtn').onclick = () => { if(currentId) exportNoteAsMarkdown(currentId); };
@@ -3296,6 +3856,7 @@
     if(!currentId) return;
     const note = index.find(m => m.id === currentId);
     note.pinned = !note.pinned;
+    haptic('light');
     await updateNote(note);
     updatePinBtn(note);
     renderCardList();
@@ -3596,11 +4157,17 @@
 
   function showView(name){
     const def = VIEW_DEF[name] || VIEW_DEF.empty;
+    const changed = currentView !== name;
     currentView = name;
     appEl.classList.remove('show-sidebar'); // any navigation closes the mobile sidebar overlay, if open
     mobileRightpaneOpen = false; // ...and the mobile rightpane overlay, if open
     MAINPANE_IDS.forEach(id => { const e = el(id); if(e && id!==def.show) e.style.display='none'; });
     const target = el(def.show); if(target) target.style.display = def.disp;
+    // short fade between screens so a view swap doesn't read as a flicker (the note sheet has
+    // its own fade-in per card, so it's left out)
+    if(changed && target && def.show !== 'cardSheet'){
+      target.classList.remove('view-enter'); void target.offsetWidth; target.classList.add('view-enter');
+    }
     toolbar.style.display = def.toolbar ? 'flex' : 'none';
     // the note toolbar already has its own mobile menu button; every other view leans on this shared one
     el('mobileTopbar').style.display = def.toolbar ? 'none' : '';
@@ -3671,7 +4238,7 @@
   const globalGraphView = el('globalGraphView');
   const graphCanvas = el('globalGraphCanvas');
   const gctx = graphCanvas.getContext('2d');
-  const GRAPH_FONT = ((getComputedStyle(document.documentElement).getPropertyValue('--sans')||'').trim()) || 'Inter, sans-serif';
+  const GRAPH_FONT = ((getComputedStyle(document.documentElement).getPropertyValue('--sans')||'').trim()) || "'Pretendard Variable', sans-serif";
   let showIsolatedNodes = localStorage.getItem('cardCatalogShowIsolated') === '1';
   let graphView = { scale: 1, tx: 0, ty: 0 };
   let graphAdjacency = {};
@@ -4503,6 +5070,9 @@
     // 2. modals
     if(el('guideModal').style.display === 'flex'){ closeGuideModal(); return true; }
     if(el('settingsModal').style.display === 'flex'){ closeSettingsModal(); return true; }
+    if(el('historyModal').style.display === 'flex'){ el('historyModal').style.display = 'none'; return true; }
+    if(!el('mobNewSheet').hidden){ closeMobNewSheet(); return true; }
+    if(el('newBtnMenu').style.display !== 'none'){ el('newBtnMenu').style.display = 'none'; return true; }
     // 3. mobile slide-over overlays
     if(mobileRightpaneOpen){ mobileRightpaneOpen = false; applyPanelState(); return true; }
     if(appEl.classList.contains('show-sidebar')){ appEl.classList.remove('show-sidebar'); return true; }
@@ -4611,6 +5181,13 @@
   }
 
   function handleRemoteChange(payload){
+    applyRemoteChange(payload);
+    // mirror into the offline cache (after the in-memory index is updated)
+    const id = payload.eventType === 'DELETE' ? payload.old.id : payload.new.id;
+    const n = index.find(m => m.id === id);
+    if(n) cacheNote(n); else uncacheNote(id);
+  }
+  function applyRemoteChange(payload){
     if(payload.eventType === 'DELETE'){
       const id = payload.old.id;
       index = index.filter(m => m.id !== id);
@@ -7275,6 +7852,218 @@
   el('newCanvasItem').addEventListener('click',()=>{ el('newBtnMenu').style.display='none'; createCanvasNote(); });
   el('newTableItem').addEventListener('click',()=>{ el('newBtnMenu').style.display='none'; createTableNote(); });
 
+  // ---------------- daily note & templates ----------------
+  // A template is just a card tagged "템플릿" — no separate storage or editor, so a template can
+  // be any card kind (note / canvas / sheet) and is edited like any other card.
+  const TEMPLATE_TAG = '템플릿';
+  const DAILY_TAG = '데일리';
+  const DAILY_TEMPLATE_TITLE = '데일리 템플릿';
+
+  function templateNotes(){
+    return index.filter(n => (n.tags || []).includes(TEMPLATE_TAG)).sort((a, b) => (a.title || '').localeCompare(b.title || '', 'ko'));
+  }
+
+  // {{date}} / {{title}} / {{time}} placeholders — the same set Obsidian's core templates use
+  function fillTemplate(text, title){
+    const now = new Date();
+    return (text || '')
+      .replace(/\{\{\s*date\s*\}\}/g, localDateKey(now))
+      .replace(/\{\{\s*time\s*\}\}/g, `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`)
+      .replace(/\{\{\s*title\s*\}\}/g, title || '');
+  }
+
+  async function createAndOpen(draft){
+    draft.links = extractLinks(draft.content || '');
+    const note = await insertNote(draft);
+    if(!note) return null;
+    index.unshift(note);
+    rebuildNoteIndexes(); renderTagRow();
+    haptic('medium');
+    await openNote(note.id);
+    return note;
+  }
+
+  async function createFromTemplate(tpl){
+    if(await ensureContentLoaded(tpl) === null) return;
+    const title = (tpl.title || '').replace(/\s*템플릿\s*$/, '').trim() || '새 카드';
+    await createAndOpen({
+      title,
+      content: fillTemplate(tpl.content, title),
+      tags: (tpl.tags || []).filter(t => t !== TEMPLATE_TAG),
+      properties: (tpl.properties || []).filter(p => p.id !== '__color').map(p => ({ ...p })),
+      pinned: false,
+    });
+  }
+
+  const DEFAULT_DAILY_BODY = '## 오늘의 기록\n\n- \n\n## 떠오른 생각\n\n- \n\n## 할 일\n\n- [ ] \n';
+
+  // one card per calendar day, titled YYYY-MM-DD so it sorts and links naturally ([[2026-10-06]]).
+  // Each new day links back to the previous existing daily note, so the days form a chain on the
+  // connection map instead of floating as isolated dots.
+  async function openTodayNote(){
+    const title = localDateKey(new Date());
+    const existing = findNoteByTitle(title);
+    if(existing){ await openNote(existing.id); return existing; }
+    const tpl = findNoteByTitle(DAILY_TEMPLATE_TITLE);
+    let body = DEFAULT_DAILY_BODY;
+    if(tpl && await ensureContentLoaded(tpl) !== null) body = fillTemplate(tpl.content, title);
+    const prev = index
+      .filter(n => (n.tags || []).includes(DAILY_TAG) && /^\d{4}-\d{2}-\d{2}$/.test(n.title || '') && n.title < title)
+      .sort((a, b) => b.title.localeCompare(a.title))[0];
+    if(prev) body = `← [[${prev.title}]]\n\n` + body;
+    return createAndOpen({ title, content: body, tags: [DAILY_TAG], pinned: false });
+  }
+
+  // template entries live in the "+ 새 카드" menu, rebuilt each time it opens
+  function renderTemplateMenu(){
+    const box = el('newBtnTemplates');
+    if(!box) return;
+    const tpls = templateNotes().filter(t => t.title !== DAILY_TEMPLATE_TITLE);
+    box.innerHTML = '<div class="newbtn-sep"></div><div class="newbtn-label">템플릿</div>';
+    if(!tpls.length){
+      box.insertAdjacentHTML('beforeend', `<div class="newbtn-hint">카드에 #${TEMPLATE_TAG} 태그를 붙이면 여기서 그 카드를 복제해 시작할 수 있어요</div>`);
+      return;
+    }
+    tpls.forEach(t => {
+      const b = document.createElement('button');
+      b.className = 'newbtn-item';
+      b.innerHTML = icon('layout-template') + '<span>' + escapeHtml(t.title || '제목 없음') + '</span>';
+      b.onclick = () => { el('newBtnMenu').style.display = 'none'; createFromTemplate(t); };
+      box.appendChild(b);
+    });
+  }
+  el('todayNoteItem').addEventListener('click', () => { el('newBtnMenu').style.display = 'none'; openTodayNote(); });
+
+  // ---------------- launch actions: share sheet & launcher shortcuts ----------------
+  // Both can arrive before the notes are loaded (cold start), so they're only acted on once
+  // boot() has finished — handlePendingLaunchActions runs at the end of boot and again whenever
+  // a new one comes in while the app is already open.
+  let pendingDeepLink = null;
+
+  function deepLinkAction(url){
+    if(!url) return null;
+    if(/^graphidea:\/\/new\b/.test(url)) return 'new';
+    if(/^graphidea:\/\/today\b/.test(url)) return 'today';
+    return null;
+  }
+
+  async function runDeepLink(action){
+    appEl.classList.remove('show-sidebar');
+    if(action === 'new') await createNote('');
+    else if(action === 'today') await openTodayNote();
+  }
+
+  // text shared from another app becomes a new card: the first line (or the share subject, which
+  // browsers fill with the page title) is the title, the whole text is the body
+  async function saveSharedText(text, subject){
+    const body = (text || '').trim();
+    if(!body) return;
+    const firstLine = body.split('\n')[0].trim();
+    const isUrl = /^https?:\/\/\S+$/.test(firstLine);
+    let title = (subject || '').trim() || (isUrl ? '' : firstLine);
+    if(!title) title = '공유한 링크 ' + localDateKey(new Date());
+    if(title.length > 60) title = title.slice(0, 60) + '…';
+    const content = isUrl && subject ? `[${subject.trim()}](${firstLine})\n` + body.split('\n').slice(1).join('\n') : body;
+    appEl.classList.remove('show-sidebar');
+    const note = await createAndOpen({ title, content, tags: ['인박스'], pinned: false });
+    if(note) showToast('공유한 내용을 새 카드로 저장했어요');
+  }
+
+  async function handlePendingLaunchActions(){
+    if(!bootDone) return;
+    if(pendingDeepLink){ const a = pendingDeepLink; pendingDeepLink = null; await runDeepLink(a); }
+    if(CapPlugins.ShareInbox){
+      try{
+        const shared = await CapPlugins.ShareInbox.getPending();
+        if(shared && shared.text) await saveSharedText(shared.text, shared.subject);
+      }catch(e){}
+    }
+  }
+
+  if(CapPlugins.App){
+    CapPlugins.App.getLaunchUrl().then(r => {
+      const a = deepLinkAction(r && r.url);
+      if(a){ pendingDeepLink = a; handlePendingLaunchActions(); }
+    }).catch(() => {});
+    CapPlugins.App.addListener('appUrlOpen', data => {
+      const a = deepLinkAction(data && data.url);
+      if(a){ pendingDeepLink = a; handlePendingLaunchActions(); }
+    });
+  }
+  if(CapPlugins.ShareInbox) CapPlugins.ShareInbox.addListener('shareReceived', () => handlePendingLaunchActions());
+
+  // ---------------- mobile bottom navigation ----------------
+  // Phone layout used to hang everything off the top-left hamburger, out of thumb reach. The
+  // bar only exists at <=640px (CSS); on wider screens none of this is visible.
+  function openMobNewSheet(){
+    const box = el('mobSheetTemplates');
+    const tpls = templateNotes().filter(t => t.title !== DAILY_TEMPLATE_TITLE);
+    box.innerHTML = '';
+    if(tpls.length){
+      box.insertAdjacentHTML('beforeend', '<div class="newbtn-label">템플릿</div>');
+      tpls.forEach(t => {
+        const b = document.createElement('button');
+        b.className = 'mob-sheet-row';
+        b.innerHTML = icon('layout-template') + '<span>' + escapeHtml(t.title || '제목 없음') + '</span>';
+        b.onclick = () => { closeMobNewSheet(); createFromTemplate(t); };
+        box.appendChild(b);
+      });
+    }
+    el('mobNewSheet').hidden = false;
+    haptic('light');
+  }
+  function closeMobNewSheet(){ el('mobNewSheet').hidden = true; }
+  el('mobNewSheet').addEventListener('click', e => { if(e.target === el('mobNewSheet')) closeMobNewSheet(); });
+  el('mobNewSheet').querySelectorAll('[data-new]').forEach(b => b.addEventListener('click', () => {
+    closeMobNewSheet();
+    const kind = b.dataset.new;
+    if(kind === 'note') createNote('');
+    else if(kind === 'today') openTodayNote();
+    else if(kind === 'canvas') createCanvasNote();
+    else if(kind === 'table') createTableNote();
+  }));
+
+  el('bottomNav').querySelectorAll('[data-nav]').forEach(b => b.addEventListener('click', () => {
+    const nav = b.dataset.nav;
+    if(nav !== 'new') haptic('light');
+    if(nav === 'home'){ flushAllSaves(); openDashboard(); }
+    else if(nav === 'list'){ appEl.classList.toggle('show-sidebar'); }
+    else if(nav === 'graph'){ flushAllSaves(); openGlobalGraph(); }
+    else if(nav === 'search'){ appEl.classList.add('show-sidebar'); setTimeout(() => searchInput.focus(), 60); }
+    else if(nav === 'new') openMobNewSheet();
+  }));
+
+  function updateBottomNav(){
+    const sidebarOpen = appEl.classList.contains('show-sidebar');
+    const active = sidebarOpen ? 'list' : currentView === 'dashboard' ? 'home' : currentView === 'graph' ? 'graph' : null;
+    el('bottomNav').querySelectorAll('.bottomnav-btn').forEach(b => b.classList.toggle('active', b.dataset.nav === active));
+  }
+  // show-sidebar / data-view are flipped from many places; watching the attribute keeps the
+  // highlighted tab honest without touching each of them
+  new MutationObserver(updateBottomNav).observe(appEl, { attributes: true, attributeFilter: ['class', 'data-view'] });
+
+  // While a text field has focus the on-screen keyboard is up: hide the bottom bar (it would
+  // ride up on top of the keyboard) and, for the note editor, dock the formatting toolbar just
+  // above the keyboard instead — adjustResize shrinks the viewport, so position:fixed bottom:0
+  // lands exactly there.
+  function isTextField(t){ return t && (t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && !/^(checkbox|radio|button|file|range|color)$/.test(t.type)) || t.isContentEditable); }
+  document.addEventListener('focusin', e => {
+    if(!isTextField(e.target)) return;
+    document.body.classList.add('input-focus');
+    document.body.classList.toggle('note-typing', e.target === editorBox);
+  });
+  document.addEventListener('focusout', () => {
+    // focus may just be moving to another field; decide once it has landed
+    setTimeout(() => {
+      const a = document.activeElement;
+      document.body.classList.toggle('input-focus', isTextField(a));
+      document.body.classList.toggle('note-typing', a === editorBox);
+    }, 0);
+  });
+  // tapping a toolbar button must not steal focus from the textarea, or the keyboard would
+  // close (and the docked toolbar jump away) on every formatting tap
+  document.querySelector('.fmttoolbar').addEventListener('mousedown', e => { if(e.target.closest('.fmtbtn')) e.preventDefault(); });
+
   // batchTag: an optional single tag applied to every file in this import — since a bulk import
   // usually arrives as one flat batch with no folder structure to preserve, tagging the whole
   // batch at import time (rather than re-tagging each card afterward) is the cheap substitute
@@ -7398,7 +8187,8 @@
 
   async function dashTodayNote(){
     const todayStr=new Date().toDateString();
-    const old=index.filter(n=>!n.deletedAt&&(n.contentLen||0)>0&&new Date(n.updated).toDateString()!==todayStr);
+    // offline, only pick from bodies we already hold — otherwise every dashboard visit toasts a load failure
+    const old=index.filter(n=>!n.deletedAt&&(n.contentLen||0)>0&&new Date(n.updated).toDateString()!==todayStr&&(isOnline||n.content!==undefined));
     if(!old.length) return null;
     const pick=old[Math.floor(Math.random()*Math.min(old.length,20))];
     await ensureContentLoaded(pick);
@@ -7518,8 +8308,23 @@
   let dashCL = [];
   async function loadChecklist(){
     const { data, error } = await fetchAllRows(() => sb.from('checklist_items').select('*').order('created_at', { ascending:false }));
-    if(error){ showToast('할 일 불러오기 실패: ' + error.message); dashCL = []; return; }
-    dashCL = data.map(r => ({ id:r.id, text:r.text, done:r.done }));
+    if(error){
+      // keep the cached list (loadFromCache) when we're just offline
+      if(!isNetworkError(error)) showToast('할 일 불러오기 실패: ' + error.message);
+      return;
+    }
+    const fresh = data.map(r => ({ id:r.id, text:r.text, done:r.done }));
+    // items added/changed offline that haven't synced yet stay as we have them
+    const pending = [...outbox.values()].filter(op => op.table === 'checklist_items');
+    pending.forEach(op => {
+      const at = fresh.findIndex(x => x.id === op.id);
+      if(op.kind === 'delete'){ if(at !== -1) fresh.splice(at, 1); return; }
+      const local = dashCL.find(x => x.id === op.id);
+      if(!local) return;
+      if(at !== -1) fresh[at] = local; else fresh.unshift(local);
+    });
+    dashCL = fresh;
+    cacheChecklist();
     if(!dashCL.length){
       // one-time migration: carry over any pre-existing local-only checklist into the cloud
       let local = [];
@@ -7534,10 +8339,12 @@
   }
   async function dashClAdd(text){
     const t=text.trim(); if(!t) return;
-    const { data, error } = await sb.from('checklist_items').insert({ text:t, done:false }).select().single();
-    if(error){ showToast('추가 실패: ' + error.message); return; }
-    dashCL.unshift({ id:data.id, text:data.text, done:data.done });
-    renderDashCL();
+    const item = { id: newId(), text: t, done: false };
+    dashCL.unshift(item);
+    renderDashCL(); cacheChecklist();
+    haptic('light');
+    const res = await writeRow('checklist_items', 'insert', item.id, { text: item.text, done: false });
+    if(res.error){ showToast('추가 실패: ' + res.error.message); dashCL = dashCL.filter(x => x.id !== item.id); renderDashCL(); cacheChecklist(); }
   }
   function renderDashCL(){
     const listEl=el('dashClList'); if(!listEl) return;
@@ -7554,15 +8361,16 @@
       const del=document.createElement('button'); del.className='dash-cl-del'; del.textContent='×'; del.title='삭제';
       cb.addEventListener('change', async ()=>{
         const ci=dashCL.find(x=>x.id===item.id); if(ci) ci.done=cb.checked;
-        renderDashCL();
-        const { error } = await sb.from('checklist_items').update({ done:cb.checked }).eq('id', item.id);
-        if(error) showToast('저장 실패: ' + error.message);
+        renderDashCL(); cacheChecklist();
+        if(cb.checked) haptic('success');
+        const res = await writeRow('checklist_items', 'update', item.id, { done: cb.checked });
+        if(res.error) showToast('저장 실패: ' + res.error.message);
       });
       del.addEventListener('click', async ()=>{
         dashCL=dashCL.filter(x=>x.id!==item.id);
-        renderDashCL();
-        const { error } = await sb.from('checklist_items').delete().eq('id', item.id);
-        if(error) showToast('삭제 실패: ' + error.message);
+        renderDashCL(); cacheChecklist();
+        const res = await writeRow('checklist_items', 'delete', item.id);
+        if(res.error) showToast('삭제 실패: ' + res.error.message);
       });
       row.appendChild(lbl); row.appendChild(del);
       listEl.appendChild(row);
@@ -7970,12 +8778,26 @@ GRAPHIDEA는 흩어진 생각을 **연결해 하나의 그래프로 잇는** 개
   // ---------------- boot ----------------
   loadUserPresets();
   applyPanelState();
+  let bootDone = false;
   async function boot(user){
-    // user comes from the session we already have (getSession / onAuthStateChange) — no extra
-    // getUser() round-trip. loadAll + loadChecklist are independent, so fetch them in parallel.
-    if(user) setupRealtime(user.id);
-    await Promise.all([loadAll(), loadChecklist()]);
-    if(index.length === 0){
+    // 1) paint from the offline cache right away — on a phone this is the difference between an
+    //    instant app and a blank screen while 1000 rows download (or forever, when offline)
+    await LocalDB.open(user.id);
+    await loadOutbox();
+    const hadCache = await loadFromCache();
+    updateSyncStatus();
+    if(hadCache){
+      rebuildNoteIndexes();
+      renderTagRow();
+      openDashboard();
+    }
+    // 2) then refresh from the server. user comes from the session we already have
+    //    (getSession / onAuthStateChange) — no extra getUser() round-trip. loadAll +
+    //    loadChecklist are independent, so fetch them in parallel.
+    setupRealtime(user.id);
+    if(outbox.size) await flushOutbox();
+    const [loaded] = await Promise.all([loadAll(), loadChecklist()]);
+    if(loaded && index.length === 0 && !hadCache){
       await createNote('GRAPHIDEA 사용법');
       const w = index.find(m => m.id === currentId);
       w.content = GUIDE_MD;
@@ -7989,10 +8811,17 @@ GRAPHIDEA는 흩어진 생각을 **연결해 하나의 그래프로 잇는** 개
     renderTagRow();
     // openDashboard() already renders the card list, so only render it here when we're NOT opening
     // the dashboard — otherwise the whole list DOM gets built twice on every app open
-    if(!currentId) openDashboard();
-    else renderCardList();
+    if(!hadCache){
+      if(!currentId) openDashboard();
+      else renderCardList();
+    }else{
+      renderCardList();
+      if(currentView === 'dashboard') renderDashboard();
+    }
+    bootDone = true;
     maybeShowGuideOnce();
-    refreshDriveConnectUI();
+    if(isOnline) refreshDriveConnectUI();
+    handlePendingLaunchActions();
   }
 
   // resume existing session on page load

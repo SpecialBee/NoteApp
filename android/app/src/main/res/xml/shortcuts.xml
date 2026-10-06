@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Long-press launcher shortcuts. Each one is just a deep link into the app's own scheme;
+     the web layer picks it up through the Capacitor App plugin (appUrlOpen / getLaunchUrl). -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="new_note"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_new"
+        android:shortcutShortLabel="@string/shortcut_new_short"
+        android:shortcutLongLabel="@string/shortcut_new_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.specialbee.graphidea"
+            android:targetClass="com.specialbee.graphidea.MainActivity"
+            android:data="graphidea://new" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="today_note"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_today"
+        android:shortcutShortLabel="@string/shortcut_today_short"
+        android:shortcutLongLabel="@string/shortcut_today_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.specialbee.graphidea"
+            android:targetClass="com.specialbee.graphidea.MainActivity"
+            android:data="graphidea://today" />
+    </shortcut>
+</shortcuts>

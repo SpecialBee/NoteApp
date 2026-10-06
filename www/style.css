@@ -968,8 +968,11 @@
     .cev-topbar, .tev-topbar{ padding:4px 10px; flex-wrap:nowrap; overflow-x:auto; gap:4px; }
     .cev-toolbar, .tev-toolbar{ padding:4px 10px; flex-wrap:nowrap; overflow-x:auto; gap:6px; }
     .cev-topbar .cev-action, .tev-topbar .tev-action{ padding:4px 8px; }
-    .cev-topbar #cevExitBtn, .tev-topbar #tevExitBtn{ font-size:0; padding:4px 8px; } /* icon-only "←" on mobile — the full label was the widest single item forcing a wrap */
-    .cev-topbar #cevExitBtn::before, .tev-topbar #tevExitBtn::before{ content:'←'; font-size:14px; }
+    /* icon-only on mobile — the full label was the widest single item forcing a wrap. Hide the label
+       span itself: the old font-size:0 + ::before '←' trick predates the Lucide icon, which (sized in
+       px via clamp) stayed visible, so the button showed two arrows */
+    .cev-topbar #cevExitBtn, .tev-topbar #tevExitBtn{ padding:4px 8px; }
+    .cev-topbar #cevExitBtn > span, .tev-topbar #tevExitBtn > span{ display:none; }
   }
 
   /* mobile: plain note card has the same "many buttons wrap to extra lines" problem — .fmttoolbar
@@ -1107,8 +1110,6 @@
   body:not(.input-focus) .app.ready:not([data-view="canvasEditor"]):not([data-view="tableEditor"]){
     height:calc(100vh - var(--bottomnav-h) - env(safe-area-inset-bottom, 0px));
   }
-  body:not(.input-focus) .app.show-sidebar .sidebar{ height:calc(100vh - var(--bottomnav-h) - env(safe-area-inset-bottom, 0px)); }
-  body:not(.input-focus) .app.show-rightpane .rightpane{ height:calc(100vh - var(--bottomnav-h) - env(safe-area-inset-bottom, 0px)) !important; }
   /* hidden while typing (it would ride up on the keyboard) and in the canvas/sheet editors,
      which need the whole screen and have their own toolbars */
   body.input-focus .bottomnav,
@@ -1176,3 +1177,95 @@
 .newbtn.newbtn-danger{ background:var(--danger-soft); color:var(--danger); border:1px solid color-mix(in srgb, var(--danger) 35%, transparent); }
 .newbtn.newbtn-ghost:hover{ background:var(--bg-panel); }
 .newbtn.newbtn-danger:hover{ background:var(--danger); color:#fff; }
+
+
+/* =====================================================================================
+   Phone layout (<=640px): list as a full page, card info as a bottom sheet, one-row note
+   header. Desktop/tablet rules above are untouched; everything here is phone-only and sits
+   at the very end of the file so it wins ties against the earlier, equal-specificity rules.
+   ===================================================================================== */
+.mob-more-btn, .mob-icon-btn, .mob-spacer, .rp-sheet-head, .rp-tab-empty, .rp-backdrop, .mob-only-inline{ display:none; }
+@media (max-width:640px){
+  /* --- no hamburger any more: the bottom bar's "목록" replaces it. The bar element stays as a
+     pure status-bar spacer for the views that have no header of their own --- */
+  .app .mobile-topbar{ padding:0; padding-top:env(safe-area-inset-top, 0px); border:none; }
+  .app .mobile-topbar button, .toolbar button.mobonly{ display:none !important; }
+  .panel-show-tab.right, .panel-show-tab.collapse{ display:none !important; }
+
+  /* --- 1. card list = a full page, not an 85% drawer --- */
+  .app.show-sidebar .sidebar{
+    position:fixed; z-index:20; left:0; right:0; top:0; width:100%;
+    height:calc(100vh - var(--bottomnav-h) - env(safe-area-inset-bottom, 0px));
+    box-shadow:none; border-right:none; animation:backdropFade .14s ease;
+  }
+  body.input-focus .app.show-sidebar .sidebar{ height:100vh; }
+  .sidebar .brand{ flex-direction:row; align-items:center; padding:10px 8px 10px 16px; padding-top:calc(10px + env(safe-area-inset-top, 0px)); border-bottom:none; }
+  .sidebar .brand .mark{ flex:1; font-size:19px; }
+  .sidebar .brand .sub, .sidebar .brand-actions{ display:none; }
+  .sidebar .mob-more-btn{ display:flex; align-items:center; justify-content:center; width:40px; height:40px; border:none; border-radius:12px; background:none; color:var(--ink); cursor:pointer; }
+  .sidebar .mob-more-btn .ic{ width:22px; height:22px; }
+  .sidebar .dbrow, .sidebar #newBtnWrap, .sidebar .synctag{ display:none; }
+  .sidebar > div:has(> #paletteBtn){ display:none !important; } /* 빠른 전환 · 연결 지도 · 휴지통 live in ⋯ / the bottom bar (!important: the div has an inline display) */
+  .sidebar .sortrow > *{ margin-left:0 !important; }
+  .sidebar .sortrow #cardDensityBtn{ margin-left:auto !important; } /* the two icon toggles sit together at the right */
+  .sidebar .searchwrap{ padding:0 16px 8px; }
+  .sidebar .searchwrap input{ font-size:16px; padding:11px 14px; border-radius:12px; } /* 16px: smaller makes Android zoom on focus */
+  .sidebar .sortrow, .sidebar .tagrow{ flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; padding-left:16px; padding-right:16px; }
+  .sidebar .sortrow::-webkit-scrollbar, .sidebar .tagrow::-webkit-scrollbar{ display:none; }
+  .sidebar .sortrow > *, .sidebar .tagrow > *{ flex-shrink:0; }
+  .sidebar .cardlist{ padding:6px 12px 20px; gap:8px; }
+  .sidebar .card-tab{ padding:13px 14px; border-radius:12px; }
+  .sidebar .card-tab .ttl{ font-size:15px; }
+  .sidebar .card-tab .delbtn{ display:none; } /* long-press menu instead of a tiny ✕ */
+  .sidebar .card-tab{ -webkit-touch-callout:none; user-select:none; }
+
+  /* --- 3. note header: one row — ← · 쓰기/읽기 · ⓘ · ⋯ --- */
+  .toolbar .toolbar-row2{ display:none; }
+  /* the formatting row only matters while typing — it docks above the keyboard then (note-typing) */
+  body:not(.note-typing) .cardsheet .fmttoolbar{ display:none; }
+  .toolbar .toolbar-row1{ flex-wrap:nowrap; gap:4px; }
+  .mob-spacer{ display:block; flex:1; }
+  .mob-icon-btn{ display:flex; align-items:center; justify-content:center; position:relative; width:38px; height:38px; flex-shrink:0; border:none; border-radius:11px; background:none; color:var(--ink); cursor:pointer; padding:0; }
+  .mob-icon-btn .ic{ width:21px; height:21px; }
+  .mob-icon-btn:active{ background:var(--border-soft); }
+  .mob-only-inline{ display:inline-flex; position:relative; }
+  .mob-badge{ position:absolute; top:3px; right:2px; min-width:16px; height:16px; padding:0 4px; border-radius:8px; background:var(--accent); color:#fff; font-size:10px; font-weight:700; line-height:16px; text-align:center; }
+
+  /* --- 2. card info = bottom sheet with tabs --- */
+  .app.show-rightpane .rightpane{
+    position:fixed; z-index:1001; left:0; right:0; top:auto !important; bottom:0; width:100%;
+    height:var(--rp-sheet-h, 62vh) !important; max-height:94vh;
+    padding:0 16px calc(20px + env(safe-area-inset-bottom, 0px)) !important;
+    border-left:none; border-radius:18px 18px 0 0; box-shadow:0 -8px 30px rgba(0,0,0,.18);
+    overflow-y:auto; overscroll-behavior:contain;
+    animation:sheetUp .22s cubic-bezier(.2,.8,.3,1); transition:height .2s ease;
+  }
+  .app.show-rightpane .rightpane.dragging{ transition:none; }
+  .app.show-rightpane ~ .rp-backdrop{ display:block; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,.36); animation:backdropFade .18s ease; }
+  .rightpane .rp-sheet-head{ display:block; position:sticky; top:0; z-index:2; margin:0 -16px 6px; padding:8px 12px 0; background:var(--bg-panel); border-bottom:1px solid var(--border-soft); touch-action:none; }
+  .rp-sheet-grip{ width:38px; height:4px; border-radius:2px; background:var(--border); margin:2px auto 10px; }
+  .rp-sheet-tabs{ display:flex; align-items:center; gap:2px; }
+  .rp-sheet-tab{ font-family:var(--sans); font-size:13.5px; font-weight:600; color:var(--ink-faint); background:none; border:none; padding:9px 10px 11px; border-bottom:2px solid transparent; cursor:pointer; }
+  .rp-sheet-tab.active{ color:var(--ink); border-bottom-color:var(--accent); }
+  .rp-sheet-icon{ display:flex; align-items:center; justify-content:center; width:36px; height:36px; border:none; border-radius:10px; background:none; color:var(--ink-soft); cursor:pointer; }
+  .rp-sheet-icon .ic{ width:19px; height:19px; }
+  .rightpane[data-rp-tab="links"] [data-rp-group]:not([data-rp-group="links"]),
+  .rightpane[data-rp-tab="props"] [data-rp-group]:not([data-rp-group="props"]),
+  .rightpane[data-rp-tab="toc"] [data-rp-group]:not([data-rp-group="toc"]),
+  .rightpane .rp-history-section{ display:none !important; }
+  .rightpane .rp-tab-empty:not([hidden]){ display:block; padding:28px 4px; text-align:center; color:var(--ink-faint); font-size:13px; }
+  .rightpane .rp-title{ font-size:11.5px; }
+  .rightpane .backlink-item, .rightpane .unlinked-item{ padding:10px 0; font-size:14px; }
+
+  /* --- action sheets (⋯ menus, card long-press) --- */
+  .mob-sheet-title{ font-size:15px; font-weight:800; color:var(--ink); padding:0 6px 2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .mob-sheet-sub{ font-size:12px; color:var(--ink-faint); padding:0 6px 8px; }
+  .mob-sheet-row.danger, .mob-sheet-row.danger .ic{ color:var(--danger); }
+  .mob-sheet-row-sub{ margin-left:auto; font-size:12px; color:var(--ink-faint); }
+  .mob-sheet-row:last-child{ border-bottom:none; }
+  .mob-sheet-swatches{ display:flex; gap:9px; padding:8px 6px 12px; overflow-x:auto; scrollbar-width:none; }
+  .mob-swatch{ width:28px; height:28px; flex-shrink:0; border-radius:50%; border:2px solid transparent; cursor:pointer; padding:0; }
+  .mob-swatch.active{ border-color:var(--ink); }
+  .mob-swatch.none{ background:var(--bg); border:1.5px dashed var(--border); }
+  .mob-swatch.none.active{ border-style:solid; border-color:var(--ink); }
+}

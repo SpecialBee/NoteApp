@@ -105,6 +105,9 @@
 <symbol id="ic-house" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" /> <path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></symbol>
 <symbol id="ic-list" viewBox="0 0 24 24"><path d="M3 5h.01" /> <path d="M3 12h.01" /> <path d="M3 19h.01" /> <path d="M8 5h13" /> <path d="M8 12h13" /> <path d="M8 19h13" /></symbol>
 <symbol id="ic-layout-template" viewBox="0 0 24 24"><rect width="18" height="7" x="3" y="3" rx="1" /> <rect width="9" height="7" x="3" y="14" rx="1" /> <rect width="5" height="7" x="16" y="14" rx="1" /></symbol>
+<symbol id="ic-ellipsis" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1" /> <circle cx="19" cy="12" r="1" /> <circle cx="5" cy="12" r="1" /></symbol>
+<symbol id="ic-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <path d="M12 16v-4" /> <path d="M12 8h.01" /></symbol>
+<symbol id="ic-log-out" viewBox="0 0 24 24"><path d="m16 17 5-5-5-5" /> <path d="M21 12H9" /> <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /></symbol>
 </svg>
 <!-- ICON-SPRITE:END -->
 
@@ -147,6 +150,7 @@
         <button class="logout" id="settingsBtn" title="설정"><svg class="ic" aria-hidden="true"><use href="#ic-settings"/></svg></button>
         <button class="logout" id="logoutBtn">로그아웃</button>
       </div>
+      <button class="mob-more-btn" id="mobListMoreBtn" title="메뉴" aria-label="메뉴"><svg class="ic" aria-hidden="true"><use href="#ic-ellipsis"/></svg></button>
     </div>
     <div class="dbrow"><button class="dbbtn" id="databaseBtn"><svg class="ic" aria-hidden="true"><use href="#ic-database"/></svg><span>데이터베이스</span></button></div>
     <div class="searchwrap"><input id="searchInput" type="text" placeholder="검색 (제목·본문·태그)"></div>
@@ -191,9 +195,13 @@
     <div class="toolbar" id="toolbar" style="display:none;">
       <div class="toolbar-row toolbar-row1">
         <button class="mobonly" id="mobToggle"><svg class="ic" aria-hidden="true"><use href="#ic-menu"/></svg></button>
+        <button class="mob-icon-btn" id="mobBackBtn" title="목록으로" aria-label="목록으로"><svg class="ic" aria-hidden="true"><use href="#ic-arrow-left"/></svg></button>
         <button class="modebtn active" id="editModeBtn">쓰기모드</button>
         <button class="modebtn" id="previewModeBtn">읽기모드</button>
         <button class="modebtn deskonly" id="compareBtn" title="다른 카드를 나란히 열어 함께 보거나 편집" style="display:none;"><svg class="ic" aria-hidden="true"><use href="#ic-columns-2"/></svg><span>비교</span></button>
+        <span class="mob-spacer"></span>
+        <button class="mob-icon-btn mob-info-btn" id="mobInfoBtn" title="카드 정보" aria-label="카드 정보"><svg class="ic" aria-hidden="true"><use href="#ic-info"/></svg><span class="mob-badge" hidden></span></button>
+        <button class="mob-icon-btn" id="mobNoteMoreBtn" title="더보기" aria-label="더보기"><svg class="ic" aria-hidden="true"><use href="#ic-ellipsis"/></svg></button>
       </div>
       <div class="toolbar-row toolbar-row2">
         <span class="submeta" id="subLine"></span>
@@ -344,6 +352,7 @@
         <button class="cev-action" id="cevCardColorBtn" title="카드 색상"><svg class="ic" aria-hidden="true"><use href="#ic-palette"/></svg></button>
         <button class="cev-action" id="cevDeleteBtn" title="선택 삭제"><svg class="ic" aria-hidden="true"><use href="#ic-trash-2"/></svg></button>
         <button class="cev-action" id="cevShareBtn" title="읽기 전용 링크로 공유"><svg class="ic" aria-hidden="true"><use href="#ic-link"/></svg></button>
+        <button class="cev-action mob-info-btn mob-only-inline" data-rp-open title="카드 정보"><svg class="ic" aria-hidden="true"><use href="#ic-info"/></svg><span class="mob-badge" hidden></span></button>
       </div>
       <div class="editor-header-pad">
         <input class="titlefield" id="cevTitleInput" placeholder="캔버스 제목" spellcheck="false">
@@ -392,6 +401,7 @@
         <button class="tev-action" id="tevImportBtn" title="CSV 가져오기"><svg class="ic" aria-hidden="true"><use href="#ic-file-input"/></svg><span>가져오기</span></button>
         <button class="tev-action" id="tevExportBtn" title="CSV 내보내기"><svg class="ic" aria-hidden="true"><use href="#ic-file-output"/></svg><span>내보내기</span></button>
         <button class="tev-action" id="tevShareBtn" title="읽기 전용 링크로 공유"><svg class="ic" aria-hidden="true"><use href="#ic-link"/></svg><span>공유</span></button>
+        <button class="tev-action mob-info-btn mob-only-inline" data-rp-open title="카드 정보"><svg class="ic" aria-hidden="true"><use href="#ic-info"/></svg><span class="mob-badge" hidden></span></button>
         <input type="file" id="tevCsvFile" accept=".csv,text/csv" style="display:none">
       </div>
       <div class="editor-header-pad">
@@ -486,20 +496,35 @@
 
   <div class="resize-handle" id="resizeRight"></div>
 
-  <div class="rightpane" id="rightpane">
-    <div class="rp-section" id="propSection" style="display:none;">
+  <div class="rightpane" id="rightpane" data-rp-tab="links">
+    <!-- phone-only header: the panel is a bottom sheet there, split into tabs instead of one long column -->
+    <div class="rp-sheet-head" id="rpSheetHead">
+      <div class="rp-sheet-grip" id="rpSheetGrip"></div>
+      <div class="rp-sheet-tabs">
+        <button class="rp-sheet-tab active" data-rp-tab-btn="links">연결</button>
+        <button class="rp-sheet-tab" data-rp-tab-btn="props">속성 · 태그</button>
+        <button class="rp-sheet-tab" data-rp-tab-btn="toc">목차</button>
+        <span class="mob-spacer"></span>
+        <button class="rp-sheet-icon" id="rpSheetHistoryBtn" title="버전 기록"><svg class="ic" aria-hidden="true"><use href="#ic-history"/></svg></button>
+        <button class="rp-sheet-icon" id="rpSheetCloseBtn" title="닫기"><svg class="ic" aria-hidden="true"><use href="#ic-x"/></svg></button>
+      </div>
+    </div>
+    <div class="rp-tab-empty" id="rpTabEmpty" hidden></div>
+    <div class="rp-section" id="propSection" data-rp-group="props" style="display:none;">
       <div class="rp-title">속성</div>
       <div id="propList"></div>
       <div id="propAddRow"></div>
     </div>
-    <div class="rp-section"><div class="rp-title">역링크</div><div id="backlinkList" class="rp-empty">이 카드를 가리키는 카드가 없습니다.</div></div>
-    <div class="rp-section" id="unlinkedSection" style="display:none;"><div class="rp-title" title="이 카드의 제목이 적혀 있지만 [[링크]]로 묶이지 않은 카드">연결 안 된 언급</div><div id="unlinkedList"></div></div>
-    <div class="rp-section" id="canvasBacklinkSection" style="display:none;"><div class="rp-title">캔버스 보드</div><div id="canvasBacklinkList"></div></div>
-    <div class="rp-section"><div class="rp-title">태그</div><div id="tagList" class="tag-list"><span class="rp-empty">태그 없음</span></div></div>
-    <div class="rp-section" id="tocSection" style="display:none;"><div class="rp-title">목차</div><div id="tocList"></div></div>
-    <div class="rp-section"><button class="rp-history-btn" id="rpHistoryBtn"><svg class="ic" aria-hidden="true"><use href="#ic-history"/></svg><span>이전 버전 보기</span></button></div>
+    <div class="rp-section" data-rp-group="links"><div class="rp-title">역링크</div><div id="backlinkList" class="rp-empty">이 카드를 가리키는 카드가 없습니다.</div></div>
+    <div class="rp-section" id="unlinkedSection" data-rp-group="links" style="display:none;"><div class="rp-title" title="이 카드의 제목이 적혀 있지만 [[링크]]로 묶이지 않은 카드">연결 안 된 언급</div><div id="unlinkedList"></div></div>
+    <div class="rp-section" id="canvasBacklinkSection" data-rp-group="links" style="display:none;"><div class="rp-title">캔버스 보드</div><div id="canvasBacklinkList"></div></div>
+    <div class="rp-section" data-rp-group="props"><div class="rp-title">태그</div><div id="tagList" class="tag-list"><span class="rp-empty">태그 없음</span></div></div>
+    <div class="rp-section" id="tocSection" data-rp-group="toc" style="display:none;"><div class="rp-title">목차</div><div id="tocList"></div></div>
+    <div class="rp-section rp-history-section"><button class="rp-history-btn" id="rpHistoryBtn"><svg class="ic" aria-hidden="true"><use href="#ic-history"/></svg><span>이전 버전 보기</span></button></div>
   </div>
 </div>
+
+<div class="rp-backdrop" id="rpBackdrop"></div>
 
 <!-- phone-width bottom navigation (CSS shows it only <=640px). Must stay a later sibling of
      #app: the CSS hides it for the canvas/sheet editors via .app[data-view=…] ~ .bottomnav -->
@@ -2314,6 +2339,7 @@
     }
     card.querySelector('.card-color-dot').addEventListener('click', e => { e.stopPropagation(); showCardColorPalette(m, e); });
     card.onclick = (e) => { if(e.target.classList.contains('delbtn')) return; openNote(m.id); };
+    bindCardLongPress(card, m);
     card.querySelector('.delbtn').onclick = async (e) => {
       e.stopPropagation();
       if(confirm(`"${m.title || '제목 없음'}" 카드를 삭제할까요? 되돌릴 수 없습니다.`)) await removeNote(m.id);
@@ -2812,6 +2838,7 @@
     canvasBacklinkSection.style.display = 'none';
     renderCanvasBacklinks(note);
     renderUnlinkedMentions(note);
+    updateInfoBadges(note);
     tagList.innerHTML = '';
     (note.tags||[]).forEach(t => {
       const chip = document.createElement('span');
@@ -5003,6 +5030,7 @@
     // 2. modals
     if(el('guideModal').style.display === 'flex'){ closeGuideModal(); return true; }
     if(el('settingsModal').style.display === 'flex'){ closeSettingsModal(); return true; }
+    if(document.querySelector('.action-sheet')){ closeActionSheet(); return true; }
     if(el('historyModal').style.display === 'flex'){ el('historyModal').style.display = 'none'; return true; }
     if(!el('mobNewSheet').hidden){ closeMobNewSheet(); return true; }
     if(el('newBtnMenu').style.display !== 'none'){ el('newBtnMenu').style.display = 'none'; return true; }
@@ -7912,6 +7940,171 @@
   // tapping a toolbar button must not steal focus from the textarea, or the keyboard would
   // close (and the docked toolbar jump away) on every formatting tap
   document.querySelector('.fmttoolbar').addEventListener('mousedown', e => { if(e.target.closest('.fmtbtn')) e.preventDefault(); });
+
+  // ---------------- phone layout: action sheets, list page, card-info sheet ----------------
+  // On phones the desktop chrome (row of small buttons, side drawers) is replaced by bottom
+  // sheets: everything that used to be a toolbar button is one tap away under ⋯, and the right
+  // panel slides up from the bottom instead of in from the side. Desktop markup is untouched —
+  // these only get wired to buttons that the CSS shows at <=640px.
+  function isPhone(){ return window.innerWidth <= 640; }
+
+  // items: { icon, label, onClick, danger, sub } | 'sep'; extraEl: optional element placed above the rows
+  function openActionSheet({ title, sub, items, extraEl }){
+    closeActionSheet();
+    const backdrop = document.createElement('div');
+    backdrop.className = 'mob-sheet-backdrop action-sheet';
+    const sheet = document.createElement('div');
+    sheet.className = 'mob-sheet';
+    sheet.setAttribute('role', 'dialog');
+    sheet.innerHTML = '<div class="mob-sheet-grip"></div>' +
+      (title ? `<div class="mob-sheet-title">${escapeHtml(title)}</div>` : '') +
+      (sub ? `<div class="mob-sheet-sub">${escapeHtml(sub)}</div>` : '');
+    if(extraEl) sheet.appendChild(extraEl);
+    items.forEach(it => {
+      if(it === 'sep'){ sheet.insertAdjacentHTML('beforeend', '<div class="newbtn-sep"></div>'); return; }
+      const b = document.createElement('button');
+      b.className = 'mob-sheet-row' + (it.danger ? ' danger' : '');
+      b.innerHTML = icon(it.icon) + '<span>' + escapeHtml(it.label) + '</span>' + (it.sub ? `<span class="mob-sheet-row-sub">${escapeHtml(it.sub)}</span>` : '');
+      b.onclick = () => { closeActionSheet(); it.onClick(); };
+      sheet.appendChild(b);
+    });
+    backdrop.appendChild(sheet);
+    backdrop.addEventListener('click', e => { if(e.target === backdrop) closeActionSheet(); });
+    document.body.appendChild(backdrop);
+    haptic('light');
+  }
+  function closeActionSheet(){ document.querySelectorAll('.action-sheet').forEach(n => n.remove()); }
+
+  function colorSwatchRow(note){
+    const row = document.createElement('div');
+    row.className = 'mob-sheet-swatches';
+    [...CARD_COLORS, null].forEach(c => {
+      const sw = document.createElement('button');
+      sw.className = 'mob-swatch' + (noteColor(note) === c || (!c && !noteColor(note)) ? ' active' : '') + (c ? '' : ' none');
+      if(c) sw.style.background = c;
+      sw.title = c ? '카드 색상' : '색상 제거';
+      sw.onclick = () => { closeActionSheet(); setNoteColor(note, c); };
+      row.appendChild(sw);
+    });
+    return row;
+  }
+
+  // the card list page's ⋯ — everything the desktop brand row / sidebar footer held
+  el('mobListMoreBtn').onclick = () => {
+    const dark = document.documentElement.dataset.theme === 'dark';
+    openActionSheet({ title: 'GRAPHIDEA', items: [
+      { icon: 'database', label: '데이터베이스', onClick: () => el('databaseBtn').click() },
+      { icon: 'command', label: '빠른 전환', onClick: () => el('paletteBtn').click() },
+      { icon: 'trash-2', label: '휴지통', sub: trashCount.textContent + '개', onClick: () => el('trashBtn').click() },
+      'sep',
+      { icon: dark ? 'sun' : 'moon', label: dark ? '라이트 모드' : '다크 모드', onClick: () => el('themeToggleBtn').click() },
+      { icon: 'settings', label: '설정', onClick: () => el('settingsBtn').click() },
+      { icon: 'book-open', label: '사용법', onClick: () => el('guideBtn').click() },
+      'sep',
+      { icon: 'log-out', label: '로그아웃', danger: true, onClick: () => el('logoutBtn').click() },
+    ]});
+  };
+
+  // the note's ⋯ — the second toolbar row, which doesn't fit on a phone
+  el('mobNoteMoreBtn').onclick = () => {
+    const note = index.find(m => m.id === currentId);
+    if(!note) return;
+    openActionSheet({ title: note.title || '제목 없음', sub: el('wordCount').textContent.replace(/^[\s·]+/, ''), extraEl: colorSwatchRow(note), items: [
+      { icon: 'link', label: '읽기 전용 링크 공유', onClick: () => el('shareBtn').click() },
+      { icon: 'history', label: '버전 기록', onClick: () => el('historyBtn').click() },
+      { icon: 'copy', label: '복제', onClick: () => el('dupBtn').click() },
+      { icon: 'star', label: note.pinned ? '고정 해제' : '고정', onClick: () => el('pinBtn').click() },
+      'sep',
+      { icon: 'printer', label: 'PDF로 저장', onClick: () => el('exportPdfBtn').click() },
+      { icon: 'download', label: '마크다운 내보내기', onClick: () => el('exportMdBtn').click() },
+      'sep',
+      { icon: 'trash-2', label: '휴지통으로 이동', danger: true, onClick: () => el('delBtn').click() },
+    ]});
+  };
+
+  // long-press a card in the list: the hover-only ✕ / color dot don't exist for a thumb
+  function openCardActionSheet(note){
+    openActionSheet({ title: note.title || '제목 없음', extraEl: colorSwatchRow(note), items: [
+      { icon: 'star', label: note.pinned ? '고정 해제' : '고정', onClick: async () => { note.pinned = !note.pinned; haptic('light'); await updateNote(note); renderCardList(); if(note.id === currentId) updatePinBtn(note); } },
+      { icon: 'copy', label: '복제', onClick: () => duplicateNote(note.id) },
+      'sep',
+      { icon: 'trash-2', label: '휴지통으로 이동', danger: true, onClick: () => removeNote(note.id) },
+    ]});
+  }
+  // suppresses the click that follows a long-press, so it doesn't also open the card
+  let cardLongPressed = false;
+  function bindCardLongPress(card, note){
+    tevBindLongPress(card, () => { cardLongPressed = true; openCardActionSheet(note); });
+    card.addEventListener('click', e => { if(cardLongPressed){ cardLongPressed = false; e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+    card.addEventListener('contextmenu', e => { if(isPhone()) e.preventDefault(); });
+  }
+
+  el('mobBackBtn').onclick = () => { flushAllSaves(); showView('empty'); appEl.classList.add('show-sidebar'); };
+
+  // ---- card info (right panel) as a bottom sheet ----
+  let rpTab = localStorage.getItem('stk-rp-tab') || 'links';
+  function openRpSheet(){
+    // only plain notes have headings — canvas/sheet cards get no 목차 tab at all
+    const hasToc = currentView === 'note';
+    document.querySelector('[data-rp-tab-btn="toc"]').hidden = !hasToc;
+    mobileRightpaneOpen = true; applyPanelState();
+    setRpTab(!hasToc && rpTab === 'toc' ? 'links' : rpTab);
+    haptic('light');
+  }
+  function closeRpSheet(){ mobileRightpaneOpen = false; el('rightpane').style.removeProperty('--rp-sheet-h'); applyPanelState(); }
+  function setRpTab(tab){
+    rpTab = tab;
+    localStorage.setItem('stk-rp-tab', tab);
+    el('rightpane').dataset.rpTab = tab;
+    document.querySelectorAll('[data-rp-tab-btn]').forEach(b => b.classList.toggle('active', b.dataset.rpTabBtn === tab));
+    updateRpTabEmpty();
+  }
+  // a tab whose sections are all hidden (no TOC in a canvas, no links yet) would be a blank sheet
+  function updateRpTabEmpty(){
+    const anyShown = [...document.querySelectorAll(`#rightpane [data-rp-group="${rpTab}"]`)].some(s => s.style.display !== 'none');
+    const msg = { links: '아직 연결된 카드가 없어요.', props: '속성이 없어요.', toc: '목차로 보여줄 제목(#)이 없어요.' }[rpTab];
+    el('rpTabEmpty').hidden = anyShown;
+    el('rpTabEmpty').textContent = msg;
+  }
+  document.querySelectorAll('[data-rp-tab-btn]').forEach(b => b.addEventListener('click', () => setRpTab(b.dataset.rpTabBtn)));
+  el('mobInfoBtn').onclick = openRpSheet;
+  document.querySelectorAll('[data-rp-open]').forEach(b => b.addEventListener('click', openRpSheet));
+  el('rpSheetCloseBtn').onclick = closeRpSheet;
+  el('rpBackdrop').onclick = closeRpSheet;
+  el('rpSheetHistoryBtn').onclick = () => { if(currentId){ closeRpSheet(); openHistoryModal(currentId); } };
+
+  // sections show/hide themselves asynchronously (mentions, canvas boards arrive over the network)
+  new MutationObserver(() => { if(mobileRightpaneOpen) updateRpTabEmpty(); })
+    .observe(el('rightpane'), { subtree: true, attributes: true, attributeFilter: ['style'] });
+
+  // ⓘ carries the backlink count, so the connection state is visible without opening the sheet
+  function updateInfoBadges(note){
+    const n = note ? backlinksOf(note).length : 0;
+    document.querySelectorAll('.mob-info-btn .mob-badge').forEach(b => { b.hidden = !n; b.textContent = n > 99 ? '99+' : n; });
+  }
+
+  // drag the grip: up to expand to (almost) full screen, down to shrink or dismiss
+  (function wireRpSheetDrag(){
+    const head = el('rpSheetHead'), pane = el('rightpane');
+    let startY = 0, startH = 0, dragging = false;
+    head.addEventListener('touchstart', e => {
+      if(e.target.closest('button')) return;
+      dragging = true; startY = e.touches[0].clientY; startH = pane.getBoundingClientRect().height;
+      pane.classList.add('dragging');
+    }, { passive: true });
+    head.addEventListener('touchmove', e => {
+      if(!dragging) return;
+      const h = Math.min(window.innerHeight * 0.94, Math.max(80, startH + (startY - e.touches[0].clientY)));
+      pane.style.setProperty('--rp-sheet-h', h + 'px');
+    }, { passive: true });
+    head.addEventListener('touchend', () => {
+      if(!dragging) return;
+      dragging = false; pane.classList.remove('dragging');
+      const h = pane.getBoundingClientRect().height, vh = window.innerHeight;
+      if(h < vh * 0.3){ closeRpSheet(); return; }
+      pane.style.setProperty('--rp-sheet-h', (h > vh * 0.75 ? 94 : 62) + 'vh');
+    });
+  })();
 
   // batchTag: an optional single tag applied to every file in this import — since a bulk import
   // usually arrives as one flat batch with no folder structure to preserve, tagging the whole

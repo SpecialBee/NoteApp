@@ -237,8 +237,8 @@ adb shell am start -n com.specialbee.graphidea/.MainActivity
 
 ## 11. 알려진 트레이드오프 / 아직 안 한 것
 
-- **본문 지연 로딩의 검색 공백**: 세션 중 한 번도 안 연 노트는 본문 검색에 안 걸림(제목·태그는 영향 없음). 서버 쪽 전체 본문 검색으로 바꾸려면 별도 작업 필요.
-- **다중 기기 동시 편집**: 충돌 시 경고 토스트만 뜨고 실제 저장은 마지막 쓰기가 이김(revision 컬럼 등 실제 충돌 방지 로직 없음).
+- ~~**본문 지연 로딩의 검색 공백**~~ → **2026-10-06 해결**: 검색어 2자 이상이면 서버 `ilike`(트라이그램 인덱스)로 본문도 조회. 오프라인에서는 여전히 캐시된 본문만 검색됨.
+- **다중 기기 동시 편집**: 충돌 시 경고 토스트만 뜨고 실제 저장은 마지막 쓰기가 이김. 오프라인 큐도 재연결 시 같은 원칙(last-write-wins). 2026-10-06부터는 덮어쓴 내용이 `note_revisions`에 남아 버전 기록에서 복원 가능.
 - ~~**1,000행 이상 노트**: Supabase/PostgREST 기본 응답 상한(1,000행)에 페이지네이션 없이 걸려있음~~ → **2026-08-21 해결**. 노트가 실제로 1,000개에 근접하면서 현실 문제가 됨. PostgREST는 상한에서 잘라내면서 **오류를 내지 않기 때문에** 목록·검색·그래프에서 노트가 조용히 사라지고, 특히 **백업 파일이 소리 없이 불완전해지는** 게 위험했음. `fetchAllRows()` 헬퍼(1,000행씩 `.range()` 순회)를 만들어 전체 노트/휴지통/JSON 백업/마크다운 zip 내보내기/할 일 목록 등 테이블 전체를 반환할 수 있는 모든 쿼리에 적용.
 - **자동화 테스트 없음**: 검증은 매번 문법 파싱(`new Function()`) + 실기기/에뮬레이터 스크린샷 확인으로 대체해옴. CI/회귀 테스트 스위트는 없음.
 - **Play 스토어 정식 출시 전 남은 것**: `appId` 확정, 릴리스 키스토어, 스토어 등록정보(스크린샷/설명), Play Console 개발자 계정, Google Play 정책상 필요한 **웹에서도 되는 계정 삭제 페이지**(현재는 앱 내부에서만 가능), Android `targetSdk` 최신화. 전부 "실제 제출 시점에 처리"로 미뤄둔 상태.
@@ -291,3 +291,32 @@ Capacitor 로 감싼 안드로이드 앱이 **오프라인에서도 떠야 한�
 
 ### 검증 방법
 Playwright 로 `index.html` 을 실제로 띄워 확인했다: 심볼 정의 수 / 참조 수, **정의 없는 참조 0 · 미사용 심볼 0**, 깨진 `<use>` 0, 콘솔·페이지 오류 0, 인라인 스크립트 문법 파싱. 아이콘을 추가·삭제한 뒤엔 같은 검사를 다시 돌릴 것. (상세 경위는 `CHANGELOG.md` 2026-08-27 (1)~(4).)
+
+---
+
+## 13. 오프라인 · 빠른 기록 · 버전 기록 (2026-10-06)
+
+상세 변경 내역은 `CHANGELOG.md` 2026-10-06 참고. 여기엔 구조와 함정만 남긴다.
+
+### 오프라인 구조
+- **읽기**: `LocalDB`(`www/lib/localdb.js`, 사용자별 IndexedDB) → `loadFromCache()`로 먼저 그리고 → `loadAll()`이 서버 결과로 교체. 서버 `updated_at`이 캐시와 같으면 캐시된 본문을 유지(그래서 `updateNote`가 서버가 돌려준 `updated_at`을 받아 저장한다).
+- **쓰기**: 노트·할 일의 모든 행 쓰기는 `writeRow(table, kind, id, payload)` 하나로 나간다. 네트워크 오류면 outbox(행 단위, 이후 편집은 병합)에 쌓고 `flushOutbox()`가 순서대로 재전송. outbox에 뭔가 남아 있으면 새 쓰기도 큐 뒤에 붙는다(순서 보장).
+- **서버 응답이 큐를 이기면 안 됨**: `mergePendingNotes()` — 큐에 남은 행은 서버 목록이 아니라 로컬 버전을 쓴다.
+- **새 쓰기 경로를 만들 때**: `sb.from('notes')`/`checklist_items`에 직접 insert/update/delete 하지 말고 `writeRow`를 쓸 것. 직접 쓰면 오프라인에서 조용히 유실된다.
+
+### 함정 (실제로 밟은 것)
+- **`ensureContentLoaded()`는 실패 시 null**. 이 값을 `''`처럼 다루면 빈 편집기가 열리고 자동저장이 원문을 지운다. 새 호출부는 반드시 `=== null` 체크.
+- **오프라인 + 만료 토큰 = 세션 null**: supabase-js가 refresh 실패 시 `INITIAL_SESSION`을 null로 보낸다(저장소의 refresh token은 남김). `bootFromStoredSession()`이 그 경우를 로그인 화면 대신 캐시 진입으로 처리한다. `SIGNED_OUT`만 진짜 로그아웃.
+- **`hidden` 속성 vs `display:flex`**: 클래스에 display를 주면 `[hidden]`이 무시된다. `.offline-badge[hidden]{display:none}`처럼 명시할 것.
+- **keyframe 이름 충돌**: CSS `@keyframes`는 나중 정의가 이긴다. 기존 `sheetFade`를 덮어써서 카드 페이드가 바뀔 뻔했음 — 새 애니메이션은 이름 grep 후 추가.
+
+### 버전 기록
+DB 트리거라 클라이언트 코드 경로와 무관하게 모든 편집이 기록된다(10분 1회, 노트당 50개). 클라이언트는 조회·복원만 한다. RLS는 select/delete만 열어서 클라이언트가 기록을 위조할 수 없다.
+
+### 안드로이드 네이티브
+- `ShareInboxPlugin`(로컬 플러그인, `MainActivity`에서 `super.onCreate` 전에 `registerPlugin`). 공유는 boot 전에 도착할 수 있어서 보관 후 `getPending()`으로 꺼낸다.
+- 런처 바로가기는 `graphidea://new|today` 딥링크 → `@capacitor/app`의 `getLaunchUrl`(콜드 스타트)/`appUrlOpen`(실행 중).
+- 둘 다 `bootDone` 이후에만 처리(`handlePendingLaunchActions`).
+
+### 테스트 방법 (실계정 없이)
+`www`를 스크래치로 복사하고 `vendor/supabase.js`만 인메모리 가짜 클라이언트로 바꿔 띄우면 로그인 이후 흐름 전체(오프라인 토글 포함)를 브라우저에서 돌려볼 수 있다. 2026-10-06 검증이 이 방식.

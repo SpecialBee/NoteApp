@@ -108,6 +108,7 @@
 <symbol id="ic-ellipsis" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1" /> <circle cx="19" cy="12" r="1" /> <circle cx="5" cy="12" r="1" /></symbol>
 <symbol id="ic-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <path d="M12 16v-4" /> <path d="M12 8h.01" /></symbol>
 <symbol id="ic-log-out" viewBox="0 0 24 24"><path d="m16 17 5-5-5-5" /> <path d="M21 12H9" /> <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /></symbol>
+<symbol id="ic-locate-fixed" viewBox="0 0 24 24"><line x1="2" x2="5" y1="12" y2="12" /> <line x1="19" x2="22" y1="12" y2="12" /> <line x1="12" x2="12" y1="2" y2="5" /> <line x1="12" x2="12" y1="19" y2="22" /> <circle cx="12" cy="12" r="7" /> <circle cx="12" cy="12" r="3" /></symbol>
 </svg>
 <!-- ICON-SPRITE:END -->
 
@@ -243,6 +244,15 @@
           <button id="closeGraphBtn"><svg class="ic" aria-hidden="true"><use href="#ic-arrow-left"/></svg><span>GRAPHIDEA로 돌아가기</span></button>
         </div>
       </div>
+      <!-- local ("card-centred") mode: only the focus card and its 1-2 hop neighbours -->
+      <div class="graph-focus-bar" id="graphFocusBar" hidden>
+        <span class="graph-focus-title"><svg class="ic" aria-hidden="true"><use href="#ic-locate-fixed"/></svg><span id="graphFocusTitle"></span></span>
+        <span class="graph-focus-depth">
+          <button data-focus-depth="1">1단계</button>
+          <button data-focus-depth="2">2단계</button>
+        </span>
+        <button class="graph-focus-all" id="graphFocusAllBtn">전체 지도</button>
+      </div>
       <div class="graph-legend" id="graphLegend"></div>
       <div class="graph-body">
         <canvas id="globalGraphCanvas" class="graph-canvas"></canvas>
@@ -254,7 +264,10 @@
           <div class="gcp-tags" id="gcpTags"></div>
           <div class="gcp-stats" id="gcpStats"></div>
           <div class="gcp-body" id="gcpBody"></div>
-          <button class="gcp-open" id="gcpOpen"><span>카드 열기</span><svg class="ic" aria-hidden="true"><use href="#ic-arrow-right"/></svg></button>
+          <div class="gcp-actions">
+            <button class="gcp-focus" id="gcpFocus" title="이 카드와 이어진 카드만 보기"><svg class="ic" aria-hidden="true"><use href="#ic-locate-fixed"/></svg><span>이 카드 중심</span></button>
+            <button class="gcp-open" id="gcpOpen"><span>카드 열기</span><svg class="ic" aria-hidden="true"><use href="#ic-arrow-right"/></svg></button>
+          </div>
         </div>
       </div>
     </div>
@@ -520,6 +533,7 @@
     <div class="rp-section" id="canvasBacklinkSection" data-rp-group="links" style="display:none;"><div class="rp-title">캔버스 보드</div><div id="canvasBacklinkList"></div></div>
     <div class="rp-section" data-rp-group="props"><div class="rp-title">태그</div><div id="tagList" class="tag-list"><span class="rp-empty">태그 없음</span></div></div>
     <div class="rp-section" id="tocSection" data-rp-group="toc" style="display:none;"><div class="rp-title">목차</div><div id="tocList"></div></div>
+    <div class="rp-section rp-focus-section" data-rp-group="links"><button class="rp-history-btn" id="rpFocusGraphBtn"><svg class="ic" aria-hidden="true"><use href="#ic-locate-fixed"/></svg><span>이 카드 중심 지도</span></button></div>
     <div class="rp-section rp-history-section"><button class="rp-history-btn" id="rpHistoryBtn"><svg class="ic" aria-hidden="true"><use href="#ic-history"/></svg><span>이전 버전 보기</span></button></div>
   </div>
 </div>
@@ -3101,6 +3115,7 @@
 
   el('historyBtn').onclick = () => { if(currentId) openHistoryModal(currentId); };
   el('rpHistoryBtn').onclick = () => { if(currentId) openHistoryModal(currentId); };
+  el('rpFocusGraphBtn').onclick = () => { if(currentId){ const id = currentId; mobileRightpaneOpen = false; openGlobalGraph({ focusId: id }); } };
   el('historyModalClose').onclick = () => { el('historyModal').style.display = 'none'; };
   el('historyModal').addEventListener('click', e => { if(e.target === el('historyModal')) el('historyModal').style.display = 'none'; });
   el('historyRestoreBtn').onclick = restoreHistoryPick;
@@ -4203,6 +4218,7 @@
   let graphHoverId = null;      // node under the cursor — drives the dim-everything-else highlight
   let graphMatched = new Set(); // ids matching the search box — drives the .match highlight
   let graphSelectedId = null;   // node clicked open in the connection panel (sticky highlight)
+  let graphFocus = null;        // { id, depth } while showing the card-centred local view, else null
   let graphPanTween = 0;        // rAF handle for the smooth "walk" recenter tween
 
   // DPI-aware canvas backing store. the CSS box is sized by flex (.graph-canvas); the bitmap is
@@ -4266,7 +4282,7 @@
     if(!globalSim.running){ globalSim.running=true; globalSim.frame=0; globalSim.raf=requestAnimationFrame(globalSim.step); }
   }
   function saveGlobalPositions(){
-    if(!globalSim) return;
+    if(!globalSim || graphFocus) return; // a local view's layout must not overwrite the full map's
     const pos = {};
     globalSim.nodes.forEach(n => { pos[n.id] = { x:n.x, y:n.y }; });
     saveGraphPositions(pos);
@@ -4297,11 +4313,15 @@
   function graphNodeAt(clientX, clientY){
     const S = globalSim; if(!S) return null;
     const w = graphClientToWorld(clientX, clientY); if(!w) return null;
-    const pad = matchMedia('(pointer:coarse)').matches ? 10 : 4;
+    // the slack is a fixed SCREEN distance (a fingertip / a mouse cursor), converted to world units.
+    // It used to be a world-unit constant, which shrinks with the zoom: at 1000+ nodes a phone shows
+    // the graph at ~0.12x, so nodes were 1-2px wide with ~1px of slack — practically untappable.
+    const screenScale = S.baseScale * graphView.scale;
+    const pad = (matchMedia('(pointer:coarse)').matches ? 22 : 6) / screenScale;
     let best = null, bestD = Infinity;
     for(const n of S.nodes){
       const hit = n.r + pad, dx = w.x - n.x, dy = w.y - n.y, d2 = dx*dx + dy*dy;
-      if(d2 <= hit*hit && d2 < bestD){ bestD = d2; best = n; }
+      if(d2 <= hit*hit && d2 < bestD){ bestD = d2; best = n; } // nearest wins when several are in reach
     }
     return best;
   }
@@ -4318,6 +4338,10 @@
 
   function renderGlobalGraph(){
     stopGlobalSim();
+    // show/hide the local-view bar BEFORE measuring the canvas — it takes vertical space, and a
+    // stale height put the "centred" anchor ~20px off (so a tap at the centre hit a neighbour)
+    if(graphFocus && !index.some(m => m.id === graphFocus.id)) graphFocus = null;
+    updateGraphFocusBar();
     sizeGraphCanvas();
     resolveGraphColors();
     graphHoverId = null;
@@ -4343,7 +4367,22 @@
       });
     });
 
-    const shownNotes = showIsolatedNodes ? index : index.filter(m => degree[m.id] > 0);
+    let shownNotes;
+    if(graphFocus){
+      // breadth-first over the (undirected) link graph from the focus card, graphFocus.depth hops
+      const adj = {};
+      edges.forEach(([a,b]) => { (adj[a] = adj[a] || []).push(b); (adj[b] = adj[b] || []).push(a); });
+      const keep = new Set([graphFocus.id]);
+      let frontier = [graphFocus.id];
+      for(let d = 0; d < graphFocus.depth; d++){
+        const next = [];
+        frontier.forEach(id => (adj[id] || []).forEach(nb => { if(!keep.has(nb)){ keep.add(nb); next.push(nb); } }));
+        frontier = next;
+      }
+      shownNotes = index.filter(m => keep.has(m.id));
+    }else{
+      shownNotes = showIsolatedNodes ? index : index.filter(m => degree[m.id] > 0);
+    }
 
     // a fixed-size canvas packs nodes tighter and tighter as more join — grow the simulation's
     // virtual canvas (and the viewBox showing it) with node count instead, so density per node
@@ -4374,7 +4413,7 @@
 
     // seed from the user's saved layout (Obsidian-style: reopening relaxes it, doesn't reshuffle it);
     // new nodes join on a ring near center and the simulation pulls them into place
-    const cachedPositions = loadGraphPositions();
+    const cachedPositions = graphFocus ? {} : loadGraphPositions(); // the saved layout belongs to the full map
     const idxOf = {}; shownNotes.forEach((m,i) => idxOf[m.id]=i);
     const R0 = Math.min(W,H) * 0.32;
 
@@ -4390,7 +4429,8 @@
       const r = Math.min(15, 5 + deg * 1.6);
       const cached = cachedPositions[m.id];
       let x, y;
-      if(cached){ x = cached.x; y = cached.y; }
+      if(graphFocus && m.id === graphFocus.id){ x = W/2; y = H/2; }
+      else if(cached){ x = cached.x; y = cached.y; }
       else{
         const a = 2 * Math.PI * i / shownNotes.length;
         x = W/2 + Math.cos(a) * R0 * (0.6 + 0.4*Math.random());
@@ -4412,7 +4452,8 @@
       }
       return { src:m, id:m.id, r, x, y, vx:0, vy:0, fixed:false, z,
                depthScale:depth3dEnabled ? depth.scale : 1, depthAlpha,
-               fill, tag, pinned:!!m.pinned, isHub:(deg >= hubThreshold), label:(m.title||'').slice(0,18) };
+               fill, tag, pinned:!!m.pinned, isHub:(!!graphFocus || deg >= hubThreshold), label:(m.title||'').slice(0,18),
+               isFocus:!!(graphFocus && m.id === graphFocus.id) };
     });
     const links = [];
     edges.forEach(([a,b]) => { if(idxOf[a]!=null && idxOf[b]!=null) links.push([idxOf[a], idxOf[b]]); });
@@ -4430,6 +4471,10 @@
       if(hasUntagged) legendHtml += `<span class="legend-item"><span class="legend-dot" style="background:var(--ink-faint)"></span>태그 없음</span>`;
       legendEl.innerHTML = legendHtml;
     }
+
+    // the legend row just above is shown/hidden here, which changes the canvas height — measure
+    // again so the fit (and the zoom-to-anchor centring) uses the canvas as it's actually laid out
+    sizeGraphCanvas();
 
     // world(viewBox) -> canvas(css px) uniform "meet" fit, centered — reproduces the old SVG viewBox
     // so pan/zoom (graphView) feel identical; drawGlobalGraph() composes graphView on top of this
@@ -4481,6 +4526,7 @@
         if(n.x<mx){n.x=mx;n.vx*=-0.3;} else if(n.x>W-mx){n.x=W-mx;n.vx*=-0.3;}
         if(n.y<my){n.y=my;n.vy*=-0.3;} else if(n.y>H-16){n.y=H-16;n.vy*=-0.3;}
       }
+      followGraphAnchor();
       // the whole point of the SVG->canvas move: one immediate-mode repaint of the entire scene
       // each frame, instead of thousands of per-element setAttribute()s thrashing SVG layout
       drawGlobalGraph();
@@ -4491,6 +4537,7 @@
         stopGlobalSim();
         saveGlobalPositions();
         startGlobalIdleFloat();
+        recenterGraphAfterSettle();
         return;
       }
       globalSim.raf = requestAnimationFrame(step);
@@ -4501,9 +4548,65 @@
     // if the selected card no longer appears (e.g. "show isolated" turned off)
     if(graphSelectedId && !nodes.some(n => n.id === graphSelectedId)){ graphSelectedId = null; hideGraphPanel(); }
     else if(graphSelectedId) renderGraphPanel();
+    applyInitialGraphZoom();
     drawGlobalGraph();
     globalSim.raf = requestAnimationFrame(step);
   }
+
+  // A 1000-node map fitted onto a phone screen is drawn at ~0.12x — every node a 1-2px dot. On
+  // phone widths, open a large full map already zoomed to a readable scale, centred on the card
+  // you were just on (or the best-connected hub); "보기 초기화" still shows the whole thing.
+  // Local mode centres on its focus card instead (it's small enough to fit as-is).
+  let graphAnchorId = null, graphAutoView = null;
+  function applyInitialGraphZoom(){
+    const S = globalSim; graphAutoView = null;
+    if(!S) return;
+    let anchor = null;
+    if(graphFocus) anchor = S.nodes.find(n => n.isFocus);
+    else if(isPhone() && S.baseScale < 0.45){
+      const deg = n => (graphAdjacency[n.id] ? graphAdjacency[n.id].size : 0);
+      anchor = S.nodes.find(n => n.id === graphAnchorId) || S.nodes.reduce((a, b) => (deg(b) > deg(a) ? b : a));
+      graphView.scale = 0.55 / S.baseScale;
+    }
+    if(!anchor) return;
+    graphView.tx = (graphCssW/2 - S.baseTx) / S.baseScale - graphView.scale * anchor.x;
+    graphView.ty = (graphCssH/2 - S.baseTy) / S.baseScale - graphView.scale * anchor.y;
+    graphAutoView = { id: anchor.id, tx: graphView.tx, ty: graphView.ty, scale: graphView.scale };
+  }
+  // the anchor drifts while the layout settles — keep the camera on it every frame, until the
+  // user pans/zooms (the view no longer matches what we last set) or the layout comes to rest
+  function followGraphAnchor(){
+    const v = graphAutoView, S = globalSim;
+    if(!v || !S) return;
+    if(graphView.tx !== v.tx || graphView.ty !== v.ty || graphView.scale !== v.scale){ graphAutoView = null; return; }
+    const n = S.nodes.find(x => x.id === v.id); if(!n) return;
+    graphView.tx = v.tx = (graphCssW/2 - S.baseTx) / S.baseScale - graphView.scale * n.x;
+    graphView.ty = v.ty = (graphCssH/2 - S.baseTy) / S.baseScale - graphView.scale * n.y;
+  }
+  function recenterGraphAfterSettle(){ followGraphAnchor(); graphAutoView = null; }
+
+  function updateGraphFocusBar(){
+    const bar = el('graphFocusBar');
+    bar.hidden = !graphFocus;
+    if(!graphFocus) return;
+    const n = index.find(m => m.id === graphFocus.id);
+    el('graphFocusTitle').textContent = ((n && n.title) || '제목 없음') + ' 중심';
+    bar.querySelectorAll('[data-focus-depth]').forEach(b => b.classList.toggle('active', +b.dataset.focusDepth === graphFocus.depth));
+  }
+  function focusGraphOn(id){
+    graphFocus = { id, depth: graphFocus ? graphFocus.depth : (+localStorage.getItem('stk-graph-focus-depth') || 1) };
+    graphSelectedId = null; hideGraphPanel();
+    haptic('light');
+    renderGlobalGraph();
+  }
+  el('graphFocusBar').querySelectorAll('[data-focus-depth]').forEach(b => b.addEventListener('click', () => {
+    if(!graphFocus) return;
+    graphFocus.depth = +b.dataset.focusDepth;
+    localStorage.setItem('stk-graph-focus-depth', graphFocus.depth);
+    renderGlobalGraph();
+  }));
+  el('graphFocusAllBtn').onclick = () => { graphAnchorId = graphFocus && graphFocus.id; graphFocus = null; graphSelectedId = null; hideGraphPanel(); renderGlobalGraph(); };
+  el('gcpFocus').onclick = () => { if(graphSelectedId) focusGraphOn(graphSelectedId); };
 
   // paint the entire graph in one immediate-mode pass (see step()). runs every sim frame, every
   // idle-float frame, and once on any settled-state change (hover / search / pan / zoom).
@@ -4557,6 +4660,8 @@
       if(n.id === selId){ gctx.lineWidth = 3; gctx.strokeStyle = graphColors.accent; gctx.beginPath(); gctx.arc(n.x, n.y, n._rw + 2.5, 0, Math.PI*2); gctx.stroke(); }
       else if(isMatch){ gctx.lineWidth = 2.5; gctx.strokeStyle = graphColors.accent; gctx.stroke(); }
       else if(n.pinned){ gctx.lineWidth = 2; gctx.strokeStyle = withAlpha(graphColors.ink, alpha); gctx.stroke(); }
+      // the centre of a local (card-centred) view gets a dashed halo so it's findable at a glance
+      if(n.isFocus){ gctx.save(); gctx.setLineDash([4, 3]); gctx.lineWidth = 2; gctx.strokeStyle = graphColors.accent; gctx.beginPath(); gctx.arc(n.x, n.y, n._rw + 6, 0, Math.PI*2); gctx.stroke(); gctx.restore(); }
     }
 
     // --- labels: second pass in *screen* space, so text stays crisp and readable at a constant size
@@ -4728,11 +4833,17 @@
     const id = rowEl.dataset.id; if(!id) return;
     const inSim = globalSim && globalSim.nodes.some(n => n.id === id);
     if(inSim) selectGraphNode(id, { center:true });          // walk to it inside the graph
+    else if(graphFocus) focusGraphOn(id);                    // local view: re-centre on it instead
     else { closeGlobalGraph(); openNote(id); }               // target isn't shown here -> just open it
   });
 
-  function openGlobalGraph(){
+  // opts.focusId opens the local (card-centred) view; otherwise the full map, anchored on the card
+  // that was open (see applyInitialGraphZoom)
+  function openGlobalGraph(opts){
     if(!index.length){ showToast('연결할 카드가 없습니다'); return; }
+    flushAllSaves();
+    graphAnchorId = currentId;
+    graphFocus = (opts && opts.focusId) ? { id: opts.focusId, depth: +localStorage.getItem('stk-graph-focus-depth') || 1 } : null;
     currentId = null;
     showView('graph');
     clearRightPane();
@@ -4908,7 +5019,7 @@
     const t = e.touches[0];
     const n = graphNodeAt(t.clientX, t.clientY);
     if(n && globalSim){
-      gNodeDrag = { node:n, id:n.id, moved:false };
+      gNodeDrag = { node:n, id:n.id, moved:false, sx:t.clientX, sy:t.clientY };
       n.fixed = true;
       graphCanvas.classList.add('grabbing');
       e.preventDefault();
@@ -4938,6 +5049,9 @@
     if(e.touches.length !== 1) return;
     const t = e.touches[0];
     if(gNodeDrag){
+      // a real fingertip always wobbles a few px during a tap; without this threshold every tap
+      // on a node counted as a drag, so it was never selected (or opened) on an actual phone
+      if(!gNodeDrag.moved && Math.hypot(t.clientX - gNodeDrag.sx, t.clientY - gNodeDrag.sy) < 8){ e.preventDefault(); return; }
       const p = graphClientToWorld(t.clientX, t.clientY); if(!p) return;
       gNodeDrag.moved = true; graphNodeMoved = true;
       gNodeDrag.node.x = p.x; gNodeDrag.node.y = p.y; gNodeDrag.node.vx = 0; gNodeDrag.node.vy = 0;
@@ -8012,6 +8126,7 @@
     openActionSheet({ title: note.title || '제목 없음', sub: el('wordCount').textContent.replace(/^[\s·]+/, ''), extraEl: colorSwatchRow(note), items: [
       { icon: 'link', label: '읽기 전용 링크 공유', onClick: () => el('shareBtn').click() },
       { icon: 'history', label: '버전 기록', onClick: () => el('historyBtn').click() },
+      { icon: 'locate-fixed', label: '이 카드 중심 지도', onClick: () => openGlobalGraph({ focusId: note.id }) },
       { icon: 'copy', label: '복제', onClick: () => el('dupBtn').click() },
       { icon: 'star', label: note.pinned ? '고정 해제' : '고정', onClick: () => el('pinBtn').click() },
       'sep',
@@ -8654,7 +8769,7 @@
     let best=null, bestD=Infinity;
     dashSim.nodes.forEach(n=>{ const dx=n.x-p.x, dy=n.y-p.y, d=dx*dx+dy*dy; if(d<bestD){ bestD=d; best=n; } });
     if(!best || bestD > 20*20) return;
-    heroDrag={ node:best, moved:false, id:best.src.id };
+    heroDrag={ node:best, moved:false, id:best.src.id, sx:t.clientX, sy:t.clientY };
     best.fixed=true;
     el('dashGraphSvg').classList.add('grabbing');
     e.preventDefault();
@@ -8662,6 +8777,8 @@
   el('dashGraphSvg').addEventListener('touchmove', (e) => {
     if(!heroDrag || e.touches.length!==1) return;
     const t=e.touches[0];
+    // same fingertip-wobble threshold as the connection map — otherwise a tap never opens the card
+    if(!heroDrag.moved && Math.hypot(t.clientX-heroDrag.sx, t.clientY-heroDrag.sy) < 8){ e.preventDefault(); return; }
     const p=heroClientToSvg(t.clientX, t.clientY); if(!p) return;
     heroDrag.node.x=p.x; heroDrag.node.y=p.y; heroDrag.node.vx=0; heroDrag.node.vy=0;
     heroDrag.moved=true;

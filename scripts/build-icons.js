@@ -45,6 +45,7 @@ const ICONS = [
   'wifi-off', 'history',                            // 오프라인 배지 / 버전 기록
   'house', 'list', 'layout-template',              // 모바일 하단 내비 / 템플릿
   'ellipsis', 'info', 'log-out',                   // 모바일 더보기 / 카드 정보 / 로그아웃
+  'locate-fixed',                                  // 카드 중심 지도
 ];
 
 const SRC = path.join(__dirname, '..', 'node_modules', 'lucide-static', 'icons');

@@ -488,6 +488,9 @@
   .gcp-item.broken{ color:var(--ink-faint); cursor:default; font-style:italic; }
   .gcp-item.broken:hover{ background:none; }
   .gcp-item.broken .gcp-dot{ background:none; border:1px dashed var(--ink-faint); }
+  .gcp-actions{ display:flex; gap:8px; margin:10px 14px 14px; }
+  .gcp-actions .gcp-open{ flex:1; margin:0; display:flex; align-items:center; justify-content:center; gap:5px; }
+  .gcp-focus{ display:flex; align-items:center; justify-content:center; gap:5px; padding:9px 12px; font-family:var(--sans); font-size:13px; font-weight:600; color:var(--accent); background:var(--accent-soft); border:none; border-radius:8px; cursor:pointer; }
   .gcp-open{ margin:10px 14px 14px; padding:9px; font-family:var(--sans); font-size:13px; font-weight:600; color:#fff; background:var(--accent); border:none; border-radius:8px; cursor:pointer; }
   .gcp-open:hover{ filter:brightness(1.05); }
   @media (max-width:640px){
@@ -1269,3 +1272,15 @@
   .mob-swatch.none{ background:var(--bg); border:1.5px dashed var(--border); }
   .mob-swatch.none.active{ border-style:solid; border-color:var(--ink); }
 }
+
+/* --- connection map: local (card-centred) view bar --- */
+.graph-focus-bar{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:8px 22px; border-bottom:1px solid var(--border-soft); background:var(--accent-soft); }
+.graph-focus-bar[hidden]{ display:none; }
+.graph-focus-title{ display:flex; align-items:center; gap:6px; flex:1; min-width:0; font-size:13px; font-weight:700; color:var(--ink); }
+.graph-focus-title > span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.graph-focus-title .ic{ color:var(--accent); flex-shrink:0; }
+.graph-focus-depth{ display:flex; background:var(--bg-card); border:1px solid var(--border); border-radius:999px; padding:2px; }
+.graph-focus-depth button{ font-family:var(--sans); font-size:12px; font-weight:600; color:var(--ink-soft); background:none; border:none; border-radius:999px; padding:4px 10px; cursor:pointer; }
+.graph-focus-depth button.active{ background:var(--accent); color:#fff; }
+.graph-focus-all{ font-family:var(--sans); font-size:12px; font-weight:600; color:var(--ink); background:var(--bg-card); border:1px solid var(--border); border-radius:999px; padding:5px 12px; cursor:pointer; }
+@media (max-width:640px){ .graph-focus-bar{ padding:8px 14px; } }

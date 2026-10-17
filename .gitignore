@@ -1,3 +1,9 @@
 .vercel
 .env*
 node_modules
+
+# desktop (Electron) build output and the generated copy of www/
+desktop/node_modules
+desktop/dist
+desktop/www
+desktop/build/icon.png

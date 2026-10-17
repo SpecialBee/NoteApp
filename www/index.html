@@ -1190,6 +1190,9 @@
     // browser (skipBrowserRedirect + Capacitor's Browser plugin) and come back via deep link
     // instead of just navigating the WebView the way the web version does.
     const isNative = !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform());
+    // the desktop (Electron) app has the same problem and the same fix: real browser + graphidea:// back
+    const isDesktop = !!(window.desktop && window.desktop.isDesktop);
+    const external = isNative || isDesktop;
     const { data, error } = await sb.auth.linkIdentity({
       provider: 'google',
       options: {
@@ -1197,12 +1200,16 @@
         // offline+consent forces Google to hand back a refresh token even if this browser
         // already granted access before — without both, only an access token comes back
         queryParams: { access_type: 'offline', prompt: 'consent' },
-        redirectTo: isNative ? DRIVE_NATIVE_REDIRECT : SITE_URL,
-        skipBrowserRedirect: isNative,
+        redirectTo: external ? DRIVE_NATIVE_REDIRECT : SITE_URL,
+        skipBrowserRedirect: external,
       },
     });
     if(!error && isNative && data && data.url && window.Capacitor.Plugins.Browser){
       await window.Capacitor.Plugins.Browser.open({ url: data.url });
+    }
+    if(!error && isDesktop && data && data.url){
+      await window.desktop.openExternal(data.url);
+      showToast('브라우저에서 구글 연결을 마치면 이 앱으로 돌아와요');
     }
     return { error };
   }
@@ -5377,12 +5384,27 @@
     CapApp.addListener('appUrlOpen', async (data) => {
       if(!data || !data.url || !data.url.startsWith(DRIVE_NATIVE_REDIRECT)) return;
       if(window.Capacitor.Plugins.Browser) window.Capacitor.Plugins.Browser.close().catch(() => {});
-      const code = new URL(data.url).searchParams.get('code');
-      const oauthError = new URL(data.url).searchParams.get('error_description');
-      if(oauthError){ showToast('구글 연결 실패: ' + oauthError); return; }
-      if(!code){ showToast('구글 연결 실패: 인증 코드가 없습니다'); return; }
-      const { error } = await sb.auth.exchangeCodeForSession(code);
-      if(error) showToast('구글 연결 실패: ' + error.message);
+      await finishDriveLink(data.url);
+    });
+  }
+
+  // graphidea://drive-callback?code=… — shared by the Android app (appUrlOpen above) and the
+  // desktop app (window.desktop.onDeepLink below)
+  async function finishDriveLink(url){
+    const code = new URL(url).searchParams.get('code');
+    const oauthError = new URL(url).searchParams.get('error_description');
+    if(oauthError){ showToast('구글 연결 실패: ' + oauthError); return; }
+    if(!code){ showToast('구글 연결 실패: 인증 코드가 없습니다'); return; }
+    const { error } = await sb.auth.exchangeCodeForSession(code);
+    if(error) showToast('구글 연결 실패: ' + error.message);
+  }
+
+  // desktop app (Electron): graphidea:// links arrive through the preload bridge
+  if(window.desktop && window.desktop.onDeepLink){
+    window.desktop.onDeepLink(url => {
+      if(url.startsWith(DRIVE_NATIVE_REDIRECT)){ finishDriveLink(url); return; }
+      const a = deepLinkAction(url);
+      if(a){ pendingDeepLink = a; handlePendingLaunchActions(); }
     });
   }
 

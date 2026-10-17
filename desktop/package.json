@@ -1,0 +1,54 @@
+{
+  "name": "graphidea-desktop",
+  "productName": "GRAPHIDEA",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GRAPHIDEA desktop app (Electron wrapper around ../www)",
+  "author": "SpecialBee",
+  "main": "main.js",
+  "scripts": {
+    "copy-www": "node scripts/copy-www.js",
+    "start": "npm run copy-www && electron .",
+    "smoke": "npm run copy-www && node scripts/smoke.js",
+    "dist": "npm run copy-www && electron-builder --win nsis"
+  },
+  "build": {
+    "appId": "com.specialbee.graphidea.desktop",
+    "productName": "GRAPHIDEA",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "www/**/*",
+      "build/icon.png"
+    ],
+    "protocols": [
+      {
+        "name": "GRAPHIDEA",
+        "schemes": [
+          "graphidea"
+        ]
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "GRAPHIDEA",
+      "artifactName": "GRAPHIDEA-Setup-${version}.${ext}"
+    }
+  },
+  "devDependencies": {
+    "electron": "^44.9.0",
+    "electron-builder": "^26.15.3"
+  }
+}

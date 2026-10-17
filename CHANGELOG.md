@@ -7,6 +7,45 @@
 
 ---
 
+## 2026-10-18 (2) — PC 프로그램(Electron) 버전
+
+웹·안드로이드와 같은 `www/` 를 감싼 Windows 데스크톱 앱을 만들었다. 데이터는 지금과 같이 Supabase 동기화 + 오프라인 캐시(IndexedDB) 방식이다. 노션처럼 인터넷 없이도 열리고, 연결되면 자동으로 동기화된다.
+
+### 구조 (`desktop/`)
+- `main.js`
+  - `www/` 를 전용 스킴 **`app://graphidea`** 로 제공한다(standard + secure 로 등록, 경로 탈출 차단). file:// 와 달리 출처가 고정되어 IndexedDB·localStorage(세션·설정·오프라인 큐)가 실행 사이에 유지되고, 보안 컨텍스트로 인정된다.
+  - 외부 링크(`http(s)`)는 앱 창이 아니라 기본 브라우저로 연다.
+  - 창 크기·위치·최대화 상태를 기억한다(`userData/window-state.json`).
+  - 중복 실행을 막는다(두 번째 실행은 기존 창으로 넘어간다).
+  - `graphidea://` 를 기본 프로토콜로 등록해 딥링크를 페이지로 전달한다.
+  - 메뉴(편집·보기·도움말)는 숨겨 두고 Alt 로 연다. 맞춤법 밑줄은 끈다.
+- `preload.js`: 페이지에 `window.desktop`(`isDesktop`, `openExternal`, `onDeepLink`)만 노출한다(contextIsolation + sandbox).
+- `scripts/copy-www.js`: 실행·빌드 전에 `../www` 를 `desktop/www` 로 복사한다(생성물, gitignore). **수정은 항상 `www/` 에서 한다.**
+- `scripts/smoke.js`(`npm run smoke`): 앱을 화면 없이 띄워 출처·보안 컨텍스트·IndexedDB·Supabase 접속(CORS)·폰트·아이콘·브리지를 확인하고 JSON 으로 출력한다.
+
+### 페이지 쪽 변경 (`www/index.html`)
+- 구글 드라이브 연결: Electron 창 안에서는 구글이 OAuth 를 막으므로, 안드로이드와 같이 **외부 브라우저 + `graphidea://drive-callback` 복귀** 방식을 쓴다. 코드 교환은 `finishDriveLink()` 로 공용화했다.
+- `graphidea://new`, `graphidea://today` 딥링크도 데스크톱에서 처리한다.
+
+### 빌드
+```
+cd desktop
+npm install        # 처음 한 번
+npm start          # 개발 실행
+npm run dist       # dist/GRAPHIDEA-Setup-<버전>.exe (NSIS 설치 파일, 약 115MB)
+```
+루트에서 `npm run desktop` / `npm run desktop:dist` 로도 실행할 수 있다.
+
+### 검증
+`npm run smoke` 결과와 패키징된 `dist/win-unpacked/GRAPHIDEA.exe` 의 결과가 같았다: 출처 `app://graphidea`, 보안 컨텍스트 true, IndexedDB 정상, Supabase 200, Pretendard, 아이콘 86종, 브리지 연결, 오류 0.
+
+### 남은 것
+- 코드 서명 인증서가 없어 처음 설치할 때 Windows SmartScreen 경고가 뜬다("추가 정보 → 실행").
+- 자동 업데이트가 없다. 새 버전은 `npm run dist` 로 다시 설치한다.
+- 실계정 로그인과 구글 드라이브 연결은 아직 실제로 확인하지 못했다.
+
+---
+
 ## 2026-10-18 — 읽기모드·비교 / 캔버스 / 시트 집중 개선
 
 세 영역을 코드 리뷰와 테스트 빌드 실조작으로 분석한 뒤, 찾은 문제와 대안을 전부 반영했다.

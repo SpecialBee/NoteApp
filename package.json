@@ -7,7 +7,9 @@
     "sync": "cap sync",
     "android": "cap open android",
     "android:run": "cap run android",
-    "vendor:supabase": "node -e \"require('fs').copyFileSync('node_modules/@supabase/supabase-js/dist/umd/supabase.js', 'www/vendor/supabase.js')\""
+    "vendor:supabase": "node -e \"require('fs').copyFileSync('node_modules/@supabase/supabase-js/dist/umd/supabase.js', 'www/vendor/supabase.js')\"",
+    "desktop": "npm --prefix desktop start",
+    "desktop:dist": "npm --prefix desktop run dist"
   },
   "dependencies": {
     "@capacitor/android": "^7.0.0",

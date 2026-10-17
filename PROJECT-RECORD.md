@@ -320,3 +320,15 @@ DB 트리거라 클라이언트 코드 경로와 무관하게 모든 편집이 �
 
 ### 테스트 방법 (실계정 없이)
 `www`를 스크래치로 복사하고 `vendor/supabase.js`만 인메모리 가짜 클라이언트로 바꿔 띄우면 로그인 이후 흐름 전체(오프라인 토글 포함)를 브라우저에서 돌려볼 수 있다. 2026-10-06 검증이 이 방식.
+
+---
+
+## 14. PC 프로그램 (Electron, 2026-10-18)
+
+같은 `www/` 를 세 군데에서 쓴다: 웹(Vercel), 안드로이드(Capacitor `android/`), **Windows 데스크톱(Electron `desktop/`)**. 데이터 구조는 셋 다 Supabase + 오프라인 캐시로 같다.
+
+- **왜 `app://` 스킴인가**: file:// 는 출처가 불안정하고(모든 file 경로가 같은 출처로 취급되거나 저장소가 꼬일 수 있음) 일부 API 의 보안 컨텍스트 판정이 애매하다. `protocol.registerSchemesAsPrivileged` 로 standard+secure 스킴을 만들면 `app://graphidea` 라는 고정 출처를 얻는다. 오프라인 캐시가 이 출처의 IndexedDB 에 있으므로 **스킴이나 호스트 이름을 바꾸면 기존 캐시와 로그인 세션이 사라진다** — 바꾸지 말 것.
+- **구글 OAuth**: Electron 창 안에서는 구글이 차단한다("안전하지 않은 브라우저"). 안드로이드와 같이 `skipBrowserRedirect` + 외부 브라우저로 열고, `graphidea://drive-callback` 딥링크로 돌아와 `exchangeCodeForSession` 한다. 딥링크는 `second-instance`(Windows) 로 기존 창에 전달된다.
+- **`desktop/www` 는 생성물**이다(`copy-www.js`). 수정은 항상 루트 `www/` 에서 하고, 빌드 전에 복사한다(`npm start`·`npm run dist` 가 자동으로 복사함).
+- **검증**: `npm run smoke` — 창 없이 부팅해 핵심 사실을 JSON 으로 출력한다. 패키징 후에는 `GRAPHIDEA_SMOKE=1 dist/win-unpacked/GRAPHIDEA.exe` 로 같은 검사를 한다.
+- 미결: 코드 서명(SmartScreen 경고), 자동 업데이트(electron-updater + GitHub Releases 가 다음 후보).

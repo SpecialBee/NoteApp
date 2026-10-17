@@ -837,6 +837,7 @@
   #dashboardView { background: var(--bg); padding-top: 28px !important; }
   .dash-greeting { font-size:22px; font-weight:700; color:var(--ink); margin-bottom:4px; }
   .dash-sub { font-size:13px; color:var(--ink-soft); }
+  .dash-discover { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:20px; }
   .dash-section { background:var(--bg-card); border:1px solid var(--border-soft); border-radius:14px; padding:18px 20px; }
   .dash-section-title { font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:14px; display:flex; align-items:center; gap:8px; }
   .dash-streak { font-size:13px; font-weight:700; color:var(--accent); letter-spacing:0; text-transform:none; }
@@ -1284,3 +1285,153 @@
 .graph-focus-depth button.active{ background:var(--accent); color:#fff; }
 .graph-focus-all{ font-family:var(--sans); font-size:12px; font-weight:600; color:var(--ink); background:var(--bg-card); border:1px solid var(--border); border-radius:999px; padding:5px 12px; cursor:pointer; }
 @media (max-width:640px){ .graph-focus-bar{ padding:8px 14px; } }
+
+
+/* =====================================================================================
+   Desktop / tablet polish (>=641px). The phone layout lives in the max-width:640px blocks
+   above; nothing here applies there. Goals: a lighter sidebar (the card list starts high), one
+   consistent single-row header per editor, a calm reading mode, a two-column dashboard, and a
+   clearer button hierarchy (one filled primary, quiet icon buttons everywhere else).
+   ===================================================================================== */
+.side-actions{ display:flex; align-items:center; }
+.side-actions .searchwrap{ flex:1; min-width:0; } /* phones hide the + button, so search must still fill the row */
+.side-nav, .side-list-head, .side-footer{ display:none; }
+@media (max-width:640px){ .side-nav, .side-list-head{ display:none !important; } }
+
+@media (min-width:641px){
+  /* ---------- sidebar ---------- */
+  .brand{ flex-direction:row; align-items:center; gap:6px; padding:14px 10px 8px 16px; padding-top:calc(14px + env(safe-area-inset-top)); border-bottom:none; }
+  .brand .mark{ flex:1; font-size:16px; }
+  .brand .sub{ display:none; }
+  .brand-actions{ gap:2px; }
+  .brand-actions .side-icon-btn{ display:flex; align-items:center; justify-content:center; width:30px; height:30px; padding:0; border-radius:8px; color:var(--ink-soft); }
+  .brand-actions .side-icon-btn .ic{ width:17px; height:17px; }
+
+  .side-actions{ gap:6px; padding:2px 12px 10px; }
+  .side-actions .searchwrap{ flex:1; min-width:0; padding:0; }
+  .side-actions .searchwrap input{ padding:7px 10px; border-radius:8px; background:var(--bg); border-color:var(--border-soft); }
+  .side-actions .searchwrap input:focus{ background:var(--bg-card); border-color:var(--accent); }
+  .side-actions .newbtn-wrap{ position:relative; flex-shrink:0; }
+  .side-actions #newBtn{ display:flex; align-items:center; justify-content:center; width:32px; height:32px; margin:0; padding:0; border-radius:8px; }
+  .side-actions #newBtn .ic{ width:18px; height:18px; stroke-width:2.4; }
+  .side-actions .newbtn-label{ display:none; }
+  .side-actions .newbtn-menu{ left:auto; right:0; width:240px; }
+
+  .side-nav{ display:flex; flex-direction:column; gap:1px; padding:0 8px 8px; }
+  .side-nav-item{ display:flex; align-items:center; gap:10px; width:100%; padding:7px 10px; border:none; border-radius:8px; background:none; font-family:var(--sans); font-size:13px; font-weight:500; color:var(--ink-soft); text-align:left; cursor:pointer; }
+  .side-nav-item .ic{ width:17px; height:17px; color:var(--ink-faint); }
+  .side-nav-item:hover{ background:var(--border-soft); color:var(--ink); }
+  .app[data-view="dashboard"] #dashboardBtn, .app[data-view="graph"] #globalGraphBtn, .app[data-view="database"] #databaseBtn{ background:var(--accent-soft); color:var(--accent-hover); font-weight:600; }
+  .app[data-view="dashboard"] #dashboardBtn .ic, .app[data-view="graph"] #globalGraphBtn .ic, .app[data-view="database"] #databaseBtn .ic{ color:var(--accent); }
+
+  .side-list-head{ display:flex; align-items:baseline; gap:6px; margin:0 12px; padding:10px 6px 4px; border-top:1px solid var(--border-soft); font-size:11.5px; font-weight:700; color:var(--ink-soft); }
+  .side-list-count{ font-weight:500; color:var(--ink-faint); }
+  .app.trash-mode .side-list-head{ display:none; }
+
+  .sortrow{ gap:2px; padding:0 12px 6px; flex-wrap:nowrap; }
+  .sortbtn{ border:none; padding:3px 8px; border-radius:6px; font-size:11.5px; }
+  .sortbtn:hover{ background:var(--border-soft); color:var(--ink); }
+  .sortbtn.active{ background:var(--border-soft); color:var(--ink); font-weight:600; }
+  .sortbtn.density-btn{ padding:3px 6px; }
+  .tagrow{ flex-wrap:nowrap; overflow-x:auto; max-height:none; gap:4px; padding:0 12px 8px; scrollbar-width:none; }
+  .tagrow::-webkit-scrollbar{ display:none; }
+  .tagrow > *{ flex-shrink:0; }
+  .tagchip{ padding:2px 8px; font-size:11px; background:none; border-color:var(--border-soft); color:var(--ink-soft); }
+  .tagchip:hover{ border-color:var(--accent); color:var(--accent-hover); }
+  .tagchip.active{ background:var(--accent); border-color:var(--accent); color:#fff; }
+
+  /* cards: one quiet row — title · badges · time — instead of a 70px bordered tile per title */
+  .cardlist{ padding:0 8px 12px; gap:1px; }
+  .cardlist:not(.compact) .card-tab{
+    display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:center; column-gap:6px;
+    padding:7px 10px; border:none; border-radius:8px; background:none;
+  }
+  .cardlist:not(.compact) .card-tab .ttl{ grid-column:1; grid-row:1; margin:0; font-size:13.5px; font-weight:500; }
+  .cardlist:not(.compact) .card-tab .serial{ grid-column:2; grid-row:1; font-size:0; display:flex; align-items:center; gap:4px; } /* the "#0001" serial is noise in a list; only its badges stay */
+  .cardlist:not(.compact) .card-tab .serial > *{ font-size:10px; }
+  .cardlist:not(.compact) .card-tab .meta{ grid-column:3; grid-row:1; margin:0; gap:6px; }
+  .card-tab .canvas-badge, .card-tab .table-badge{ padding:1px 6px; border-radius:5px; }
+  .card-tab{ border-color:transparent; }
+  .card-tab:hover{ background:var(--border-soft); border-color:transparent; }
+  .card-tab.active{ background:var(--accent-soft); border-color:transparent; box-shadow:inset 3px 0 0 var(--accent); }
+  .card-tab.active .ttl{ font-weight:700; }
+  .card-tab .delbtn{ top:50%; transform:translateY(-50%); right:6px; background:var(--border-soft); border-radius:6px; padding:3px 5px; }
+  .cardlist.compact .card-tab{ border:none; background:none; padding:5px 10px; }
+
+  .side-footer{ display:flex; align-items:center; gap:2px; padding:6px 8px 2px; border-top:1px solid var(--border-soft); }
+  .side-foot-btn{ display:flex; align-items:center; gap:6px; height:30px; padding:0 8px; border:none; border-radius:7px; background:none; font-family:var(--sans); font-size:12px; color:var(--ink-faint); cursor:pointer; white-space:nowrap; }
+  .side-foot-btn:first-child{ flex:1; justify-content:flex-start; }
+  .side-foot-btn:hover{ background:var(--border-soft); color:var(--ink); }
+  .side-foot-btn .ic{ width:16px; height:16px; }
+  .synctag{ border-top:none; padding:2px 16px 10px; }
+
+  /* ---------- one-row headers ---------- */
+  .toolbar{ flex-wrap:nowrap; gap:2px; padding:8px 14px; padding-top:calc(8px + env(safe-area-inset-top)); }
+  .toolbar .modebtn{ border:none; background:none; color:var(--ink-faint); padding:6px 11px; border-radius:8px; font-size:12.5px; }
+  .toolbar .modebtn:hover{ background:var(--border-soft); color:var(--ink); }
+  .toolbar .modebtn.active{ background:var(--border-soft); color:var(--ink); }
+  .toolbar .submeta{ margin-left:10px; font-size:11.5px; }
+  /* rarely used → under ⋯ (PDF, MD, duplicate, colour, delete); frequent ones stay as quiet icons */
+  .toolbar #exportPdfBtn, .toolbar #exportMdBtn, .toolbar #dupBtn, .toolbar #cardColorBtn, .toolbar #delBtn{ display:none; }
+  .toolbar .pinbtn{ display:flex; align-items:center; justify-content:center; width:32px; height:32px; padding:0; border:none; border-radius:8px; color:var(--ink-soft); }
+  .toolbar .pinbtn > span{ display:none; }
+  .toolbar .pinbtn .ic{ width:17px; height:17px; }
+  .toolbar .pinbtn:hover{ background:var(--border-soft); color:var(--ink); }
+  .toolbar .pinbtn.pinned, .toolbar .pinbtn.shared{ color:var(--accent); border:none; }
+  .toolbar #mobNoteMoreBtn{ display:flex; align-items:center; justify-content:center; order:99; width:32px; height:32px; padding:0; border:none; background:none; border-radius:8px; color:var(--ink-soft); cursor:pointer; }
+  .toolbar #mobNoteMoreBtn .ic{ width:18px; height:18px; }
+  .toolbar #mobNoteMoreBtn:hover{ background:var(--border-soft); color:var(--ink); }
+
+  /* the sidebar is always on screen at these widths — "GRAPHIDEA로 돌아가기" just duplicates it */
+  #cevExitBtn, #tevExitBtn, #closeGraphBtn, #dbViewExitBtn{ display:none; }
+  .cev-topbar, .tev-topbar{ padding:8px 14px; padding-top:calc(8px + env(safe-area-inset-top)); gap:2px; background:var(--bg-card); }
+  .cev-action, .tev-action{ border-color:transparent; background:none; }
+  .cev-topbar .cev-action{ display:flex; align-items:center; justify-content:center; min-width:32px; height:32px; padding:0 8px; }
+  .tev-topbar .tev-action{ display:flex; align-items:center; gap:5px; height:32px; }
+  .cev-action:hover, .tev-action:hover{ background:var(--border-soft); color:var(--ink); border-color:transparent; }
+  .cev-action.active{ border-color:transparent; }
+  /* the phone-only ⓘ in these bars must stay hidden here — the display:flex just above outranks .mob-only-inline */
+  .cev-topbar .mob-only-inline, .tev-topbar .mob-only-inline{ display:none; }
+
+  /* ---------- reading mode: no editing chrome, a centred text column ---------- */
+  .cardsheet.reading .fmttoolbar, .cardsheet.reading #tagChipInput{ display:none; }
+  .cardsheet.reading{ padding-left:max(clamp(16px,6%,40px), calc((100% - 760px) / 2)); padding-right:max(clamp(16px,6%,40px), calc((100% - 760px) / 2)); }
+  .cardsheet.reading .tagchipwrap{ border-bottom:none; margin-bottom:4px; }
+  .cardsheet.reading #previewBox{ font-size:15.5px; line-height:1.8; }
+
+  /* ---------- action menu (⋯) as a dropdown ---------- */
+  .action-sheet.as-popover{ display:block; position:fixed; inset:0; z-index:1000; background:transparent; }
+  .action-sheet.as-popover .mob-sheet{ position:fixed; width:250px; max-height:70vh; overflow-y:auto; padding:6px; background:var(--bg-card); border:1px solid var(--border); border-radius:12px; box-shadow:0 10px 32px rgba(0,0,0,.16); animation:backdropFade .12s ease; }
+  .as-popover .mob-sheet-grip{ display:none; }
+  .as-popover .mob-sheet-title{ font-size:12.5px; font-weight:700; color:var(--ink); padding:6px 8px 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .as-popover .mob-sheet-sub{ font-size:11px; color:var(--ink-faint); padding:2px 8px 4px; }
+  .as-popover .mob-sheet-swatches{ display:flex; flex-wrap:wrap; gap:6px; padding:6px 8px 8px; }
+  .as-popover .mob-swatch{ width:18px; height:18px; border-radius:50%; border:2px solid transparent; padding:0; cursor:pointer; }
+  .as-popover .mob-swatch.active{ border-color:var(--ink); }
+  .as-popover .mob-swatch.none{ background:var(--bg); border:1.5px dashed var(--border); }
+  .as-popover .mob-sheet-row{ display:flex; align-items:center; gap:9px; width:100%; padding:7px 8px; border:none; border-radius:7px; background:none; font-family:var(--sans); font-size:13px; color:var(--ink); text-align:left; cursor:pointer; }
+  .as-popover .mob-sheet-row:hover{ background:var(--border-soft); }
+  .as-popover .mob-sheet-row .ic{ width:16px; height:16px; color:var(--ink-faint); }
+  .as-popover .mob-sheet-row.danger, .as-popover .mob-sheet-row.danger .ic{ color:var(--danger); }
+  .as-popover .mob-sheet-row-sub{ margin-left:auto; font-size:11.5px; color:var(--ink-faint); }
+  .as-popover .newbtn-sep{ margin:4px 2px; }
+
+  /* ---------- quieter panels ---------- */
+  .rp-history-btn{ background:none; border-color:var(--border-soft); }
+}
+
+/* ---------- dashboard: two columns on wide screens ---------- */
+.dash-grid, .dash-col{ display:contents; }
+.dash-blk-greet{ order:1; } .dash-blk-hero{ order:2; } .dash-blk-stats{ order:3; } .dash-blk-recent{ order:4; }
+.dash-blk-discover{ order:5; } .dash-blk-heat{ order:6; } .dash-blk-cal{ order:7; }
+.dash-streak-cal{ display:none; }
+@media (min-width:1100px){
+  .dash-grid{ display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); gap:24px; align-items:start; width:100%; max-width:1320px; margin:0 auto; }
+  .dash-col{ display:flex; flex-direction:column; gap:24px; min-width:0; }
+  /* the month calendar already shades each day by activity — the 12-week heatmap was the same
+     information twice, so on desktop it folds away and the calendar card carries the streak */
+  .dash-blk-heat{ display:none; }
+  .dash-streak-cal{ display:inline; }
+  .dash-stats-row{ grid-template-columns:repeat(3, minmax(0,1fr)); }
+  .dash-discover{ grid-template-columns:1fr 1fr; }
+}

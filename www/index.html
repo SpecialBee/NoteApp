@@ -145,18 +145,16 @@
       <span class="mark">GRAPHIDEA</span>
       <span class="sub">Idea Connect</span>
       <div class="brand-actions">
-        <button class="logout" id="dashboardBtn" style="font-weight:700;">대시보드</button>
-        <button class="logout" id="guideBtn" title="사용법 보기">?</button>
-        <button class="logout" id="themeToggleBtn" title="다크 모드 전환"><svg class="ic" aria-hidden="true"><use href="#ic-moon"/></svg></button>
-        <button class="logout" id="settingsBtn" title="설정"><svg class="ic" aria-hidden="true"><use href="#ic-settings"/></svg></button>
-        <button class="logout" id="logoutBtn">로그아웃</button>
+        <button class="logout side-icon-btn" id="themeToggleBtn" title="다크 모드 전환"><svg class="ic" aria-hidden="true"><use href="#ic-moon"/></svg></button>
+        <button class="logout side-icon-btn" id="settingsBtn" title="설정"><svg class="ic" aria-hidden="true"><use href="#ic-settings"/></svg></button>
       </div>
       <button class="mob-more-btn" id="mobListMoreBtn" title="메뉴" aria-label="메뉴"><svg class="ic" aria-hidden="true"><use href="#ic-ellipsis"/></svg></button>
     </div>
-    <div class="dbrow"><button class="dbbtn" id="databaseBtn"><svg class="ic" aria-hidden="true"><use href="#ic-database"/></svg><span>데이터베이스</span></button></div>
+    <!-- search + "new card" share one row; the menu drops down under the + button -->
+    <div class="side-actions">
     <div class="searchwrap"><input id="searchInput" type="text" placeholder="검색 (제목·본문·태그)"></div>
     <div class="newbtn-wrap" id="newBtnWrap">
-      <button class="newbtn" id="newBtn">+ 새 카드 만들기</button>
+      <button class="newbtn" id="newBtn" title="새 카드 만들기" aria-label="새 카드 만들기"><svg class="ic" aria-hidden="true"><use href="#ic-plus"/></svg><span class="newbtn-label">새 카드</span></button>
       <div class="newbtn-menu" id="newBtnMenu" style="display:none;">
         <button class="newbtn-item" id="newNoteItem"><svg class="ic" aria-hidden="true"><use href="#ic-file-text"/></svg><span>노트 카드</span></button>
         <button class="newbtn-item" id="newCanvasItem"><svg class="ic" aria-hidden="true"><use href="#ic-shapes"/></svg><span>캔버스 카드</span></button>
@@ -168,6 +166,14 @@
       </div>
       <input type="file" id="importMdFile" accept=".md,text/markdown" multiple style="display:none">
     </div>
+    </div>
+    <!-- where-to-go list; the bottom bar replaces it on phones -->
+    <nav class="side-nav" aria-label="화면">
+      <button class="side-nav-item" id="dashboardBtn"><svg class="ic" aria-hidden="true"><use href="#ic-house"/></svg><span>대시보드</span></button>
+      <button class="side-nav-item" id="globalGraphBtn"><svg class="ic" aria-hidden="true"><use href="#ic-waypoints"/></svg><span>연결 지도</span></button>
+      <button class="side-nav-item" id="databaseBtn"><svg class="ic" aria-hidden="true"><use href="#ic-database"/></svg><span>데이터베이스</span></button>
+    </nav>
+    <div class="side-list-head"><span>카드</span><span class="side-list-count" id="sideListCount"></span></div>
     <div id="trashActionRow" style="display:none; gap:6px; flex-direction:column;">
       <button class="newbtn newbtn-ghost" id="backFromTrashBtn"><svg class="ic" aria-hidden="true"><use href="#ic-arrow-left"/></svg><span>GRAPHIDEA로 돌아가기</span></button>
       <button class="newbtn newbtn-danger" id="emptyTrashBtn"><svg class="ic" aria-hidden="true"><use href="#ic-trash-2"/></svg><span>휴지통 전체 비우기</span></button>
@@ -182,10 +188,11 @@
     </div>
     <div class="tagrow" id="tagRow"></div>
     <div class="cardlist" id="cardList"></div>
-    <div style="padding:0 14px 4px 14px;display:flex;flex-direction:column;gap:2px;">
-      <button class="logout" id="paletteBtn" style="font-size:11px;text-align:left;"><svg class="ic" aria-hidden="true"><use href="#ic-command"/></svg><span>빠른 전환 (Ctrl+P)</span></button>
-      <button class="logout" id="globalGraphBtn" style="font-size:11px;text-align:left;font-weight:700;color:var(--accent);"><svg class="ic" aria-hidden="true"><use href="#ic-waypoints"/></svg><span>연결 지도</span></button>
-      <button class="logout" id="trashBtn" style="font-size:11px;text-align:left;"><svg class="ic" aria-hidden="true"><use href="#ic-trash-2"/></svg><span>휴지통 (</span><span id="trashCount">0</span>)</button>
+    <div class="side-footer">
+      <button class="side-foot-btn" id="trashBtn" title="휴지통"><svg class="ic" aria-hidden="true"><use href="#ic-trash-2"/></svg><span>휴지통 <span id="trashCount">0</span></span></button>
+      <button class="side-foot-btn" id="paletteBtn" title="빠른 전환 (Ctrl+P)"><svg class="ic" aria-hidden="true"><use href="#ic-command"/></svg></button>
+      <button class="side-foot-btn" id="guideBtn" title="사용법"><svg class="ic" aria-hidden="true"><use href="#ic-book-open"/></svg></button>
+      <button class="side-foot-btn" id="logoutBtn" title="로그아웃"><svg class="ic" aria-hidden="true"><use href="#ic-log-out"/></svg></button>
     </div>
     <div class="synctag" id="syncTag"><span class="dot" id="syncDot"></span><span id="syncText">모든 기기와 자동 동기화됨</span></div>
   </div>
@@ -273,82 +280,91 @@
     </div>
 
     <div id="dashboardView" style="display:none; flex:1; flex-direction:column; overflow-y:auto; padding:28px 36px; gap:24px;">
-      <div>
-        <div class="dash-greeting" id="dashGreeting"></div>
-        <div class="dash-sub" id="dashSub"></div>
-        <div class="dash-checklist-wrap" id="dashChecklistWrap">
-          <div class="dash-cl-list" id="dashClList"></div>
-          <div class="dash-cl-input-row">
-            <input type="text" id="dashClInput" placeholder="할 일 추가… (Enter)">
-            <button id="dashClAddBtn">＋</button>
+      <!-- desktop (>=1100px): two columns — "today" on the left, "connections & activity" on the
+           right. Below that both wrappers are display:contents and .dash-blk-* order restores the
+           original single-column sequence (phone layout unchanged). -->
+      <div class="dash-grid">
+        <div class="dash-col dash-col-main">
+        <div class="dash-blk dash-blk-greet">
+          <div class="dash-greeting" id="dashGreeting"></div>
+          <div class="dash-sub" id="dashSub"></div>
+          <div class="dash-checklist-wrap" id="dashChecklistWrap">
+            <div class="dash-cl-list" id="dashClList"></div>
+            <div class="dash-cl-input-row">
+              <input type="text" id="dashClInput" placeholder="할 일 추가… (Enter)">
+              <button id="dashClAddBtn">＋</button>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- 히어로: 연결 지도 미리보기 -->
-      <div class="dash-hero">
-        <div class="dash-hero-graph-wrap">
-          <svg id="dashGraphSvg" class="graph-canvas"></svg>
-          <div class="dash-hero-empty" id="dashHeroEmpty">아직 연결된 카드가 없어요. <code>[[카드 제목]]</code>으로 카드를 이어보세요.</div>
-          <div class="dash-hero-more" id="dashHeroMore" style="display:none;"></div>
-          <div class="dash-hero-markerhint" id="dashHeroMarkerHint">
-            <span class="mk"><span class="mk-dot recent"></span>최근 수정</span>
-            <span class="mk"><span class="mk-dot stale"></span>2주+ 미수정</span>
-            <span class="mk"><span class="mk-dot pinned"></span>고정</span>
+        <!-- 최근 카드 -->
+        <div class="dash-blk dash-blk-recent dash-section" id="dashRecentSection">
+          <div class="dash-section-title">최근 카드</div>
+          <div class="dash-recent-row" id="dashRecentRow"></div>
+        </div>
+
+        <!-- 콘텐츠 발견 (캔버스 · 오늘의 한 장) -->
+        <div class="dash-blk dash-blk-discover dash-discover">
+          <div class="dash-section">
+            <div class="dash-section-title">캔버스 보드</div>
+            <div id="dashCanvasList"></div>
+          </div>
+          <div class="dash-section">
+            <div class="dash-section-title">오늘의 한 장 ✨</div>
+            <div id="dashTodayCard"></div>
           </div>
         </div>
-        <div class="dash-hero-side">
-          <div class="dash-hero-stat"><b id="dashHeroCount">0</b><span>노트</span></div>
-          <div class="dash-hero-stat"><b id="dashHeroLinks">0</b><span>연결</span></div>
-          <div class="graph-legend" id="dashGraphLegend"></div>
-          <button class="dash-hero-open" id="dashHeroOpenBtn"><span>연결 지도 열기</span><svg class="ic" aria-hidden="true"><use href="#ic-arrow-right"/></svg></button>
+
         </div>
-      </div>
-
-      <div class="dash-stats-row" id="dashStatsRow"></div>
-
-      <!-- 최근 카드 -->
-      <div class="dash-section" id="dashRecentSection">
-        <div class="dash-section-title">최근 카드</div>
-        <div class="dash-recent-row" id="dashRecentRow"></div>
-      </div>
-
-      <!-- 콘텐츠 발견 (캔버스 · 오늘의 한 장) -->
-      <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:20px;">
-        <div class="dash-section">
-          <div class="dash-section-title">캔버스 보드</div>
-          <div id="dashCanvasList"></div>
-        </div>
-        <div class="dash-section">
-          <div class="dash-section-title">오늘의 한 장 ✨</div>
-          <div id="dashTodayCard"></div>
-        </div>
-      </div>
-
-      <!-- 활동 기록 (시간축) — 하단 보조 영역 -->
-      <div class="dash-section">
-        <div class="dash-section-title">활동 기록 <span class="dash-streak" id="dashStreak"></span></div>
-        <div class="dash-heatmap-wrap">
-          <div class="dash-heatmap" id="dashHeatmap"></div>
-          <div class="dash-hm-legend">
-            <span>적음</span>
-            <div class="hm-cell" data-intensity="0"></div>
-            <div class="hm-cell" data-intensity="1"></div>
-            <div class="hm-cell" data-intensity="2"></div>
-            <div class="hm-cell" data-intensity="3"></div>
-            <div class="hm-cell" data-intensity="4"></div>
-            <span>많음</span>
+        <div class="dash-col dash-col-side">
+        <!-- 히어로: 연결 지도 미리보기 -->
+        <div class="dash-blk dash-blk-hero dash-hero">
+          <div class="dash-hero-graph-wrap">
+            <svg id="dashGraphSvg" class="graph-canvas"></svg>
+            <div class="dash-hero-empty" id="dashHeroEmpty">아직 연결된 카드가 없어요. <code>[[카드 제목]]</code>으로 카드를 이어보세요.</div>
+            <div class="dash-hero-more" id="dashHeroMore" style="display:none;"></div>
+            <div class="dash-hero-markerhint" id="dashHeroMarkerHint">
+              <span class="mk"><span class="mk-dot recent"></span>최근 수정</span>
+              <span class="mk"><span class="mk-dot stale"></span>2주+ 미수정</span>
+              <span class="mk"><span class="mk-dot pinned"></span>고정</span>
+            </div>
+          </div>
+          <div class="dash-hero-side">
+            <div class="dash-hero-stat"><b id="dashHeroCount">0</b><span>노트</span></div>
+            <div class="dash-hero-stat"><b id="dashHeroLinks">0</b><span>연결</span></div>
+            <div class="graph-legend" id="dashGraphLegend"></div>
+            <button class="dash-hero-open" id="dashHeroOpenBtn"><span>연결 지도 열기</span><svg class="ic" aria-hidden="true"><use href="#ic-arrow-right"/></svg></button>
           </div>
         </div>
-      </div>
-      <div class="dash-section">
-        <div class="dash-section-title" style="gap:10px;">
-          월별 활동
-          <button class="dash-cal-nav" id="dashCalPrev">‹</button>
-          <span id="dashCalLabel" style="font-size:12px;color:var(--ink);text-transform:none;letter-spacing:0;"></span>
-          <button class="dash-cal-nav" id="dashCalNext">›</button>
+
+        <div class="dash-blk dash-blk-stats dash-stats-row" id="dashStatsRow"></div>
+
+        <!-- 활동 기록 (시간축) — 하단 보조 영역 -->
+        <div class="dash-blk dash-blk-heat dash-section">
+          <div class="dash-section-title">활동 기록 <span class="dash-streak" id="dashStreak"></span></div>
+          <div class="dash-heatmap-wrap">
+            <div class="dash-heatmap" id="dashHeatmap"></div>
+            <div class="dash-hm-legend">
+              <span>적음</span>
+              <div class="hm-cell" data-intensity="0"></div>
+              <div class="hm-cell" data-intensity="1"></div>
+              <div class="hm-cell" data-intensity="2"></div>
+              <div class="hm-cell" data-intensity="3"></div>
+              <div class="hm-cell" data-intensity="4"></div>
+              <span>많음</span>
+            </div>
+          </div>
         </div>
-        <div id="dashCalendar"></div>
+        <div class="dash-blk dash-blk-cal dash-section">
+          <div class="dash-section-title" style="gap:10px;">
+            활동 기록 <span class="dash-streak dash-streak-cal" id="dashStreakCal"></span>
+            <button class="dash-cal-nav" id="dashCalPrev">‹</button>
+            <span id="dashCalLabel" style="font-size:12px;color:var(--ink);text-transform:none;letter-spacing:0;"></span>
+            <button class="dash-cal-nav" id="dashCalNext">›</button>
+          </div>
+          <div id="dashCalendar"></div>
+        </div>
+        </div>
       </div>
     </div>
 
@@ -2397,6 +2413,8 @@
   function renderCardList(){
     if(showingTrash){ renderTrashList(); return; }
     const filtered = visibleCards();
+    const countEl = el('sideListCount');
+    if(countEl) countEl.textContent = filtered.length === index.length ? index.length : `${filtered.length} / ${index.length}`;
     cardList.innerHTML = '';
     if(filtered.length === 0){
       cardList.classList.add('empty-state');
@@ -2546,6 +2564,7 @@
     mode = m;
     el('editModeBtn').classList.toggle('active', m==='split');
     el('previewModeBtn').classList.toggle('active', m==='preview');
+    cardSheet.classList.toggle('reading', m==='preview'); // CSS hides the formatting/tag-input chrome and centres the text
     const split = el('editorSplit');
     // side-by-side split doesn't fit a phone screen; 쓰기모드 there shows just the editor (see the
     // .editor-split.split mobile media query) — so the preview pane/divider/flex-basis inline
@@ -7342,13 +7361,18 @@
   function cevSaveDebounced(){
     clearTimeout(cevSaveTimer);
     cevSaveTimer=setTimeout(async()=>{
+      cevSaveTimer=null;
       if(!cevCurrentNoteId) return;
       const note=index.find(m=>m.id===cevCurrentNoteId); if(!note) return;
       note.content=serializeCanvasContent(cevElements,cevConnectors);
       await updateNote(note);
     },600);
   }
+  // only when an edit is actually pending — like tevFlushSave. This used to save unconditionally,
+  // so merely opening a canvas and switching away bumped its updated_at: the card jumped to the
+  // top of "최근순", and every visit could leave a pointless version-history snapshot.
   function cevFlushSave(){
+    if(!cevSaveTimer) return;
     clearTimeout(cevSaveTimer); cevSaveTimer=null;
     if(!cevCurrentNoteId) return;
     const note=index.find(m=>m.id===cevCurrentNoteId); if(!note) return;
@@ -8063,10 +8087,12 @@
   function isPhone(){ return window.innerWidth <= 640; }
 
   // items: { icon, label, onClick, danger, sub } | 'sep'; extraEl: optional element placed above the rows
-  function openActionSheet({ title, sub, items, extraEl }){
+  function openActionSheet({ title, sub, items, extraEl, anchor }){
     closeActionSheet();
     const backdrop = document.createElement('div');
-    backdrop.className = 'mob-sheet-backdrop action-sheet';
+    // wider than a phone, the same menu is a small dropdown under the button that opened it
+    const popover = !isPhone() && anchor;
+    backdrop.className = 'mob-sheet-backdrop action-sheet' + (popover ? ' as-popover' : '');
     const sheet = document.createElement('div');
     sheet.className = 'mob-sheet';
     sheet.setAttribute('role', 'dialog');
@@ -8085,8 +8111,14 @@
     backdrop.appendChild(sheet);
     backdrop.addEventListener('click', e => { if(e.target === backdrop) closeActionSheet(); });
     document.body.appendChild(backdrop);
+    if(popover){
+      const r = anchor.getBoundingClientRect();
+      sheet.style.top = Math.min(r.bottom + 6, window.innerHeight - sheet.offsetHeight - 8) + 'px';
+      sheet.style.left = Math.max(8, Math.min(r.right - sheet.offsetWidth, window.innerWidth - sheet.offsetWidth - 8)) + 'px';
+    }
     haptic('light');
   }
+  document.addEventListener('keydown', e => { if(e.key === 'Escape' && document.querySelector('.action-sheet')) closeActionSheet(); });
   function closeActionSheet(){ document.querySelectorAll('.action-sheet').forEach(n => n.remove()); }
 
   function colorSwatchRow(note){
@@ -8123,7 +8155,7 @@
   el('mobNoteMoreBtn').onclick = () => {
     const note = index.find(m => m.id === currentId);
     if(!note) return;
-    openActionSheet({ title: note.title || '제목 없음', sub: el('wordCount').textContent.replace(/^[\s·]+/, ''), extraEl: colorSwatchRow(note), items: [
+    openActionSheet({ anchor: el('mobNoteMoreBtn'), title: note.title || '제목 없음', sub: el('wordCount').textContent.replace(/^[\s·]+/, ''), extraEl: colorSwatchRow(note), items: [
       { icon: 'link', label: '읽기 전용 링크 공유', onClick: () => el('shareBtn').click() },
       { icon: 'history', label: '버전 기록', onClick: () => el('historyBtn').click() },
       { icon: 'locate-fixed', label: '이 카드 중심 지도', onClick: () => openGlobalGraph({ focusId: note.id }) },
@@ -8375,6 +8407,7 @@
     const todayEdited=active.filter(n=>new Date(n.updated).toDateString()===today&&new Date(n.created).toDateString()!==today);
     el('dashSub').textContent=`오늘 ${todayNotes.length}개 생성, ${todayEdited.length}개 수정`;
     el('dashStreak').textContent=streak>0?`🔥 ${streak}일 연속`:'';
+    el('dashStreakCal').textContent=el('dashStreak').textContent; // the desktop layout folds the heatmap into the calendar card
     renderDashGraph();
 
     const canvasNotes=active.filter(n=>isCanvasNote(n));

@@ -101,3 +101,11 @@ function depthBucket(z){ return DEPTH_BUCKETS.find(b => z >= b.min) || DEPTH_BUC
 // Use this anywhere an icon is built in JS; note that it produces HTML, so the caller must assign
 // with innerHTML, not textContent. `extra` takes classes such as 'ic-fill'.
 function icon(name, extra){ return '<svg class="ic' + (extra ? ' ' + extra : '') + '" aria-hidden="true"><use href="#ic-' + name + '"/></svg>'; }
+
+// "1,200" / "₩3,000" / "12 시간" -> number. Plain parseFloat stops at the first comma, so a sheet
+// column of "1,200"-style amounts summed as 1 + 1 + ...; currency/unit text in front is skipped.
+function parseLooseNumber(v){
+  if(v === null || v === undefined || v === '') return NaN;
+  if(typeof v === 'number') return v;
+  return parseFloat(String(v).replace(/[,\s]/g, '').replace(/^[^\d+\-.]+/, ''));
+}
